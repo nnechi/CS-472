@@ -1,0 +1,47 @@
+# docker-compose describes a set of containers that run together and can talk
+# to each other by service name. Start everything with: docker compose up
+services:
+  # ---------- MongoDB (the "M" in MERN) ----------
+  mongo:
+    image: mongo:7 # pull a prebuilt MongoDB image; no Dockerfile needed
+    ports:
+      - "27017:27017" # host:container — lets you inspect the DB from your machine
+    volumes:
+      - mongo-data:/data/db # persist data even if the container is recreated
+
+  # ---------- Express + Socket.IO API (the "E" + "N") ----------
+  server:
+    build: ./server # build from server/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      # Inside the compose network, "mongo" resolves to the MongoDB container.
+      MONGO_URI: mongodb://mongo:27017/chat
+      CLIENT_ORIGIN: http://localhost:5173
+      PORT: "3000"
+    volumes:
+      # Mount your source so edits trigger hot reload inside the container.
+      # We deliberately DON'T mount node_modules (see the anonymous volume below).
+      - ./server/src:/app/src
+      - /app/node_modules
+    depends_on:
+      - mongo # start mongo first
+
+  # ---------- React + Vite dev server (the "R") ----------
+  client:
+    build: ./client
+    ports:
+      - "5173:5173"
+    environment:
+      # Where the browser should reach the API. The browser runs on your host,
+      # so it uses localhost, not the internal "server" hostname.
+      VITE_SERVER_URL: http://localhost:3000
+    volumes:
+      - ./client/src:/app/src
+      - /app/node_modules
+    depends_on:
+      - server
+
+# Named volume that keeps MongoDB data between restarts.
+volumes:
+  mongo-data:

@@ -1,0 +1,143 @@
+:root {
+  --accent: #4f46e5;
+  --bg: #f6f7fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  background: var(--bg);
+}
+
+/* ---------- Login screen ---------- */
+.login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  width: 320px;
+  text-align: center;
+}
+
+.login-card h1 {
+  margin: 0 0 0.25rem;
+}
+
+.login-card p {
+  margin: 0 0 1.25rem;
+  color: #555;
+}
+
+.login-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.login-button,
+.composer-button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.login-button {
+  width: 100%;
+}
+
+/* ---------- Chat screen ---------- */
+.chat {
+  max-width: 640px;
+  margin: 0 auto;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+  font-weight: 600;
+}
+
+.chat-username {
+  font-weight: 400;
+  color: #777;
+  font-size: 0.9rem;
+}
+
+.messages {
+  list-style: none;
+  margin: 0;
+  padding: 1rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.message {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  background: #f0f0f5;
+  max-width: 80%;
+}
+
+.message.own {
+  background: #e0e7ff;
+  margin-left: auto;
+}
+
+.message-user {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 0.15rem;
+}
+
+.message-text {
+  word-wrap: break-word;
+}
+
+.composer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-top: 1px solid #eee;
+}
+
+.composer-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 999px;
+  font-size: 1rem;
+}
+
+.composer-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
