@@ -1,7 +1,3 @@
-Install run 
-
-npm install
-
-Run server
-
-node index.js
+1. Install Docker
+2. run command
+docker compose up --build
