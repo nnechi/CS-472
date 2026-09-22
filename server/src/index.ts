@@ -23,6 +23,13 @@ async function main() {
     res.json({ status: "ok" });
   });
 
+  app.get("/", (_req:any, res:any) => {
+    res.json({ status: "" });
+    
+  });
+
+app.use(express.static('client'));
+
   // Express only handles the HTTP handler; Socket.IO needs the raw http server.
   const server = createServer(app);
 
