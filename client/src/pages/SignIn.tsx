@@ -37,6 +37,14 @@ export default function SignIn() {
                             // TODO: npm package zxcvbn? to check for strong password
                         />
 
+                    {/* TODO Make forgot password page and links/route stuff. 
+                    We can also move this around once styled*/}
+                    <p>
+                        Forgot password?
+                        {/* {<Link to="/">Forgot password?</Link>}  */}
+                    </p>
+
+
                     <button
                         type="submit"
                         // TODO: aria-busy=
@@ -49,6 +57,7 @@ export default function SignIn() {
                         Don't have an account yet? 
                         {<Link to="/signup">Sign up</Link>} 
                     </p>
+
 
                 </form>
             </div>

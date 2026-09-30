@@ -84,12 +84,24 @@ export default function SignUp() {
 
                     {error && <p>{error}</p>}
 
+                    <label htmlFor="terms">I agree to the Terms of Service and Privacy Policy</label>
+                        <input 
+                            type="checkbox"
+                            name="terms"
+                            id="terms"
+                            required
+                            aria-required="true"
+                        />
+                        
                     <button
                         type="submit"
                         // TODO: aria-busy=
                     >
                         Sign up
                     </button>
+
+                    
+                    
 
                     <p>
                         Already have an account?  
