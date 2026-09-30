@@ -1,11 +1,13 @@
 import { Routes, Route } from "react-router-dom"
 import HomeLayout from "../layouts/HomeLayout"
+import SignXLayout from "../layouts/SignXLayout"
 import Home from "../pages/Home"
 import AboutUs from "../pages/AboutUs"
 import LearnMore from "../pages/LearnMore"
 import ContactUs from "../pages/ContactUs"
 import SignUp from "../pages/SignUp"
 import SignIn from "../pages/SignIn"
+import NotFound from "../pages/NotFound"
 
 export default function AppRoutes() {
     return(
@@ -16,10 +18,14 @@ export default function AppRoutes() {
                 <Route path="about" element={<AboutUs />}/>
                 <Route path="learn-more" element={<LearnMore />} />
                 <Route path="contact" element={<ContactUs />} />
-                <Route path="signup" element={<SignUp />} />
-                <Route path="signin" element={<SignIn />} />
+                <Route path="*" element={<NotFound />} />
             </Route>
 
+            <Route element={<SignXLayout />}>
+                <Route path="login" element={<SignIn />} />
+                <Route path="signup" element={<SignUp />} />
+            </Route>
+            
       </Routes>
     )
 }

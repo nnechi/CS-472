@@ -33,8 +33,8 @@ export default function Navbar() {
             </div>
 
             <div className="navbar-right">
-                <Link to="/signup">Sign Up</Link>
-                <Link to="/signin">Sign In</Link>
+                <Link to="/login" className="nav-button signin">Sign In</Link>
+                <Link to="/signup" className="nav-button signup">Sign Up</Link>
             </div>
 
         </nav>

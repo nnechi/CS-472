@@ -93,7 +93,7 @@ export default function SignUp() {
 
                     <p>
                         Already have an account?  
-                        {<Link to="/signin">Sign in</Link>} 
+                        {<Link to="/login">Sign in</Link>} 
                     </p>
 
                 </form>
