@@ -1,6 +1,8 @@
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 
 export default function SignIn() {
+    const navigate = useNavigate()
+
     return(
         <>
             <h1>Our Name/Logo Goes Here!</h1>
@@ -57,10 +59,12 @@ export default function SignIn() {
                         Don't have an account yet? 
                         {<Link to="/signup">Sign up</Link>} 
                     </p>
-
-
                 </form>
             </div>
+
+            <button onClick={() => navigate("/dashboard")}>
+                Pretend youre a logged in teach and see your dashboard here!
+            </button>
         </>
     )
 }
