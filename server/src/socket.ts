@@ -4,58 +4,103 @@ import {
   ChatMessage,
   ClientToServerEvents,
   ServerToClientEvents,
+  InterServerEvents,
+  Role,
+  SocketData,
 } from "./types";
 
-// This is the heart of the app. It mirrors the socket.io "get started" tutorial
-// (connection -> "chat message" -> broadcast), but adds two things:
-//   1. every message carries a username
-//   2. every message is saved to MongoDB, and history is replayed on join
 export function registerSocketHandlers(
-  io: Server<ClientToServerEvents, ServerToClientEvents>
+  io: Server<
+    ClientToServerEvents,
+    ServerToClientEvents,
+    InterServerEvents,
+    SocketData
+  >
 ): void {
+  // console log for debugging
+  io.of("/").adapter.on("create-room", (room) => {
+    console.log(`[room] ${room} was created`);
+  });
+  io.of("/").adapter.on("join-room", (room, id) => {
+    console.log(`[room] socket ${id} joined room ${room}`);
+  });
+
   io.on(
     "connection",
-    async (socket: Socket<ClientToServerEvents, ServerToClientEvents>) => {
+    (
+      socket: Socket<
+        ClientToServerEvents,
+        ServerToClientEvents,
+        InterServerEvents,
+        SocketData
+      >
+    ) => {
       console.log("[socket] a user connected:", socket.id);
 
-      // Send the last 50 messages to the user who just joined, oldest first.
-      try {
-        const recent = await Message.find()
-          .sort({ createdAt: -1 })
-          .limit(50)
-          .lean();
-
-        const history: ChatMessage[] = recent.reverse().map((m) => ({
-          username: m.username,
-          text: m.text,
-          createdAt: (m.createdAt as Date).toISOString(),
-        }));
-
-        socket.emit("chat history", history);
-      } catch (err) {
-        console.error("[socket] failed to load history:", err);
-      }
-
-      // When a client sends a "chat message", validate it, store it,
-      // then broadcast it to EVERYONE (including the sender), just like the tutorial.
-      socket.on("chat message", async ({ username, text }) => {
+      // Teachers create a room
+      // Students join one.
+      socket.on("join", async ({ username, role, room }) => {
         const cleanUser = String(username || "").trim().slice(0, 32);
+        const roomCode = String(room || "").trim().toUpperCase();
+
+        if (!cleanUser || !roomCode) return;
+
+        // Remember who this socket is so later events don't resend it.
+        socket.data.username = cleanUser;
+        socket.data.role = role;
+        socket.data.room = roomCode;
+
+        //  subscribe this socket to a channel (room).
+        socket.join(roomCode);
+
+        //display room code
+        // previous room data (messages)
+        try {
+          const recent = await Message.find({ room: roomCode })
+            .sort({ createdAt: -1 })
+            .limit(50)
+            .lean();
+
+          const history: ChatMessage[] = recent.reverse().map((m) => ({
+            username: m.username,
+            role: m.role as Role,
+            text: m.text,
+            room: m.room,
+            createdAt: (m.createdAt as Date).toISOString(),
+          }));
+
+          socket.emit("chat history", history);
+        } catch (err) {
+          console.error("[socket] failed to load history:", err);
+        }
+      });
+
+      // Mesages limited by room
+      socket.on("chat message", async ({ text }) => {
+        const { username, role, room } = socket.data;
+        if (!username || !room) return; // hasn't joined yet
+
         const cleanText = String(text || "").trim().slice(0, 1000);
-        if (!cleanUser || !cleanText) return;
+        if (!cleanText) return;
 
         try {
           const saved = await Message.create({
-            username: cleanUser,
+            username,
+            role,
             text: cleanText,
+            room,
           });
 
           const message: ChatMessage = {
             username: saved.username,
+            role: saved.role as Role,
             text: saved.text,
+            room: saved.room,
             createdAt: (saved.createdAt as Date).toISOString(),
           };
 
-          io.emit("chat message", message);
+          // broadcast to everyone in this room only.
+          io.to(room).emit("chat message", message);
         } catch (err) {
           console.error("[socket] failed to save message:", err);
         }

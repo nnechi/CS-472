@@ -5,7 +5,11 @@ import { Schema, model, InferSchemaType } from "mongoose";
 const messageSchema = new Schema(
   {
     username: { type: String, required: true, trim: true },
+    // The sender's role, useful for future UI for roles
+    role: { type: String, enum: ["student", "teacher"], required: true },
     text: { type: String, required: true, trim: true },
+    // Which room this message belongs to.
+    room: { type: String, required: true, trim: true, index: true },
   },
   {
     // Automatically adds createdAt and updatedAt Date fields.
