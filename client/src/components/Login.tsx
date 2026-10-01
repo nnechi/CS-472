@@ -5,6 +5,10 @@ interface LoginProps {
   onJoin: (payload: { username: string; role: Role; room: string }) => void;
 }
 
+function generateRoomCode(): string {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
 export default function Login({ onJoin }: LoginProps) {
   const [name, setName] = useState("");
   const [role, setRole] = useState<Role>("student"); // student by default
@@ -16,11 +20,11 @@ export default function Login({ onJoin }: LoginProps) {
     if (!trimmedName) return;
     // Students must supply a room code; teachers get one generated for them.
     if (role === "student" && !room.trim()) return;
-    onJoin({
-      username: trimmedName,
-      role,
-      room: room.trim().toUpperCase(),
-    });
+
+    const roomCode =
+      role === "teacher" ? generateRoomCode() : room.trim().toUpperCase();
+
+    onJoin({ username: trimmedName, role, room: roomCode });
   };
 
   return (
@@ -56,6 +60,7 @@ export default function Login({ onJoin }: LoginProps) {
           autoFocus
         />
 
+        {/* Only students enter a room code; teachers create a room on join. */}
         {role === "student" && (
           <input
             className="login-input"

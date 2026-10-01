@@ -5,16 +5,9 @@ import {
   ClientToServerEvents,
   ServerToClientEvents,
   InterServerEvents,
+  Role,
   SocketData,
 } from "./types";
-
-// This is the heart of the app. It mirrors the socket.io "get started" tutorial
-// (connection -> "chat message" -> broadcast), but adds two things:
-//   1. every message carries a username
-//   2. every message is saved to MongoDB, and history is replayed on join
-function generateRoomCode(): string {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
 
 export function registerSocketHandlers(
   io: Server<
@@ -48,26 +41,19 @@ export function registerSocketHandlers(
       // Students join one.
       socket.on("join", async ({ username, role, room }) => {
         const cleanUser = String(username || "").trim().slice(0, 32);
-        if (!cleanUser) return;
+        const roomCode = String(room || "").trim().toUpperCase();
 
-        const roomCode =
-          role === "teacher"
-            ? generateRoomCode()
-            : String(room || "").trim().toUpperCase();
-        //must have a code to join
-        if (!roomCode) return; 
+        if (!cleanUser || !roomCode) return;
 
         // Remember who this socket is so later events don't resend it.
         socket.data.username = cleanUser;
-        socket.data.room = roomCode;
         socket.data.role = role;
+        socket.data.room = roomCode;
 
         //  subscribe this socket to a channel (room).
         socket.join(roomCode);
 
         //display room code
-        socket.emit("joined", { room: roomCode, role });
-
         // previous room data (messages)
         try {
           const recent = await Message.find({ room: roomCode })
@@ -77,6 +63,7 @@ export function registerSocketHandlers(
 
           const history: ChatMessage[] = recent.reverse().map((m) => ({
             username: m.username,
+            role: m.role as Role,
             text: m.text,
             room: m.room,
             createdAt: (m.createdAt as Date).toISOString(),
@@ -90,7 +77,7 @@ export function registerSocketHandlers(
 
       // Mesages limited by room
       socket.on("chat message", async ({ text }) => {
-        const { username, room } = socket.data;
+        const { username, role, room } = socket.data;
         if (!username || !room) return; // hasn't joined yet
 
         const cleanText = String(text || "").trim().slice(0, 1000);
@@ -99,12 +86,14 @@ export function registerSocketHandlers(
         try {
           const saved = await Message.create({
             username,
+            role,
             text: cleanText,
             room,
           });
 
           const message: ChatMessage = {
             username: saved.username,
+            role: saved.role as Role,
             text: saved.text,
             room: saved.room,
             createdAt: (saved.createdAt as Date).toISOString(),
