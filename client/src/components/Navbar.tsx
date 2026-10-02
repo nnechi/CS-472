@@ -4,8 +4,11 @@ import useNavbarResize from "../hooks/useNavbarResize"
 import NavLinks from "./NavLinks"
 import SignInLinks from "./SignInLinks"
 
+interface NavbarProps {
+    className?: string
+}
 
-export default function Navbar() {
+export default function Navbar( {className}: NavbarProps) {
     const [dropdown, setDropdown] = useState(false)
     useNavbarResize(() => setDropdown(false))
 
@@ -14,7 +17,7 @@ export default function Navbar() {
     }
 
     return(
-        <nav className="relative w-full bg-white text-black">
+        <nav className={`relative w-full bg-white text-black ${className}`}>
             
             <div className="mx-auto flex h-20 w-full items-center justify-between px-4 flex-nowrap">
                 
@@ -33,7 +36,7 @@ export default function Navbar() {
 
                 {/* Only shows when desktop elements hide */}
                 <button 
-                    className="text-2xl md:hidden"
+                    className="text-[clamp(1.2rem,2vw,1.5rem)] p-2 cursor-pointer md:hidden"
                     onClick={() => setDropdown(!dropdown)}
                     aria-label="Toggle dropdown menu"
                 >

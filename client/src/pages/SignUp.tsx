@@ -45,7 +45,8 @@ export default function SignUp() {
                             placeholder="John Doe"
                             required
                             aria-required="true"
-                            //aria-describedby if we want?
+                            className="w-full rounded-md border border-gray-300 px-3 py-2
+                                        text-gray-900 shadow-sm"
                         />
 
                     <label htmlFor="email">Email</label>
@@ -56,7 +57,8 @@ export default function SignUp() {
                             placeholder="xyz@gmail.com"
                             required
                             aria-required="true"
-                            //aria-describedby if we want?
+                            className="w-full rounded-md border border-gray-300 px-3 py-2
+                                        text-gray-900 shadow-sm"
                         />
                         
                     <label htmlFor="password">Password</label>
@@ -68,7 +70,8 @@ export default function SignUp() {
                             onChange = {(e) => setPassword(e.target.value)}
                             required
                             aria-required="true"
-                            // TODO: npm package zxcvbn? to check for strong password
+                            className="w-full rounded-md border border-gray-300 px-3 py-2
+                                        text-gray-900 shadow-sm"
                         />
 
                     <label htmlFor="confirmPassword">Password</label>
@@ -80,6 +83,8 @@ export default function SignUp() {
                             onChange = {(e) => setConfirmPassword(e.target.value)}
                             required
                             aria-required="true"
+                            className="w-full rounded-md border border-gray-300 px-3 py-2
+                                        text-gray-900 shadow-sm"
                         />
 
                     {error && <p>{error}</p>}
@@ -95,6 +100,7 @@ export default function SignUp() {
                         
                     <button
                         type="submit"
+                        className="bg-blue-600 px-4 py-2 font-medium text-white cursor-pointer"
                         // TODO: aria-busy=
                     >
                         Sign up
@@ -105,7 +111,7 @@ export default function SignUp() {
 
                     <p>
                         Already have an account?  
-                        {<Link to="/login">Sign in</Link>} 
+                        {<Link to="/login" className="text-gray-800 hover:text-gray-700">Sign in</Link>} 
                     </p>
 
                 </form>

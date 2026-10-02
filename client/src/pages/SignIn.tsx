@@ -26,7 +26,8 @@ export default function SignIn() {
                             placeholder="xyz@gmail.com"
                             required
                             aria-required="true"
-                            //aria-describedby if we want?
+                            className="w-full rounded-md border border-gray-300 px-3 py-2
+                                        text-gray-900 shadow-sm"
                         />
                         
                     <label htmlFor="password">Password</label>
@@ -36,7 +37,8 @@ export default function SignIn() {
                             id="password"
                             required
                             aria-required="true"
-                            // TODO: npm package zxcvbn? to check for strong password
+                            className="w-full rounded-md border border-gray-300 px-3 py-2
+                                        text-gray-900 shadow-sm"
                         />
 
                     {/* TODO Make forgot password page and links/route stuff. 
@@ -49,6 +51,7 @@ export default function SignIn() {
 
                     <button
                         type="submit"
+                        className="bg-blue-600 px-4 py-2 font-medium text-white cursor-pointer"
                         // TODO: aria-busy=
                     >
                         Sign In
@@ -57,12 +60,14 @@ export default function SignIn() {
 
                     <p>
                         Don't have an account yet? 
-                        {<Link to="/signup">Sign up</Link>} 
+                        {<Link to="/signup" className="text-gray-800 hover:text-gray-700">Sign up</Link>} 
                     </p>
                 </form>
             </div>
 
-            <button onClick={() => navigate("/dashboard")}>
+            <button 
+                onClick={() => navigate("/dashboard")}
+                className="text-blue-900 hover:text-gray-700 cursor-pointer">
                 Pretend youre a logged in teach and see your dashboard here!
             </button>
         </>

@@ -4,12 +4,12 @@ import Footer from "../components/Footer"
 
 export default function HomeLayout() {
     return(
-        <div className="site-wrapper">
-            <Navbar />
-            <main>
+        <div className="min-h-screen flex flex-col">
+            <Navbar className="min-h-[8vh] flex-shrink-0"/>
+            <main className="flex-1">
                 <Outlet />
             </main>
-            <Footer />
+            <Footer className="min-h-[8vh] flex-shrink-0"/>
         </div>
     )
 }

@@ -3,11 +3,11 @@ import Footer from "../components/Footer"
 
 export default function HomeLayout() {
     return(
-        <div className="site-wrapper">
-            <main>
+        <div className="min-h-screen flex flex-col">
+            <main className="flex-1">
                 <Outlet />
             </main>
-            <Footer />
+            <Footer className="min-h-[8vh] flex-shrink-0"/>
         </div>
     )
 }
