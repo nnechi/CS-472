@@ -1,91 +1,54 @@
-import { Link, NavLink } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { NavLink } from 'react-router-dom'
+import { useState } from 'react'
+import useNavbarResize from "../hooks/useNavbarResize"
+import NavLinks from "./NavLinks"
+import SignInLinks from "./SignInLinks"
+
 
 export default function Navbar() {
     const [dropdown, setDropdown] = useState(false)
-
-    const activeStyles = {
-        fontWeight: "bold",
-        textDecoration: "underline",
-        color: "#161616"
-    }
-
-    useEffect(() => {
-        const handleResize = () => {
-            if(window.innerWidth > 770) 
-                setDropdown(false)
-        }
-
-        window.addEventListener("resize", handleResize)
-        return() => {window.removeEventListener("resize", handleResize)}
-    }, [])
+    useNavbarResize(() => setDropdown(false))
 
     function getLogo() {
-        return (
-            <NavLink to="/" className="logo">Logo</NavLink>
-        )
-    }
-
-    function getNavLinks(onLinkClick?: () => void) {
-        return (
-            <>
-                <NavLink
-                    to="/about" style={({isActive}) => isActive ? activeStyles : undefined} onClick={onLinkClick}
-                >
-                    About Us
-                </NavLink>
-                <NavLink 
-                    to="/learn-more" style={({isActive}) => isActive ? activeStyles : undefined} onClick={onLinkClick}
-                >
-                    Learn More
-                </NavLink>
-                <NavLink 
-                    to="/contact" style={({isActive}) => isActive ? activeStyles : undefined} onClick={onLinkClick}
-                >
-                    Contact Us
-                </NavLink>
-            </>
-        )
-    }
-
-    function getSignInLinks() {
-        return (
-            <>
-                <Link to="/login" className={!dropdown ? "nav-button signin" : ""}>Sign In</Link>
-                <Link to="/signup" className={!dropdown ? "nav-button signup" : ""}>Sign Up</Link>
-            </>
-        )
+        return <NavLink to="/">Logo</NavLink>
     }
 
     return(
-        <nav>
-            <div className="navbar-content">
-                <div className="navbar-left">
-                    { getLogo() }
-
-                    <div className="nav-links hidden">
-                        { getNavLinks() }
-                    </div> 
+        <nav className="relative w-full bg-white text-black">
+            
+            <div className="mx-auto flex h-20 w-full items-center justify-between px-4 flex-nowrap">
+                
+                {/* LEFT GROUP: Logo and Main Nav Links */}
+                <div className="flex flex-nowrap items-center gap-12 whitespace-nowrap">
+                    {getLogo()}
+                    <div className="hidden items-center gap-6 md:flex">
+                        <NavLinks />
+                    </div>
                 </div>
 
-                <div className="navbar-right hidden">
-                    { getSignInLinks() }
-                </div> 
+                {/* RIGHT GROUP: Sign In Links */}
+                <div className="hidden items-center gap-6 md:flex">
+                    <SignInLinks />
+                </div>
 
-                <button
-                    className="menu-button"
+                {/* Only shows when desktop elements hide */}
+                <button 
+                    className="text-2xl md:hidden"
                     onClick={() => setDropdown(!dropdown)}
+                    aria-label="Toggle dropdown menu"
                 >
-                    ≣
+                    ☰
                 </button>
-            </div>
 
-            {dropdown && (
-                <div className="mobile-navbar">
-                    { getNavLinks(() => setDropdown(false)) }
-                    { getSignInLinks() } 
-                </div>
-            )} 
+                {/* Mobile Dropdown Menu */}
+                {dropdown && 
+                    <div className="absolute top-full right-0 flex flex-col w-max bg-white p-6 shadow-md md:hidden">
+                        <NavLinks onLinkClick={() => setDropdown(false)} />
+                        <SignInLinks />
+                    </div>
+                }
+            
+            </div>
         </nav>
-    )
+    )     
 }

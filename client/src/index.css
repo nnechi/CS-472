@@ -142,10 +142,10 @@ body {
   border-color: var(--accent);
 } */ 
 
+@import "tailwindcss";
+
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
   font-family: 'Courier New', Courier, monospace;
 }
 
@@ -153,129 +153,11 @@ body {
   background-color: #666666;
 }
 
-/* ----------- Nav bar layout ----------- */
 
 .site-wrapper {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-nav {
-  width: 100%;
-  position: relative;
-  background-color: #ffffff;
-}
-
-nav a {
-  text-decoration: none;
-  color: #4D4D4D;
-  font-weight: 400;
-  padding: 6px 5px;
-}
-
-nav a:hover {
-  color: #161616;
-  text-decoration: underline;
-  font-weight: bold;
-}
-
-.navbar-content {
-  width: 100%; 
-  display: flex;
-  align-items: center;
-  padding: 20px;
-  justify-content: space-between;
-}
-
-.navbar-left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-} 
-
-.navbar-right {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-} 
-
-.nav-button {
-  border-radius: 6px;
-  text-decoration: none;
-  transition: background-color 0.2s, color 0.2s;
-}
-
-.navbar a.nav-button:hover {
-  text-decoration: none;
-  font-weight: normal;
-  background-color: #f5f5f5;
-}
-
-.signin {
-  color: #333333;
-  background-color: #d8d8d8;
-}
-
-.signup {
-  color: #333333;
-  background-color: #eeeeee;
-}
-
-.menu-button {
-  display: none;
-  border: none;
-  font-size: 20px;
-  padding: 10px 20px;
-  border-radius: 20px;
-}
-
-.menu-button:hover {
-  background-color: #f5f5f5;
-}
-
-.mobile-navbar {
-  position: absolute;
-  top: 100%;
-  right: 1px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-  padding: 15px;
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-@media (max-width: 770px) {
-  nav {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .menu-button {
-    display: block;
-    cursor: pointer;
-  }
-  
-  .hidden {
-    display: none !important;
-  }
-
-  .navbar-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  
-
 }
 
 
@@ -290,7 +172,6 @@ footer {
   margin-top: auto;
   font-weight: 500;
 }
-
 
 
 .sr-only {
