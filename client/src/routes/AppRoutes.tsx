@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom"
+import RequiredAuth from "./RequireAuth"
 import HomeLayout from "../layouts/HomeLayout"
 import SignXLayout from "../layouts/SignXLayout"
 import TeacherDashboardLayout from "../layouts/TeacherDashboardLayout"
@@ -32,9 +33,12 @@ export default function AppRoutes() {
                 <Route path="signup" element={<SignUp />} />
             </Route>
 
-             <Route path="/dashboard" element={<TeacherDashboardLayout />}>
-                <Route index element={<TeacherDashboard/>} />
-                <Route path="rooms/new" element={<CreateRoom />} />
+            {/* Protected Routes  */}
+            <Route element={<RequiredAuth />}>
+                <Route path="/dashboard" element={<TeacherDashboardLayout />}>
+                    <Route index element={<TeacherDashboard/>} />
+                    <Route path="rooms/new" element={<CreateRoom />} />
+                </Route>
             </Route>
 
             <Route path="/teacher/room/:roomId" element={<TeacherRoom />} />
