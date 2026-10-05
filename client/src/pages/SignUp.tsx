@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom"
-import React, { useRef, useState, useEffect } from "react"
-import AuthCard from "../routes/AuthCard";
+import React, { useRef, useState, useEffect, type ChangeEvent } from "react"
+import AuthCard from "../components/AuthCard";
 
 const USER_REGEX = /^[A-Za-z]+(?:[-'][A-Za-z]+)* [A-Za-z]+(?:[-'][A-Za-z]+)*$/
 const PWD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%]).{8,24}$/
@@ -18,17 +18,19 @@ export default function SignUp() {
     const userRef = useRef<HTMLInputElement>(null);
     const errRef = useRef<HTMLParagraphElement>(null);
 
-    const [user, setUser] = useState('')
+    const [form, setForm] = useState<SignUpForm>({
+        name: '',
+        email: '',
+        password: '',
+        confirmPassword: ''
+    });
+    
     const [validName, setValidName] = useState(false)
     const [userFocus, setUserFocus] = useState(false)
-
-    const [email, setEmail] = useState('')
-
-    const [password, setPassword] = useState('')
+    
     const [validPassword, setValidPassword] = useState(false)
     const [passwordFocus, setPasswordFocus] = useState(false)
 
-    const [matchPassword, setMatchPassword] = useState('')
     const [validMatch, setValidMatch] = useState(false)
     const [matchFocus, setMatchFocus] = useState(false)
 
@@ -39,24 +41,34 @@ export default function SignUp() {
     }, [])
 
     useEffect(() => {
-        setValidName(USER_REGEX.test(user))
-    }, [user])
+        setValidName(USER_REGEX.test(form.name))
+    }, [form.name])
 
     useEffect(() => {
-        setValidPassword(PWD_REGEX.test(password))
-        setValidMatch(password === matchPassword)
-    }, [password, matchPassword])
+        setValidPassword(PWD_REGEX.test(form.password))
+        setValidMatch(form.password === form.confirmPassword)
+    }, [form.password, form.confirmPassword])
 
     useEffect(() => {
         setErrMsg('')
-    }, [user, password, matchPassword])
+    }, [form.name, form.password, form.confirmPassword])
+
+    const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+
+        setForm((prev) => ({
+            ...prev,
+            [name]: value
+        }));
+    };
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
         // if button enabled with JS hack
-        const v1 = USER_REGEX.test(user)
-        const v2 = PWD_REGEX.test(password)
-        if (!v1 || !v2) {
+        const v1 = USER_REGEX.test(form.name)
+        const v2 = PWD_REGEX.test(form.password)
+        const v3 = form.password === form.confirmPassword
+        if (!v1 || !v2 || !v3) {
             setErrMsg("Invalid Entry")
             return
         }
@@ -67,9 +79,9 @@ export default function SignUp() {
                     'Content-Type' : 'application/json'
                 },
                 body: JSON.stringify({
-                    user,
-                    email,
-                    password
+                    user: form.name,
+                    email: form.email,
+                    password: form.password
                 })
             })
 
@@ -80,10 +92,12 @@ export default function SignUp() {
 
             const data = await response.json()
             console.log(data)
-            setUser('')
-            setEmail('')
-            setPassword('')
-            setMatchPassword('')
+            setForm({
+                name: '',
+                email: '',
+                password: '',
+                confirmPassword: ''
+            });
             navigate('/dashboard')
             
         } catch (err) {
@@ -100,8 +114,7 @@ export default function SignUp() {
     }
 
     return (
-        <section>
-            <AuthCard title="Sign in">
+        <AuthCard title="Sign in">
             <p
                 ref={errRef}
                 className={errMsg ? "auth-error" : "sr-only"}
@@ -120,25 +133,22 @@ export default function SignUp() {
                         <input
                             type="text"
                             id="usersName"
+                            name="name"
                             ref={userRef}
                             autoComplete="off"
-                            onChange={(e) => setUser(e.target.value)}
-                            value={user}
+                            onChange={handleChange}
+                            value={form.name}
                             required
                             aria-invalid={validName ? "false" : "true"}
                             aria-describedby="userNameNote"
                             onFocus={() => setUserFocus(true)}
                             onBlur={() => setUserFocus(false)}
-                            // className="w-full rounded-md border border-gray-300 px-3 py-2
-                            //                 text-gray-900 shadow-sm"
                         />
-                        <p id="userNameNote" className={userFocus && user && !validName ? "auth-error" : "sr-only"}>
+                        <p id="userNameNote" className={userFocus && form.name && !validName ? "auth-error" : "sr-only"}>
                             Enter your first name followed by your last name.<br />
                             Letters, commas, hyphens allowed.
                         </p>
-
                     </div>
-
                     <div className="auth-field">
                         <label htmlFor="email">
                             Email
@@ -146,13 +156,12 @@ export default function SignUp() {
                         <input
                             type="email"
                             id="email"
+                            name="email"
                             autoComplete="off"
-                            onChange={(e) => setEmail(e.target.value)}
-                            value={email}
+                            onChange={handleChange}
+                            value={form.email}
                             required
                             aria-describedby="emailNote"
-                            // className="w-full rounded-md border border-gray-300 px-3 py-2
-                            //                 text-gray-900 shadow-sm"
                         />
                        
                         <p id="emailNote" className= {"sr-only"}> 
@@ -160,21 +169,19 @@ export default function SignUp() {
                             Enter a valid email address.
                         </p>
                     </div>
-
                     <div className="auth-field">
                         <label htmlFor="password">Password</label>
                         <input
                             type="password"
                             id="password"
-                            onChange={(e) => setPassword(e.target.value)}
-                            value={password}
+                            name="password"
+                            onChange={handleChange}
+                            value={form.password}
                             required
                             aria-invalid={validPassword ? "false" : "true"}
                             aria-describedby="passwordNote"
                             onFocus={() => setPasswordFocus(true)}
                             onBlur={() => setPasswordFocus(false)}
-                            // className="w-full rounded-md border border-gray-300 px-3 py-2
-                            //             text-gray-900 shadow-sm"
                         />
                         <p id="passwordNote" className={passwordFocus && !validPassword ? "auth-error" : "sr-only"}>
                             8 to 24 characters.<br />
@@ -182,39 +189,36 @@ export default function SignUp() {
                             Allowed special characters: <span aria-label="exclamation mark">!</span> <span aria-label="at symbol">@</span> <span aria-label="hashtag">#</span> <span aria-label="dollar sign">$</span> <span aria-label="percent">%</span>
                         </p>
                     </div>
-
                     <div className="auth-field">
                         <label htmlFor="confirm_pwd"> Confirm Password</label>
                         <input
                             type="password"
                             id="confirm_pwd"
-                            onChange={(e) => setMatchPassword(e.target.value)}
-                            value={matchPassword}
+                            name="confirmPassword"
+                            onChange={handleChange}
+                            value={form.confirmPassword}
                             required
                             aria-invalid={validMatch ? "false" : "true"}
                             aria-describedby="confirmNote"
                             onFocus={() => setMatchFocus(true)}
                             onBlur={() => setMatchFocus(false)}
-                            // className="w-full rounded-md border border-gray-300 px-3 py-2
-                            //             text-gray-900 shadow-sm"
                         />
                         <p id="confirmNote" className={matchFocus && !validMatch ? "auth-error" : "sr-only"}>
                             Must match the first password input field.
                         </p>
                     </div>
-
                         <button 
                             disabled={!validName || !validPassword || !validMatch ? true : false}
                             className="auth-submit"
                         >
                             Sign Up
                         </button>
-                    <p>
-                        Already have an account?  
-                        {<Link to="/login" style={{ marginLeft: '5px' }} className="auth-switch">Sign in</Link>} 
-                    </p>
+                   
                 </form>
-            </AuthCard>
-        </section>
+                <p>
+                    Already have an account?  
+                    {<Link to="/login" style={{ marginLeft: '5px' }} className="auth-switch">Sign in</Link>} 
+                </p>
+        </AuthCard>
     )
 }

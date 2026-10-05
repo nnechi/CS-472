@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import './../routes/auth.css';
+import './auth.css'
 
 type AuthCardProps = {
   title: string;

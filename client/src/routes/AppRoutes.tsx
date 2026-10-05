@@ -1,5 +1,5 @@
 import { Routes, Route } from "react-router-dom"
-import RequiredAuth from "./RequireAuth"
+import RequiredAuth from "../routes/RequireAuth"
 import HomeLayout from "../layouts/HomeLayout"
 import SignXLayout from "../layouts/SignXLayout"
 import TeacherDashboardLayout from "../layouts/TeacherDashboardLayout"
