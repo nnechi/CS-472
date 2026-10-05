@@ -54,7 +54,7 @@ export default function SignIn() {
         //         'Content-Type': 'application/json'
         //     },
         //     body: JSON.stringify({
-        //         user, password
+        //         email, password
         //     })
         // })
 
@@ -76,6 +76,8 @@ export default function SignIn() {
                 setError('Something went wrong. Please try again.')
             
             errRef.current?.focus()
+        } finally {
+            setLoading(false)
         }
     };
 

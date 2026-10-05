@@ -5,6 +5,8 @@ export default function TeacherRoom() {
 
     return (
         <>
+            {/* Change this to deleting a room later
+                DELETE /api/rooms/:roomcode */}
             <button onClick={() => navigate("/dashboard")}>
                 X
             </button>

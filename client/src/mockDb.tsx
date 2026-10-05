@@ -14,7 +14,6 @@ export interface AuthResponse {
         name: string
         email: string
     }
-    accessToken: string
 }
 
 export const mockUsersDatabase: MockUser[] = [
@@ -50,8 +49,7 @@ export const fakeLoginApi = (
                         id: foundUser.id,
                         name: foundUser.name,
                         email: foundUser.email
-                    },
-                    accessToken: "fake-jwt-token-123"
+                    }
                 })
             } else {
                 reject(new Error("Invalid email or password"))

@@ -41,8 +41,8 @@ export default function AppRoutes() {
                 </Route>
             </Route>
 
-            <Route path="/teacher/room/:roomId" element={<TeacherRoom />} />
-            <Route path="/room/:roomCode" element={<StudentRoom />} />
+            <Route path="/rooms/:roomId" element={<TeacherRoom />} />
+            <Route path="/rooms/join/:roomCode" element={<StudentRoom />} />
           
       </Routes>
     )
