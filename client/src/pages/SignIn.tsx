@@ -1,108 +1,164 @@
 import { Link, useNavigate, useLocation } from "react-router-dom"
-import React, { useRef, useState, useEffect } from 'react'
+import { useRef, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import useAuth from "../hooks/useAuth"
 import { fakeLoginApi } from '../mockDb'
+import AuthCard from "../routes/AuthCard";
+
+type SignInForm = {
+  email: string;
+  password: string;
+};
 
 export default function SignIn() {
-    const navigate = useNavigate()
-    const location = useLocation()
-    const from = location.state?.from?.pathname || "/dashboard"
+    const navigate = useNavigate();
+    const location = useLocation();
+    const from = (location.state as { from?: { pathname?: string } })?.from?.pathname || "/dashboard";
     const { setAuth } = useAuth()
 
     const userRef = useRef<HTMLInputElement>(null)
     const errRef = useRef<HTMLParagraphElement>(null)
 
-    const [user, setUser] = useState('')
-    const [password, setPassword] = useState('')
-    const [errMsg, setErrMsg] = useState('')
+    const [form, setForm] = useState<SignInForm>({ email: '', password: '' });
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         userRef.current?.focus()
     },[])
 
     useEffect(() => {
-        setErrMsg('')
-    }, [user, password])
+        setError('')
+    }, [form.email, form.password])
 
-    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault()
+    const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setForm((prev) => ({ ...prev, [name]: value }));
+    };
 
+    // FormEvent<HTMLFormElement>
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setError('');
+
+        if (!form.email || !form.password) {
+            setError('Please enter both your email and password.');
+        return;
+        }
+
+        setLoading(true);
         try {
-            // Commented out code what we will actually use when the server is set up
-            // const response = await fetch('api/auth/login', {
-            //     method: 'POST',
-            //     headers: {
-            //         'Content-Type': 'application/json'
-            //     },
-            //     body: JSON.stringify({
-            //         user, password
-            //     })
-            // })
+        // Commented out code what we will actually use when the server is set up
+        // const response = await fetch('api/auth/login', {
+        //     method: 'POST',
+        //     headers: {
+        //         'Content-Type': 'application/json'
+        //     },
+        //     body: JSON.stringify({
+        //         user, password
+        //     })
+        // })
 
-            // if(!response.ok) 
-            //     throw new Error('Invalid email or password')
+        // if(!response.ok) 
+        //     throw new Error('Invalid email or password')
 
-            // const data = await response.json()
-            // setAuth(data)
-
-            const response = await fakeLoginApi(user, password)
+        // const data = await response.json()
+        // setAuth(data)
+        const response = await fakeLoginApi(form.email, form.password)
             setAuth(response)
-            setUser('')
-            setPassword('')
+            setForm({ email: "", password: ""});
             navigate(from, { replace: true })
-
-        } catch (err){
+        }
+        catch (err){
             // Later add 400, 401 and no server response messages later
              if (err instanceof Error) 
-                setErrMsg(err.message)
+                setError(err.message)
             else 
-                setErrMsg('Something went wrong. Please try again.')
+                setError('Something went wrong. Please try again.')
             
             errRef.current?.focus()
         }
-    }
+    };
 
     return(
-        <section>
-            <p 
-                ref={errRef}
-                className={errMsg ? "mb-4 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-200 outline-none" : "sr-only"}
-                aria-live="assertive"
-            >
-                {errMsg}
-            </p>
-            <h1>Sign In</h1>
-            <form onSubmit={handleSubmit}>
-                <label htmlFor="email">Email:</label>
-                    <input 
-                        type="email"
-                        name="email"
-                        id="email"
-                        ref={userRef}
-                        autoComplete = "off"
-                        onChange = {(e) => setUser(e.target.value)}
-                        value={user}
-                        required
-                        className="w-full rounded-md border border-gray-300 px-3 py-2
-                                     text-gray-900 shadow-sm"
-                    />
-                <label htmlFor="password">Password:</label>
-                    <input 
-                        type="password"
-                        name="password"
-                        id="password"
-                        onChange = {(e) => setPassword(e.target.value)}
-                        value={password}
-                        required
-                        className="w-full rounded-md border border-gray-300 px-3 py-2
-                                     text-gray-900 shadow-sm"
-                    />
-                <button className="border border-gray-300 text-gray-900 cursor-pointer">Sign In</button>
-           </form>
-           <p>
-                Don't have an account yet? 
-                {<Link to="/signup" className="text-gray-800 hover:text-gray-700">Sign up</Link>} 
-            </p>
-        </section>
+        <AuthCard title="Sign in">
+            <div>
+                <form
+                    aria-label="Sign in form"
+                    aria-describedby="form-description"
+                    onSubmit={handleSubmit}
+                    noValidate
+                >
+                    {/* Add aria-describedby + sr-only text to sign-in form (WCAG compliance) */}
+                    <div id="form-description" className="sr-only">
+                        Use this form to sign in to your account. Enter your email
+                        and password.
+                    </div>
+
+                    <p
+                        ref={errRef}
+                        className={error ? "auth-error" : "sr-only"}
+                        role="alert"
+                        aria-live="assertive"
+                    >
+                        {error}
+                    </p>
+                    <form onSubmit={handleSubmit}>
+                        <div className="auth-field">
+                            <label htmlFor="email">Email</label>
+                                <input 
+                                    type="email"
+                                    name="email"
+                                    id="email"
+                                    placeholder="name@example.com"
+                                    required
+                                    aria-required="true"
+                                    value={form.email}
+                                    onChange={handleChange}
+                                    autoComplete="email"
+                                    // className="w-full rounded-md border border-gray-300 px-3 py-2
+                                    //  text-gray-900 shadow-sm"
+                                    //aria-describedby if we want?
+                                />
+                        </div>
+                        <div className="auth-field">
+                            <label htmlFor="password">Password</label>
+                                <input 
+                                    type="password"
+                                    name="password"
+                                    id="password"
+                                    required
+                                    aria-required="true"
+                                    value={form.password}
+                                    onChange={handleChange}
+                                    autoComplete="current-password"
+                                    // className="w-full rounded-md border border-gray-300 px-3 py-2
+                                    //  text-gray-900 shadow-sm"
+                                    // TODO: npm package zxcvbn? to check for strong password
+                                />
+                        </div>
+                    </form>
+
+                    {/* TODO Make forgot password page and links/route stuff. 
+                    We can also move this around once styled*/}
+                    <p className="auth-forgot">
+                        {<Link to="/">Forgot password?</Link>} 
+                    </p>
+
+                    <button
+                        type="submit"
+                        className="auth-submit"
+                        disabled={loading}
+                        aria-busy={loading}
+                    >
+                        {loading ? 'Signing in…' : 'Sign In'}
+                    </button>
+
+                    <p>
+                        Don't have an account yet? 
+                        {<Link to="/signup" style={{ marginLeft: '5px' }} className="auth-switch">Sign up</Link>} 
+                    </p>
+                </form>
+            </div>
+        </AuthCard>
     )
 }

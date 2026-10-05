@@ -1,13 +1,22 @@
 import { Link, useNavigate } from "react-router-dom"
 import React, { useRef, useState, useEffect } from "react"
+import AuthCard from "../routes/AuthCard";
 
 const USER_REGEX = /^[A-Za-z]+(?:[-'][A-Za-z]+)* [A-Za-z]+(?:[-'][A-Za-z]+)*$/
 const PWD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%]).{8,24}$/
 
+type SignUpForm = {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+};
+
 export default function SignUp() {
-    const navigate = useNavigate()
-    const userRef = useRef<HTMLInputElement>(null)
-    const errRef = useRef<HTMLParagraphElement>(null)
+    const navigate = useNavigate();
+
+    const userRef = useRef<HTMLInputElement>(null);
+    const errRef = useRef<HTMLParagraphElement>(null);
 
     const [user, setUser] = useState('')
     const [validName, setValidName] = useState(false)
@@ -92,58 +101,68 @@ export default function SignUp() {
 
     return (
         <section>
-            <p ref={errRef} 
-                className={errMsg ? "mb-4 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-200 outline-none" : "sr-only"}
+            <AuthCard title="Sign in">
+            <p
+                ref={errRef}
+                className={errMsg ? "auth-error" : "sr-only"}
+                role="alert"
                 aria-live="assertive"
             >
                 {errMsg}
             </p>
+            
             <h1>Register</h1>
                 <form onSubmit={handleSubmit}>
-                    <label htmlFor="usersName">
-                        Name
-                    </label>
-                    <input
-                        type="text"
-                        id="usersName"
-                        ref={userRef}
-                        autoComplete="off"
-                        onChange={(e) => setUser(e.target.value)}
-                        value={user}
-                        required
-                        aria-invalid={validName ? "false" : "true"}
-                        aria-describedby="userNameNote"
-                        onFocus={() => setUserFocus(true)}
-                        onBlur={() => setUserFocus(false)}
-                        className="w-full rounded-md border border-gray-300 px-3 py-2
-                                        text-gray-900 shadow-sm"
-                    />
-                    <p id="userNameNote" className={userFocus && user && !validName ? "mb-4 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-200 outline-none" : "sr-only"}>
-                        Enter your first name followed by your last name.<br />
-                        Letters, commas, hyphens allowed.
-                    </p>
-
-                    <label htmlFor="email">
-                        Email
-                    </label>
-                    <input
-                        type="email"
-                        id="email"
-                        autoComplete="off"
-                        onChange={(e) => setEmail(e.target.value)}
-                        value={email}
-                        required
-                        aria-describedby="emailNote"
-                        className="w-full rounded-md border border-gray-300 px-3 py-2
-                                        text-gray-900 shadow-sm"
-                    />
-                    <p id="emailNote" className="sr-only">
-                            Enter a valid email address.
-                    </p>
-
-                    <label htmlFor="password">
-                            Password
+                    <div className="auth-field">
+                        <label htmlFor="usersName">
+                            Name
                         </label>
+                        <input
+                            type="text"
+                            id="usersName"
+                            ref={userRef}
+                            autoComplete="off"
+                            onChange={(e) => setUser(e.target.value)}
+                            value={user}
+                            required
+                            aria-invalid={validName ? "false" : "true"}
+                            aria-describedby="userNameNote"
+                            onFocus={() => setUserFocus(true)}
+                            onBlur={() => setUserFocus(false)}
+                            // className="w-full rounded-md border border-gray-300 px-3 py-2
+                            //                 text-gray-900 shadow-sm"
+                        />
+                        <p id="userNameNote" className={userFocus && user && !validName ? "auth-error" : "sr-only"}>
+                            Enter your first name followed by your last name.<br />
+                            Letters, commas, hyphens allowed.
+                        </p>
+
+                    </div>
+
+                    <div className="auth-field">
+                        <label htmlFor="email">
+                            Email
+                        </label>
+                        <input
+                            type="email"
+                            id="email"
+                            autoComplete="off"
+                            onChange={(e) => setEmail(e.target.value)}
+                            value={email}
+                            required
+                            aria-describedby="emailNote"
+                            // className="w-full rounded-md border border-gray-300 px-3 py-2
+                            //                 text-gray-900 shadow-sm"
+                        />
+                       
+                        <p id="emailNote" className= {"sr-only"}> 
+                            {/* print out the errorMsg later???  */}
+                            Enter a valid email address.
+                        </p>
+                    </div>
+
+                    <div className="auth-field">
+                        <label htmlFor="password">Password</label>
                         <input
                             type="password"
                             id="password"
@@ -154,19 +173,18 @@ export default function SignUp() {
                             aria-describedby="passwordNote"
                             onFocus={() => setPasswordFocus(true)}
                             onBlur={() => setPasswordFocus(false)}
-                            className="w-full rounded-md border border-gray-300 px-3 py-2
-                                        text-gray-900 shadow-sm"
+                            // className="w-full rounded-md border border-gray-300 px-3 py-2
+                            //             text-gray-900 shadow-sm"
                         />
-                        <p id="passwordNote" className={passwordFocus && !validPassword ? "mb-4 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-200 outline-none" : "sr-only"}>
+                        <p id="passwordNote" className={passwordFocus && !validPassword ? "auth-error" : "sr-only"}>
                             8 to 24 characters.<br />
                             Must include uppercase and lowercase letters, a number and a special character.<br />
                             Allowed special characters: <span aria-label="exclamation mark">!</span> <span aria-label="at symbol">@</span> <span aria-label="hashtag">#</span> <span aria-label="dollar sign">$</span> <span aria-label="percent">%</span>
                         </p>
+                    </div>
 
-
-                        <label htmlFor="confirm_pwd">
-                            Confirm Password
-                        </label>
+                    <div className="auth-field">
+                        <label htmlFor="confirm_pwd"> Confirm Password</label>
                         <input
                             type="password"
                             id="confirm_pwd"
@@ -177,25 +195,26 @@ export default function SignUp() {
                             aria-describedby="confirmNote"
                             onFocus={() => setMatchFocus(true)}
                             onBlur={() => setMatchFocus(false)}
-                            className="w-full rounded-md border border-gray-300 px-3 py-2
-                                        text-gray-900 shadow-sm"
+                            // className="w-full rounded-md border border-gray-300 px-3 py-2
+                            //             text-gray-900 shadow-sm"
                         />
-                        <p id="confirmNote" className={matchFocus && !validMatch ? "mb-4 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-600 border border-red-200 outline-none" : "sr-only"}>
+                        <p id="confirmNote" className={matchFocus && !validMatch ? "auth-error" : "sr-only"}>
                             Must match the first password input field.
                         </p>
+                    </div>
 
                         <button 
                             disabled={!validName || !validPassword || !validMatch ? true : false}
-                            className="border border-gray-300 text-gray-900 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                            className="auth-submit"
                         >
                             Sign Up
                         </button>
+                    <p>
+                        Already have an account?  
+                        {<Link to="/login" style={{ marginLeft: '5px' }} className="auth-switch">Sign in</Link>} 
+                    </p>
                 </form>
-                <p>
-                    Already have an account?  
-                    {<Link to="/login" className="text-gray-800 hover:text-gray-700">Sign in</Link>} 
-                </p>
-
+            </AuthCard>
         </section>
     )
 }

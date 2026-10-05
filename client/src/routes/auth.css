@@ -1,0 +1,151 @@
+:root {
+  --font-colors: #222222;
+  --box: #f5ead1;       /* container */
+  --disabled: #A3B18A; 
+  --rose: #C9A0A0;     /* email and pwd boxs */
+  --paper: #A3B18A;    /* Sign-in button */
+}
+
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #666666; /* dark surround, like the screenshot */
+  padding: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 370px;
+  background: var(--box);
+  border-radius: 18px;
+  padding: 28px 28px 32px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.auth-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+/* when we have a logo */
+/* .auth-logo img {
+  height: 32px;
+} */
+
+.auth-wordmark {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--paper);
+  text-decoration: none;
+  letter-spacing: -0.02em; 
+}
+
+/* Sign in | Sign up */
+.auth-title {
+  text-align: center;
+  color: var(--font-colors);
+  font-weight: 800;
+  font-size: 1.8rem;
+  margin: 4px 0 20px;
+}
+
+.auth-field {
+  margin-bottom: 14px;
+}
+
+.auth-field label {
+  display: block;
+  color: var(--font-colors);
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+
+.auth-field input {
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: var(--rose);
+  color: var(--font-colors);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.auth-field input::placeholder {
+  color: var(--font-colors);
+  opacity: 0.6;
+}
+
+.auth-field input:focus {
+  outline: 3px solid var(--font-colors);
+  outline-offset: 2px;
+}
+
+.auth-error {
+  color: rgb(136, 4, 4);
+  background: rgba(172, 82, 82, 0.25); 
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 16px;  /* 16px=1rem */
+  margin-top: 14px;
+}
+
+.auth-forgot {
+  text-align: right;
+  margin: -6px 0 14px;
+  font-size: 0.8rem;
+}
+.auth-forgot a {
+  color: var(--font-colors);
+  text-decoration: underline;
+}
+
+/* Sign in/up button */
+.auth-submit {
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  padding: 12px;
+  background: var(--paper);
+  color: var(--font-colors);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 14px;
+}
+
+.auth-submit:disabled {
+  background: var(--disabled);
+  cursor: not-allowed;
+}
+/* "Don't have an account yet? Sign up" */
+.auth-switch {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--font-colors);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.auth-switch a {
+  color: var(--font-colors);
+  text-decoration: underline;
+  font-weight: 800;
+}
+
+/* visually hidden but still readable by screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
