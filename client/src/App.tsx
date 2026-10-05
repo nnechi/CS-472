@@ -4,19 +4,19 @@ import Chat from "./components/Chat";
 import { socket } from "./socket";
 
 export default function App() {
-  const [username, setUsername] = useState<string | null>(null);
-
-  // Called by <Login> when the user submits a name.
-  const handleJoin = (name: string) => {
-    setUsername(name);
-    socket.connect(); // open the socket only after we have a username
+  const [session, setSession] = useState<Session | null>(null);
+// Called by <Login> when the user submits a name.
+  const handleJoin = (payload: Session) => {
+    setSession(payload);
+    socket.connect(); // open the socket after login
   };
 
+
   // Not logged in yet -> show the username picker.
-  if (!username) {
+  if (!session) {
     return <Login onJoin={handleJoin} />;
   }
 
   // Logged in -> show the chat room.
-  return <Chat username={username} />;
+  return <Chat session={session} />;
 }
