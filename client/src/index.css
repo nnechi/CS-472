@@ -141,3 +141,62 @@ body {
   outline: none;
   border-color: var(--accent);
 }
+
+/* ---------- Raise hand ---------- */
+.hand-bar {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.hand-button {
+  background: #fff;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.hand-button.raised {
+  background: var(--accent);
+  color: #fff;
+}
+
+.hand-queue {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9rem;
+}
+
+.hand-queue-title {
+  font-weight: 600;
+}
+
+.hand-queue-empty {
+  margin-left: 0.5rem;
+  color: #777;
+}
+
+.hand-queue-list {
+  margin: 0.4rem 0 0;
+  padding-left: 1.5rem;
+}
+
+.hand-queue-list li {
+  margin-bottom: 0.25rem;
+}
+
+.hand-queue-item {
+  background: #e0e7ff;
+  color: var(--accent);
+  border: none;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.hand-queue-item:hover {
+  text-decoration: line-through;
+}

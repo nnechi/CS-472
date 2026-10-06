@@ -2,6 +2,13 @@ import { useState } from "react";
 import Login from "./components/Login";
 import Chat from "./components/Chat";
 import { socket } from "./socket";
+import { Role } from "./types";
+
+export interface Session {
+  username: string;
+  role: Role;
+  room: string;
+}
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
