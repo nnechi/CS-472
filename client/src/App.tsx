@@ -4,6 +4,10 @@ import Chat from "./components/Chat";
 import { socket } from "./socket";
 import { Role } from "./types";
 
+import { BrowserRouter} from "react-router-dom"
+import AppRoutes from "./routes/AppRoutes"
+
+
 export interface Session {
   username: string;
   role: Role;
@@ -17,13 +21,24 @@ export default function App() {
     setSession(payload);
     socket.connect(); // open the socket after login
   };
-
+/** 
 
   // Not logged in yet -> show the username picker.
   if (!session) {
     return <Login onJoin={handleJoin} />;
+  }else{
+      // Logged in -> show the chat room.
+  return <Chat session={session} />;
   }
 
-  // Logged in -> show the chat room.
-  return <Chat session={session} />;
+*/
+
+
+
+
+  return(
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
+  )
 }

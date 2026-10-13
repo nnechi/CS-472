@@ -1,4 +1,4 @@
-:root {
+/* :root {
   --accent: #4f46e5;
   --bg: #f6f7fb;
 }
@@ -15,7 +15,7 @@ body {
 }
 
 /* ---------- Login screen ---------- */
-.login {
+/* .login {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -62,10 +62,10 @@ body {
 
 .login-button {
   width: 100%;
-}
+} */
 
 /* ---------- Chat screen ---------- */
-.chat {
+/* .chat {
   max-width: 640px;
   margin: 0 auto;
   height: 100vh;
@@ -140,6 +140,13 @@ body {
 .composer-input:focus {
   outline: none;
   border-color: var(--accent);
+} */ 
+
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+  font-family: 'Courier New', Courier, monospace;
 }
 
 /* ---------- Raise hand ---------- */
@@ -200,3 +207,7 @@ body {
 .hand-queue-item:hover {
   text-decoration: line-through;
 }
+body {
+  background-color: #666666;
+}
+
