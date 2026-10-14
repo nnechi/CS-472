@@ -1,19 +1,25 @@
-import {useNavigate } from "react-router-dom"
+import { Navigate, useNavigate, useParams } from "react-router-dom"
+import Chat from "../../components/Chat"
+import useAuth from "../../hooks/useAuth"
+import { normalizeRoomCode } from "../../utils/roomCode"
 
+// /rooms/:roomId -- the teacher's view of a room: chat plus the raised-hand
+// queue. Students who land here are sent to their own view of the same room.
 export default function TeacherRoom() {
     const navigate = useNavigate()
+    const { auth } = useAuth()
+    const { roomId } = useParams()
+    const room = normalizeRoomCode(roomId ?? "")
+
+    if (!auth || !room) return <Navigate to="/dashboard" replace />
+    if (auth.user.role !== "teacher") return <Navigate to={`/rooms/join/${room}`} replace />
 
     return (
-        <>
-            {/* Change this to deleting a room later
-                DELETE /api/rooms/:roomcode */}
-            <button onClick={() => navigate("/dashboard")}>
-                X
-            </button>
-
-            <h1>This is going to be the main feature teacher-mode</h1>            
-        </>
-       
-        
+        <Chat
+            session={{ username: auth.user.name, role: auth.user.role, room }}
+            // Leaving unmounts the chat, which disconnects the socket.
+            // Change this to deleting a room later: DELETE /api/rooms/:roomcode
+            onLeave={() => navigate("/dashboard")}
+        />
     )
 }

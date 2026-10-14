@@ -84,6 +84,47 @@
   outline-offset: 2px;
 }
 
+/* Student / Teacher toggle on the sign-in form */
+.auth-role {
+  border: none;
+  padding: 0;
+  margin: 0 0 14px;
+}
+
+.auth-role legend {
+  color: var(--font-colors);
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.auth-role-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.auth-role-option {
+  border: 2px solid var(--paper);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--font-colors);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.auth-role-option.active {
+  background: var(--paper);
+}
+
+.auth-role-option:focus-visible {
+  outline: 3px solid var(--font-colors);
+  outline-offset: 2px;
+}
+
 .auth-error {
   color: rgb(136, 4, 4);
   background: rgba(172, 82, 82, 0.25); 

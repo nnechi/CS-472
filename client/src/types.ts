@@ -1,6 +1,14 @@
 // Keep this in sync with the server's src/types.ts.
 export type Role = "student" | "teacher";
 
+// Everything the chat needs to know about the current user. Built from the
+// signed-in user (AuthProvider) plus the room code from the URL.
+export interface Session {
+  username: string;
+  role: Role;
+  room: string;
+}
+
 export interface ChatMessage {
   username: string;
   role: Role;

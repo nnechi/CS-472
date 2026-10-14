@@ -2,14 +2,14 @@ import { Routes, Route } from "react-router-dom"
 import RequiredAuth from "../routes/RequireAuth"
 import HomeLayout from "../layouts/HomeLayout"
 import SignXLayout from "../layouts/SignXLayout"
-import TeacherDashboardLayout from "../layouts/TeacherDashboardLayout"
+import DashboardLayout from "../layouts/DashboardLayout"
 import Home from "../pages/Home"
 import AboutUs from "../pages/AboutUs"
 import LearnMore from "../pages/LearnMore"
 import ContactUs from "../pages/ContactUs"
 import SignUp from "../pages/SignUp"
 import SignIn from "../pages/SignIn"
-import TeacherDashboard from "../pages/teacher/TeacherDashboard"
+import Dashboard from "../pages/Dashboard"
 import CreateRoom from "../pages/teacher/CreateRoom"
 import TeacherRoom from "../pages/teacher/TeacherRoom"
 import StudentRoom from "../pages/student/StudentRoom"
@@ -33,16 +33,18 @@ export default function AppRoutes() {
                 <Route path="signup" element={<SignUp />} />
             </Route>
 
-            {/* Protected Routes  */}
+            {/* Protected Routes: sign in (and pick a role) first. */}
             <Route element={<RequiredAuth />}>
-                <Route path="/dashboard" element={<TeacherDashboardLayout />}>
-                    <Route index element={<TeacherDashboard/>} />
+                <Route path="/dashboard" element={<DashboardLayout />}>
+                    {/* Students: join a room by code. Teachers: create a room. */}
+                    <Route index element={<Dashboard/>} />
                     <Route path="rooms/new" element={<CreateRoom />} />
                 </Route>
-            </Route>
 
-            <Route path="/rooms/:roomId" element={<TeacherRoom />} />
-            <Route path="/rooms/join/:roomCode" element={<StudentRoom />} />
+                {/* Both render the Socket.IO chat; the role decides the view. */}
+                <Route path="/rooms/:roomId" element={<TeacherRoom />} />
+                <Route path="/rooms/join/:roomCode" element={<StudentRoom />} />
+            </Route>
           
       </Routes>
     )

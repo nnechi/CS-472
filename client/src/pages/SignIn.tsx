@@ -3,6 +3,7 @@ import { useRef, useEffect, useState, type ChangeEvent, type FormEvent } from "r
 import useAuth from "../hooks/useAuth"
 import { fakeLoginApi } from '../mockDb'
 import AuthCard from "../components/AuthCard"
+import { Role } from "../types"
 
 type SignInForm = {
   email: string;
@@ -19,6 +20,9 @@ export default function SignIn() {
     const errRef = useRef<HTMLParagraphElement>(null)
 
     const [form, setForm] = useState<SignInForm>({ email: '', password: '' });
+    // Student by default. The role decides which dashboard the user lands on
+    // and is sent to the chat server when they join a room.
+    const [role, setRole] = useState<Role>('student');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -64,7 +68,7 @@ export default function SignIn() {
         // const data = await response.json()
         // setAuth(data)
         const response = await fakeLoginApi(form.email, form.password)
-            setAuth(response)
+            setAuth({ user: { ...response.user, role } })
             setForm({ email: "", password: ""});
             navigate(from, { replace: true })
         }
@@ -130,6 +134,30 @@ export default function SignIn() {
                             autoComplete="current-password"
                         />
                 </div>
+                {/* Role toggle: Student (default) or Teacher */}
+                <fieldset className="auth-field auth-role">
+                    <legend>I am a</legend>
+                    <div className="auth-role-options" role="radiogroup" aria-label="Role">
+                        <button
+                            type="button"
+                            role="radio"
+                            aria-checked={role === 'student'}
+                            className={role === 'student' ? 'auth-role-option active' : 'auth-role-option'}
+                            onClick={() => setRole('student')}
+                        >
+                            Student
+                        </button>
+                        <button
+                            type="button"
+                            role="radio"
+                            aria-checked={role === 'teacher'}
+                            className={role === 'teacher' ? 'auth-role-option active' : 'auth-role-option'}
+                            onClick={() => setRole('teacher')}
+                        >
+                            Teacher
+                        </button>
+                    </div>
+                </fieldset>
                 <button
                     type="submit"
                     className="auth-submit"
