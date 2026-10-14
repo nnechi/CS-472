@@ -29,7 +29,7 @@ const AuthContext = createContext<AuthContextType>({
 // Kept in sessionStorage so a page refresh inside a room doesn't bounce the
 // user back to the sign-in page. Replace with a cookie session once the
 // server implements /api/auth.
-const STORAGE_KEY = 'cshelp.auth'
+const STORAGE_KEY = 'littlepointers.auth'
 
 function readStoredAuth(): AuthState | null {
     try {

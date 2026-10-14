@@ -1,7 +1,7 @@
 {
-  "name": "CSHELP-server",
+  "name": "LITTLEPOINTERS-server",
   "version": "0.1.0",
-  "description": "TypeScript + Express + Socket.IO + MongoDB CSHELP server",
+  "description": "TypeScript + Express + Socket.IO + MongoDB LITTLEPOINTERS server",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
