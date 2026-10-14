@@ -1,6 +1,5 @@
 import { Outlet } from "react-router-dom"
 import useAuth from "../hooks/useAuth"
-import Navbar from '../components/Navbar'
 import Footer from "../components/Footer"
 // Shared frame for the signed-in area (/dashboard). Both roles land here;
 // the index page decides whether to show the student or teacher dashboard.
@@ -9,7 +8,6 @@ export default function DashboardLayout() {
 
     return(
         <div className="min-h-screen flex flex-col bg-white text-black">
-            <Navbar className="min-h-[8vh] flex-shrink-0"/>
             <header className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
                 
                 {auth && (

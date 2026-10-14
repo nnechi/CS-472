@@ -20,9 +20,8 @@ export default function SignIn() {
     const errRef = useRef<HTMLParagraphElement>(null)
 
     const [form, setForm] = useState<SignInForm>({ email: '', password: '' });
-    // Student by default. The role decides which dashboard the user lands on
-    // and is sent to the chat server when they join a room.
-    const [role, setRole] = useState<Role>('student');
+    // Only teachers sign in. Students join a room from the home page with a code.
+    const role: Role = 'teacher';
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -134,30 +133,6 @@ export default function SignIn() {
                             autoComplete="current-password"
                         />
                 </div>
-                {/* Role toggle: Student (default) or Teacher */}
-                <fieldset className="auth-field auth-role">
-                    <legend>I am a</legend>
-                    <div className="auth-role-options" role="radiogroup" aria-label="Role">
-                        <button
-                            type="button"
-                            role="radio"
-                            aria-checked={role === 'student'}
-                            className={role === 'student' ? 'auth-role-option active' : 'auth-role-option'}
-                            onClick={() => setRole('student')}
-                        >
-                            Student
-                        </button>
-                        <button
-                            type="button"
-                            role="radio"
-                            aria-checked={role === 'teacher'}
-                            className={role === 'teacher' ? 'auth-role-option active' : 'auth-role-option'}
-                            onClick={() => setRole('teacher')}
-                        >
-                            Teacher
-                        </button>
-                    </div>
-                </fieldset>
                 <button
                     type="submit"
                     className="auth-submit"

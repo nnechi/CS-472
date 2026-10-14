@@ -33,17 +33,19 @@ export default function AppRoutes() {
                 <Route path="signup" element={<SignUp />} />
             </Route>
 
-            {/* Protected Routes: sign in (and pick a role) first. */}
+            {/* Public: students join with a room code and a name, no account. */}
+            <Route path="/rooms/join/:roomCode" element={<StudentRoom />} />
+
+            {/* Protected Routes: teachers sign in first. */}
             <Route element={<RequiredAuth />}>
                 <Route path="/dashboard" element={<DashboardLayout />}>
-                    {/* Students: join a room by code. Teachers: create a room. */}
+                    {/* Teachers: create a room. */}
                     <Route index element={<Dashboard/>} />
                     <Route path="rooms/new" element={<CreateRoom />} />
                 </Route>
 
-                {/* Both render the Socket.IO chat; the role decides the view. */}
+                {/* Teacher view of the Socket.IO chat, with the raised-hand queue. */}
                 <Route path="/rooms/:roomId" element={<TeacherRoom />} />
-                <Route path="/rooms/join/:roomCode" element={<StudentRoom />} />
             </Route>
           
       </Routes>
