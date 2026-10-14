@@ -30,7 +30,7 @@ export default function Login({ onJoin }: LoginProps) {
   return (
     <div className="login">
       <form className="login-card" onSubmit={handleSubmit}>
-        <h1>CS HELP TOOL</h1>
+        <h1>LittlePointers</h1>
         <p>Pick a username to join the room.</p>
 
         {/* Role toggle: Student (default) or Teacher */}

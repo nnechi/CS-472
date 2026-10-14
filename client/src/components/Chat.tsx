@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { socket } from "../socket";
 import { ChatMessage, RaisedHand, Session } from "../types";
+import Navbar from '../components/Navbar'
+import Footer from "../components/Footer"
 
 interface ChatProps {
   session: Session;
@@ -66,9 +68,10 @@ export default function Chat({ session, onLeave }: ChatProps) {
   };
 
   return (
-    <div className="mx-auto flex h-screen w-full max-w-2xl flex-col bg-white text-black">
+    <div className="mx-auto flex h-screen w-full flex-col bg-white text-black">
+      <Navbar className="min-h-[8vh] flex-shrink-0"/>
       <header className="flex items-center justify-between border-b border-gray-200 p-4 font-semibold">
-        <span>CS HELP TOOL</span>
+        <span>LittlePointers</span>
         <span className="flex items-center gap-3 text-sm font-normal text-gray-500">
           {session.username} · {session.role}
           {onLeave && (
@@ -170,6 +173,8 @@ export default function Chat({ session, onLeave }: ChatProps) {
           Send
         </button>
       </form>
+      <Footer className="min-h-[8vh] flex-shrink-0"/>
     </div>
+    
   );
 }
