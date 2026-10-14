@@ -1,8 +1,8 @@
 import { Outlet } from "react-router-dom"
 import useAuth from "../hooks/useAuth"
 import Footer from "../components/Footer"
-// Shared frame for the signed-in area (/dashboard). Both roles land here;
-// the index page decides whether to show the student or teacher dashboard.
+
+//Originally had the teacherDashbooard but changed it to just DashboardLayout 
 export default function DashboardLayout() {
     const { auth, logout } = useAuth()
 
@@ -13,7 +13,7 @@ export default function DashboardLayout() {
                 {auth && (
                     <span className="flex items-center gap-4 text-sm text-gray-600">
                         <span>
-                            {auth.user.name} · {auth.user.role}
+                            {auth.user.name}
                         </span>
                         <button
                             type="button"

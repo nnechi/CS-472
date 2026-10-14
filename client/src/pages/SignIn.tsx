@@ -3,7 +3,6 @@ import { useRef, useEffect, useState, type ChangeEvent, type FormEvent } from "r
 import useAuth from "../hooks/useAuth"
 import { fakeLoginApi } from '../mockDb'
 import AuthCard from "../components/AuthCard"
-import { Role } from "../types"
 
 type SignInForm = {
   email: string;
@@ -21,7 +20,6 @@ export default function SignIn() {
 
     const [form, setForm] = useState<SignInForm>({ email: '', password: '' });
     // Only teachers sign in. Students join a room from the home page with a code.
-    const role: Role = 'teacher';
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -67,7 +65,7 @@ export default function SignIn() {
         // const data = await response.json()
         // setAuth(data)
         const response = await fakeLoginApi(form.email, form.password)
-            setAuth({ user: { ...response.user, role } })
+            setAuth({ user: response.user })
             setForm({ email: "", password: ""});
             navigate(from, { replace: true })
         }

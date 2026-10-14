@@ -29,11 +29,10 @@ export default function Home() {
 
     return(
         <div className="mx-auto flex max-w-sm flex-col gap-3 p-6">
-            <h1 className="text-2xl font-bold">Join a class</h1>
-            <p className="text-gray-600">Enter the room code your teacher gave you. No account needed.</p>
+            <h1 className="text-2xl font-bold">Join a Room</h1>
 
             <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-3" noValidate>
-                <label htmlFor="roomCode" className="font-bold">Room code</label>
+                <label htmlFor="roomCode" className="font-bold">Code</label>
                 <input
                     id="roomCode"
                     className="rounded-lg border border-gray-300 px-3 py-2 uppercase placeholder:normal-case"
@@ -42,7 +41,7 @@ export default function Home() {
                         setCode(e.target.value)
                         setError("")
                     }}
-                    placeholder="e.g. AB12CD"
+                    placeholder="Enter code"
                     maxLength={ROOM_CODE_MAX_LENGTH}
                     autoComplete="off"
                     autoFocus
@@ -57,7 +56,7 @@ export default function Home() {
                         setName(e.target.value)
                         setError("")
                     }}
-                    placeholder="e.g. Sam"
+                    placeholder="Enter your name"
                     maxLength={32}
                     autoComplete="nickname"
                 />
@@ -69,7 +68,7 @@ export default function Home() {
                     type="submit"
                     className="rounded-lg border border-gray-300 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100"
                 >
-                    Join room
+                    Join 
                 </button>
             </form>
 

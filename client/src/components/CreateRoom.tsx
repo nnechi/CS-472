@@ -1,25 +1,28 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { generateRoomCode } from "../../utils/roomCode"
+import { generateRoomCode } from "../utils/roomCode"
 
 // Rooms live in Socket.IO: a teacher "creates" one by joining a fresh code.
 // The code is generated here; the server starts the room on the first join.
 // Later this can POST /api/rooms so codes are unique and persisted.
-export default function CreateRoom() {
+// Rendered inline on the teacher dashboard; `onClose` hides it again.
+export default function CreateRoom({ onClose }: { onClose: () => void }) {
     const navigate = useNavigate()
     const [code, setCode] = useState(generateRoomCode)
 
     return (
-        <>
-            <button
-                type="button"
-                className="cursor-pointer text-gray-600 hover:text-black"
-                aria-label="Back to dashboard"
-                onClick={() => navigate("/dashboard")}
-            >
-                X
-            </button>
-            <h1 className="mt-2 text-2xl font-bold">Create a room</h1>
+        <div className="mt-4 rounded-lg border border-gray-300 p-4">
+            <div className="flex items-start justify-between">
+                {/* Fix later to adjust for backend: delete a room/room code  */}
+                <button
+                    type="button"
+                    className="cursor-pointer text-gray-600 hover:text-black"
+                    aria-label="Close create a room"
+                    onClick={onClose}
+                >
+                    X
+                </button>
+            </div>
             <p className="text-gray-600">Share this code with your students so they can join.</p>
 
             <p className="my-4 text-4xl font-bold tracking-widest">{code}</p>
@@ -40,6 +43,6 @@ export default function CreateRoom() {
                     Open room
                 </button>
             </div>
-        </>
+        </div>
     )
 }

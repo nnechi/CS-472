@@ -9,8 +9,7 @@ import LearnMore from "../pages/LearnMore"
 import ContactUs from "../pages/ContactUs"
 import SignUp from "../pages/SignUp"
 import SignIn from "../pages/SignIn"
-import Dashboard from "../pages/Dashboard"
-import CreateRoom from "../pages/teacher/CreateRoom"
+import TeacherDashboard from "../pages/teacher/TeacherDashboard"
 import TeacherRoom from "../pages/teacher/TeacherRoom"
 import StudentRoom from "../pages/student/StudentRoom"
 import NotFound from "../pages/NotFound"
@@ -39,9 +38,7 @@ export default function AppRoutes() {
             {/* Protected Routes: teachers sign in first. */}
             <Route element={<RequiredAuth />}>
                 <Route path="/dashboard" element={<DashboardLayout />}>
-                    {/* Teachers: create a room. */}
-                    <Route index element={<Dashboard/>} />
-                    <Route path="rooms/new" element={<CreateRoom />} />
+                    <Route index element={<TeacherDashboard />} />
                 </Route>
 
                 {/* Teacher view of the Socket.IO chat, with the raised-hand queue. */}

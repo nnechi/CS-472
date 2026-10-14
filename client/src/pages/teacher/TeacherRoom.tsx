@@ -12,11 +12,10 @@ export default function TeacherRoom() {
     const room = normalizeRoomCode(roomId ?? "")
 
     if (!auth || !room) return <Navigate to="/dashboard" replace />
-    if (auth.user.role !== "teacher") return <Navigate to={`/rooms/join/${room}`} replace />
 
     return (
         <Chat
-            session={{ username: auth.user.name, role: auth.user.role, room }}
+            session={{ username: auth.user.name, role: "teacher", room }}
             // Leaving unmounts the chat, which disconnects the socket.
             // Change this to deleting a room later: DELETE /api/rooms/:roomcode
             onLeave={() => navigate("/dashboard")}

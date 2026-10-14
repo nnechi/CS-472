@@ -1,14 +1,10 @@
 import { createContext, useState, useEffect, ReactNode, Dispatch, SetStateAction} from 'react'
-import { Role } from '../types'
 
 export interface AuthState {
     user: {
         id: string,
         email: string,
         name: string,
-        // Chosen on the sign-in form. Decides which dashboard and room view
-        // the user gets, and is sent to the server when joining a room.
-        role: Role,
     }
 }
 
