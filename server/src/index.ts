@@ -31,7 +31,7 @@ export function createApp() {
   });
 
   app.get("/", (_req, res) => {
-    res.json({ name: "CSHELP API", health: "/health" });
+    res.json({ name: "LITTLEPOINTERS API", health: "/health" });
   });
 
   // createRoom(host: RoomHost): string -- body: { host }

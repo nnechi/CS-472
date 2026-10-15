@@ -1,29 +1,13 @@
-import { useState } from "react";
-import Login from "./components/Login";
-import Chat from "./components/Chat";
-import { socket } from "./socket";
-import { Role } from "./types";
+import { BrowserRouter } from "react-router-dom"
+import AppRoutes from "./routes/AppRoutes"
 
-export interface Session {
-  username: string;
-  role: Role;
-  room: string;
-}
-
+// Teachers sign in at /login and manage rooms at /dashboard. Students join a
+// room from the home page with a code. The Socket.IO chat is rendered by the
+// room pages under /rooms. See AppRoutes.
 export default function App() {
-  const [session, setSession] = useState<Session | null>(null);
-// Called by <Login> when the user submits a name.
-  const handleJoin = (payload: Session) => {
-    setSession(payload);
-    socket.connect(); // open the socket after login
-  };
-
-
-  // Not logged in yet -> show the username picker.
-  if (!session) {
-    return <Login onJoin={handleJoin} />;
-  }
-
-  // Logged in -> show the chat room.
-  return <Chat session={session} />;
+  return(
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
+  )
 }
