@@ -21,6 +21,9 @@ export default function NavLinks({ onLinkClick }: NavLinksProp) {
             <NavLink to="/contact" className={getLinkClass} onClick={onLinkClick}>
                 Contact Us
             </NavLink>
+            <NavLink to="/joinroom" className={getLinkClass} onClick={onLinkClick}>
+                Join a Room
+            </NavLink>
         </>
     );
 }
