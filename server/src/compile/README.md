@@ -12,25 +12,35 @@ Example request:
 ```
 
 `runJavaScript(request, options)` runs JavaScript in a temporary working
-directory. It returns a result with collected `stdout` and `stderr`. It also
-calls `onUpdate` as text arrives, which can later forward each update to the
-requesting WebSocket client:
+directory. `runTypeScript(request, options)` type-checks and compiles a
+TypeScript file there, then runs the emitted JavaScript if compilation succeeds.
+Both return collected `stdout` and `stderr` and call `onUpdate` as text arrives,
+which can later forward each update to the requesting WebSocket client:
 
 ```ts
-import { runJavaScript } from "./compile";
+import { runJavaScript, runTypeScript } from "./compile";
 
 const result = await runJavaScript(
   { language: "javascript", code: "console.log('hello')" },
   { onUpdate: (update) => console.log(update) }
 );
 console.log(result.stdout); // "hello\n"
+
+const tsResult = await runTypeScript(
+  { language: "typescript", code: "const n: number = 42; console.log(n)" },
+  { onUpdate: (update) => console.log(update) }
+);
+console.log(tsResult.stdout); // "42\n"
 ```
 
 `CompileUpdate` includes status, stdout/stderr chunks, completion, and errors.
 Use `executionId` to associate updates with their request. To cancel a running
 job, pass an `AbortController` signal and call `abort()` on disconnect or on a
-client cancellation request. The default timeout is 5 seconds and the combined
-output limit is 256 KiB; both can be adjusted in `JavaScriptRunOptions`.
+client cancellation request. The default run timeout is 5 seconds, the
+TypeScript compile timeout is 10 seconds, and the combined output limit is
+256 KiB. These can be adjusted in the run options. TypeScript diagnostics are
+streamed as output; a failed compile never starts the program. The TypeScript
+runner currently accepts a single source file named `main.ts`.
 
 Install server dependencies once from the `server` directory:
 
@@ -47,15 +57,15 @@ After installation, from the repository root you can run
 repository root looks for `tsx` at the root and fails with
 `ERR_MODULE_NOT_FOUND`; use the npm script above instead.
 
-The other five languages still have command definitions only. Their runners
+The other four languages still have command definitions only. Their runners
 have not been implemented. Future work should:
 
-1. Run `compile` when present, then `run`, with `spawn` and `shell: false`.
+1. Add runners for C, C++, Java, and Python.
 2. Add a global concurrency limit and isolated execution with memory limits.
 3. Wire the callback and cancellation signal to the WebSocket layer.
 
 The current server image has Node but does not install Python, Java, GCC, or
-G++. `tsc` is supplied by the server's TypeScript development dependency. The
-JavaScript runner is suitable for local development; the temporary directory,
+G++. `tsc` is supplied by the server's TypeScript dependency. These runners are
+suitable for local development; the temporary directory,
 timeout, and output cap do not isolate untrusted code from the server's files
 or network.

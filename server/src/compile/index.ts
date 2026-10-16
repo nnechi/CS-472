@@ -17,6 +17,9 @@ export {
   DEFAULT_MAX_OUTPUT_BYTES,
 } from "./javascript";
 export type { JavaScriptRunOptions } from "./javascript";
+export { runTypeScript } from "./typescript";
+export type { TypeScriptRunOptions } from "./typescript";
+export { DEFAULT_COMPILE_TIMEOUT_MS } from "./runner";
 export { LANGUAGE_SPECS } from "./languages";
 export {
   createExecutionPlan,

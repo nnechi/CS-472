@@ -18,6 +18,7 @@ export const LANGUAGE_SPECS: Readonly<Record<CompileLanguage, LanguageSpec>> = {
         "--module", "commonjs",
         "--target", "ES2022",
         "--skipLibCheck",
+        "--noEmitOnError",
       ],
     },
     run: { executable: "node", args: ["build/main.js"] },

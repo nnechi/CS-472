@@ -8,19 +8,19 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test:compile": "node --import tsx --test src/compile/javascript.test.ts"
+    "test:compile": "node --import tsx --test src/compile/javascript.test.ts src/compile/typescript.test.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "mongoose": "^8.5.1",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "typescript": "^5.5.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^20.14.11",
-    "tsx": "^4.16.2",
-    "typescript": "^5.5.3"
+    "tsx": "^4.16.2"
   }
 }
