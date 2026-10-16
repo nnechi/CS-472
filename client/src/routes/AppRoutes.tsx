@@ -13,6 +13,7 @@ import TeacherDashboard from "../pages/teacher/TeacherDashboard"
 import TeacherRoom from "../pages/teacher/TeacherRoom"
 import StudentRoom from "../pages/student/StudentRoom"
 import NotFound from "../pages/NotFound"
+import JoinRoom from "../pages/JoinRoom"
 
 
 export default function AppRoutes() {
@@ -24,6 +25,7 @@ export default function AppRoutes() {
                 <Route path="about" element={<AboutUs />}/>
                 <Route path="learn-more" element={<LearnMore />} />
                 <Route path="contact" element={<ContactUs />} />
+                <Route path="joinroom" element={<JoinRoom />} />
                 <Route path="*" element={<NotFound />} />
             </Route>
 

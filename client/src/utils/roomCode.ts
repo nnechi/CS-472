@@ -3,9 +3,6 @@
 // URLs and the chat banner consistent.
 export const ROOM_CODE_MAX_LENGTH = 8;
 
-export function generateRoomCode(): string {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
 
 export function normalizeRoomCode(code: string): string {
   return code.trim().toUpperCase().slice(0, ROOM_CODE_MAX_LENGTH);
