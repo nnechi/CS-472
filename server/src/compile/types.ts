@@ -30,10 +30,22 @@ export type CompileUpdate =
       signal: string | null;
       timedOut: boolean;
       cancelled: boolean;
+      outputLimitExceeded: boolean;
     }
   | { executionId: string; type: "error"; message: string };
 
 export type OnCompileUpdate = (update: CompileUpdate) => void;
+
+export interface CompileResult {
+  executionId: string;
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+  signal: string | null;
+  timedOut: boolean;
+  cancelled: boolean;
+  outputLimitExceeded: boolean;
+}
 
 export interface CommandSpec {
   executable: string;

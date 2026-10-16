@@ -1,4 +1,4 @@
-# Compile module scaffold
+# Compile module
 
 `createExecutionPlan(rawRequest)` validates an incoming request and returns the
 fixed source filename and command specs for JavaScript, TypeScript, C, C++, Java,
@@ -11,18 +11,51 @@ Example request:
 { language: "python", code: "print('hello')", stdin: "" }
 ```
 
-The `CompileUpdate` union describes status, stdout/stderr chunks, completion,
-and errors. The transport should send updates only to the client that started
-the execution, using `executionId` to associate them with the request.
+`runJavaScript(request, options)` runs JavaScript in a temporary working
+directory. It returns a result with collected `stdout` and `stderr`. It also
+calls `onUpdate` as text arrives, which can later forward each update to the
+requesting WebSocket client:
 
-This scaffold does not execute code yet. The next implementation should:
+```ts
+import { runJavaScript } from "./compile";
 
-1. Create one temporary working directory per execution and write `sourceFile`.
-2. Run `compile` when present, then `run`, with `spawn` and `shell: false`.
-3. Forward stdout and stderr chunks through an `OnCompileUpdate` callback.
-4. Enforce time, output, memory, and concurrency limits; support cancellation.
-5. Stop active work on disconnect and remove temporary files in `finally`.
-6. Execute submissions in an isolated environment with the listed toolchains.
+const result = await runJavaScript(
+  { language: "javascript", code: "console.log('hello')" },
+  { onUpdate: (update) => console.log(update) }
+);
+console.log(result.stdout); // "hello\n"
+```
+
+`CompileUpdate` includes status, stdout/stderr chunks, completion, and errors.
+Use `executionId` to associate updates with their request. To cancel a running
+job, pass an `AbortController` signal and call `abort()` on disconnect or on a
+client cancellation request. The default timeout is 5 seconds and the combined
+output limit is 256 KiB; both can be adjusted in `JavaScriptRunOptions`.
+
+Install server dependencies once from the `server` directory:
+
+```sh
+cd server
+npm install
+npm run test:compile
+```
+
+After installation, from the repository root you can run
+`npm --prefix server run test:compile`.
+
+`tsx` is a server development dependency. Running `node --import tsx` from the
+repository root looks for `tsx` at the root and fails with
+`ERR_MODULE_NOT_FOUND`; use the npm script above instead.
+
+The other five languages still have command definitions only. Their runners
+have not been implemented. Future work should:
+
+1. Run `compile` when present, then `run`, with `spawn` and `shell: false`.
+2. Add a global concurrency limit and isolated execution with memory limits.
+3. Wire the callback and cancellation signal to the WebSocket layer.
 
 The current server image has Node but does not install Python, Java, GCC, or
-G++. `tsc` is supplied by the server's TypeScript development dependency.
+G++. `tsc` is supplied by the server's TypeScript development dependency. The
+JavaScript runner is suitable for local development; the temporary directory,
+timeout, and output cap do not isolate untrusted code from the server's files
+or network.
