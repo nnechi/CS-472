@@ -1,14 +1,39 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { generateRoomCode } from "../utils/roomCode"
+import { createRoom } from '../api.ts'
+import useAuth from "../hooks/useAuth"
 
-// Rooms live in Socket.IO: a teacher "creates" one by joining a fresh code.
-// The code is generated here; the server starts the room on the first join.
 // Later this can POST /api/rooms so codes are unique and persisted.
 // Rendered inline on the teacher dashboard; `onClose` hides it again.
 export default function CreateRoom({ onClose }: { onClose: () => void }) {
     const navigate = useNavigate()
-    const [code, setCode] = useState(generateRoomCode)
+
+    const { auth } = useAuth(); 
+    const [code, setCode] = useState(""); 
+
+
+ // request code from the backend for the current room. 
+    async function requestCode(){ 
+        if (!auth){ 
+            return; // no user found. 
+        }
+        try { 
+           const newCode : string = await createRoom(auth.user.id); 
+            if (newCode === ""){
+                throw new Error("Server did not return a room code."); 
+            } 
+
+            setCode(newCode); 
+
+        } catch(e) { 
+            console.error(e); 
+        }
+    }
+
+
+    //render this once before component shows. 
+    useEffect(() => {  requestCode(); }, []); 
+
 
     return (
         <div className="mt-4 rounded-lg border border-gray-300 p-4">
@@ -31,13 +56,14 @@ export default function CreateRoom({ onClose }: { onClose: () => void }) {
                 <button
                     type="button"
                     className="rounded-lg border border-gray-300 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100"
-                    onClick={() => setCode(generateRoomCode())}
+                    onClick={() => requestCode()}
                 >
                     New code
                 </button>
                 <button
                     type="button"
                     className="rounded-lg bg-neutral-900 px-4 py-2 text-white cursor-pointer hover:bg-neutral-700"
+                    disabled = {!code}
                     onClick={() => navigate(`/rooms/${code}`)}
                 >
                     Open room

@@ -7,6 +7,10 @@ import { connectToDatabase } from "./db";
 import { registerSocketHandlers } from "./socket";
 import { ClientToServerEvents, ServerToClientEvents } from "./types";
 
+import { generateRoomCode } from "./utils/roomCode"; 
+import {Room} from "./models/Room"
+
+
 const PORT = Number(process.env.PORT) || 3000;
 // The browser (running on your host machine) will connect from the Vite dev
 // server's origin. We allow it explicitly so CORS doesn't block the connection.
@@ -35,9 +39,35 @@ export function createApp() {
   });
 
   // createRoom(host: RoomHost): string -- body: { host }
-  // TODO: Verify the authenticated participant is a RoomHost, generate a unique
-  // room code, and store the Room before returning its code.
-  app.post("/api/rooms", notImplemented("createRoom"));
+  // TODO: Verify the authenticated participant is a RoomHost. 
+  app.post("/api/rooms", async (req, res) => { 
+    
+      const code : string = generateRoomCode(); // generate a random code <roomCode.ts> 
+      const hostID = req.body.hostID;
+
+      if (typeof(hostID) !== "string"){ 
+        console.error("Invalid Value"); 
+        res.status(400).json({error : "Room Creation Error: Invalid Value"}); 
+        return; 
+      }
+
+      const expiresAt : Date =  new Date(Date.now() + 60 * 60 * 1000); // expires every 60 mins WE CAN CHANGE THIS BTW 
+      
+      try { 
+        const createdRoomDoc = await Room.create({ 
+          code, 
+          hostID, 
+          expiresAt
+        }); 
+        console.log("Created Room successfully!"); 
+        res.status(201).json({code : createdRoomDoc.code}); // return json createdRoom to the frontend. 
+      } catch (e){
+        console.error(e); 
+        res.status(500).json({error : "Failed to create room on server."}); 
+
+      }
+
+  });
 
   // getRoom(roomCode: string): Room
   app.get("/api/rooms/:roomCode", notImplemented("getRoom"));
