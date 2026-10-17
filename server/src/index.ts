@@ -43,13 +43,20 @@ export function createApp(io : AppServer) {
   app.post("/api/rooms", async (req, res) => { 
     
       const code : string = generateRoomCode(); // generate a random code <roomCode.ts> 
-      const hostID = req.body.hostID;
+      let hostID = req.body.hostID;
 
       if (typeof(hostID) !== "string"){ 
         console.error("Invalid Value"); 
         res.status(400).json({error : "Room Creation Error: Invalid Value"}); 
         return; 
       }
+
+      hostID = hostID.trim(); 
+
+       if (!hostID){ 
+          res.status(400).json({error: "Missing HostID. "}); 
+          return; 
+        }
 
       const expiresAt : Date =  new Date(Date.now() + 60 * 60 * 1000); // expires every 60 mins WE CAN CHANGE THIS BTW 
       
@@ -76,13 +83,13 @@ export function createApp(io : AppServer) {
   // TODO: Restrict deletion to the room host and disconnect its participants.
   app.delete("/api/rooms/:roomCode", async (req, res) => { 
       const c : string = req.params.roomCode.trim().toUpperCase(); 
-      let h : string = req.body.hostID; 
+      let hostID : string = req.body.hostID; 
 
-      if (typeof(h) !== "string"){
+      if (typeof(hostID) !== "string"){
         res.status(400).json({error : "hostID must be a string."}); 
         return; 
       }
-      h = h.trim(); 
+      hostID = hostID.trim(); 
 
 
         if (!c){
@@ -90,13 +97,13 @@ export function createApp(io : AppServer) {
         return; 
         }
 
-        if (!h){ 
+        if (!hostID){ 
           res.status(400).json({error: "Missing HostID. "}); 
           return; 
         }
 
       try { 
-        const deleted = await Room.findOneAndDelete({code : c, hostID : h}); 
+        const deleted = await Room.findOneAndDelete({code : c, hostID : hostID}); 
 
         if (deleted === null){ 
           res.status(404).json({error : "Nothing to delete!"}); 
