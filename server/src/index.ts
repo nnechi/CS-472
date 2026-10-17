@@ -75,13 +75,13 @@ export function createApp() {
   // deleteRoom(roomCode: string): boolean
   // TODO: Restrict deletion to the room host and disconnect its participants.
   app.delete("/api/rooms/:roomCode", async (req, res) => { 
-      const c : string = req.params.roomCode.trim().uppercase(); 
+      const c : string = req.params.roomCode.trim().toUpperCase(); 
       const h : string = req.body.hostID; 
 
       if (!c || !h){ 
 
         if (!c && !h){ 
-          res.status(400).json({error: "No target room and no "})
+          res.status(400).json({error: "No target room and not a teacher."})
         }
         if (!c){
         res.status(400).json({error: "No target room in request body."}); 
@@ -89,7 +89,7 @@ export function createApp() {
         }
 
         if (!h){ 
-          res.status(400).json({error: "No target room in request body."}); 
+          res.status(400).json({error: "Not a teacher."}); 
           return; 
         }
         return; 
@@ -105,7 +105,7 @@ export function createApp() {
         }  
       } catch (e){ 
         console.error(e); 
-        res.status(400).json({error: "Failed to delete room from server"}); 
+        res.status(500).json({error: "Failed to delete room from server"}); 
       }
 
   });
