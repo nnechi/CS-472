@@ -102,8 +102,8 @@ export function createApp(io : AppServer) {
           res.status(404).json({error : "Nothing to delete!"}); 
         } else { 
           closeRoom(io,c); 
-
            res.status(200).json({message : "Successfully deleted room."});
+           return; 
         }  
       } catch (e){ 
         console.error(e); 

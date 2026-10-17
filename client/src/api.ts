@@ -17,3 +17,19 @@ export async function createRoom(hostID : string) : Promise<string>{
 
 
 }
+
+
+// api middleware to communicate a deletion to the room; 
+
+
+export async function deleteRoom(roomCode : string, hostID : string) : Promise<Boolean> { 
+    const res = await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent(roomCode)}`, { 
+        method: "DELETE", 
+        headers: {"Content-Type":"application/json"}, 
+        body: JSON.stringify({hostID})
+    })
+
+
+    return res.ok; 
+
+}
