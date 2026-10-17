@@ -4,8 +4,8 @@ import { Server } from "socket.io";
 import cors from "cors";
 
 import { connectToDatabase } from "./db";
-import { registerSocketHandlers } from "./socket";
-import { ClientToServerEvents, ServerToClientEvents } from "./types";
+import {AppServer, closeRoom,  registerSocketHandlers } from "./socket";
+
 
 import { generateRoomCode } from "./utils/roomCode"; 
 import {Room} from "./models/Room"
@@ -24,7 +24,7 @@ function notImplemented(operation: string): RequestHandler {
   };
 }
 
-export function createApp() {
+export function createApp(io : AppServer) {
   const app = express();
   app.use(cors({ origin: CLIENT_ORIGIN }));
   app.use(express.json());
@@ -76,24 +76,24 @@ export function createApp() {
   // TODO: Restrict deletion to the room host and disconnect its participants.
   app.delete("/api/rooms/:roomCode", async (req, res) => { 
       const c : string = req.params.roomCode.trim().toUpperCase(); 
-      const h : string = req.body.hostID; 
+      let h : string = req.body.hostID; 
 
-      if (!c || !h){ 
+      if (typeof(h) !== "string"){
+        res.status(400).json({error : "hostID must be a string."}); 
+        return; 
+      }
+      h = h.trim(); 
 
-        if (!c && !h){ 
-          res.status(400).json({error: "No target room and not a teacher."})
-        }
+
         if (!c){
-        res.status(400).json({error: "No target room in request body."}); 
+        res.status(400).json({error: "Missing room code."}); 
         return; 
         }
 
         if (!h){ 
-          res.status(400).json({error: "Not a teacher."}); 
+          res.status(400).json({error: "Missing HostID. "}); 
           return; 
         }
-        return; 
-      }
 
       try { 
         const deleted = await Room.findOneAndDelete({code : c, hostID : h}); 
@@ -101,6 +101,8 @@ export function createApp() {
         if (deleted === null){ 
           res.status(404).json({error : "Nothing to delete!"}); 
         } else { 
+          closeRoom(io,c); 
+
            res.status(200).json({message : "Successfully deleted room."});
         }  
       } catch (e){ 
@@ -145,16 +147,22 @@ export function createApp() {
 
 async function main() {
   await connectToDatabase();
-  const app = createApp();
 
-  // Express only handles the HTTP handler; Socket.IO needs the raw http server.
-  const server = createServer(app);
 
-  const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
-    cors: { origin: CLIENT_ORIGIN, methods: ["GET", "POST"] },
-  });
+const io : AppServer = new Server({ 
+  cors : { origin : CLIENT_ORIGIN, methods : ["GET", "POST"]}, 
+})
+
+    const app = createApp(io);
+    // Express only handles the HTTP handler; Socket.IO needs the raw http server.
+    const server = createServer(app);
+    io.attach(server); 
+
 
   registerSocketHandlers(io);
+
+
+  
 
   server.listen(PORT, () => {
     console.log(`[server] listening on http://localhost:${PORT}`);
