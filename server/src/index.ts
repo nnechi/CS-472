@@ -74,7 +74,41 @@ export function createApp() {
 
   // deleteRoom(roomCode: string): boolean
   // TODO: Restrict deletion to the room host and disconnect its participants.
-  app.delete("/api/rooms/:roomCode", notImplemented("deleteRoom"));
+  app.delete("/api/rooms/:roomCode", async (req, res) => { 
+      const c : string = req.params.roomCode.trim().uppercase(); 
+      const h : string = req.body.hostID; 
+
+      if (!c || !h){ 
+
+        if (!c && !h){ 
+          res.status(400).json({error: "No target room and no "})
+        }
+        if (!c){
+        res.status(400).json({error: "No target room in request body."}); 
+        return; 
+        }
+
+        if (!h){ 
+          res.status(400).json({error: "No target room in request body."}); 
+          return; 
+        }
+        return; 
+      }
+
+      try { 
+        const deleted = await Room.findOneAndDelete({code : c, hostID : h}); 
+
+        if (deleted === null){ 
+          res.status(404).json({error : "Nothing to delete!"}); 
+        } else { 
+           res.status(200).json({message : "Successfully deleted room."});
+        }  
+      } catch (e){ 
+        console.error(e); 
+        res.status(400).json({error: "Failed to delete room from server"}); 
+      }
+
+  });
 
   // joinRoom(ID: string, user: Participant): boolean -- body: { user }
   // TODO: Check the room code and capacity before adding the participant.
