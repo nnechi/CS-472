@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { createRoom } from '../api.ts'
+import { createRoom, deleteRoom } from '../api.ts'
 import useAuth from "../hooks/useAuth"
 
 // Later this can POST /api/rooms so codes are unique and persisted.
@@ -13,9 +13,9 @@ export default function CreateRoom({ onClose }: { onClose: () => void }) {
 
 
  // request code from the backend for the current room. 
-    async function requestCode(){ 
+    async function requestCode() : Promise<string>{ 
         if (!auth){ 
-            return; // no user found. 
+            return ""; // no user found. 
         }
         try { 
            const newCode : string = await createRoom(auth.user.id); 
@@ -23,17 +23,49 @@ export default function CreateRoom({ onClose }: { onClose: () => void }) {
                 throw new Error("Server did not return a room code."); 
             } 
 
-            setCode(newCode); 
+           return newCode; 
+
 
         } catch(e) { 
             console.error(e); 
+            return ""; 
         }
+
+
+    }
+
+
+    function discardCode(code : string){ 
+        if (auth && code) deleteRoom(code, auth.user.id).catch(console.error); 
     }
 
 
     //render this once before component shows. 
-    useEffect(() => {  requestCode(); }, []); 
+    useEffect( () => { 
+        let cancelled = false; 
+        requestCode().then((newCode) => { 
+            if (cancelled) discardCode(newCode)
+            else setCode(newCode); 
+    });
 
+    return  () => { cancelled = true; }
+}, []); 
+
+
+
+
+    async function createNewCode(){ 
+        const oldCode = code; 
+        const newCode = await requestCode(); 
+        if (!newCode) return ; 
+        setCode(newCode); 
+        discardCode(oldCode); 
+    }
+
+    function close(){ 
+        discardCode(code); 
+        onClose(); 
+    }
 
     return (
         <div className="mt-4 rounded-lg border border-gray-300 p-4">
@@ -43,7 +75,7 @@ export default function CreateRoom({ onClose }: { onClose: () => void }) {
                     type="button"
                     className="cursor-pointer text-gray-600 hover:text-black"
                     aria-label="Close create a room"
-                    onClick={onClose}
+                    onClick={close}
                 >
                     X
                 </button>
@@ -56,7 +88,7 @@ export default function CreateRoom({ onClose }: { onClose: () => void }) {
                 <button
                     type="button"
                     className="rounded-lg border border-gray-300 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100"
-                    onClick={() => requestCode()}
+                    onClick={() => createNewCode()}
                 >
                     New code
                 </button>
