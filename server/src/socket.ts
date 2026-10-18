@@ -11,6 +11,10 @@ import {
 } from "./types";
 
 
+import { Room } from "./models/Room"; 
+
+
+
 export type AppServer = Server< 
   ClientToServerEvents, 
   ServerToClientEvents, 
@@ -89,6 +93,23 @@ export function registerSocketHandlers(
 
         if (!cleanUser || !roomCode) return;
 
+        try{ 
+        const success = await Room.findOne( {code : roomCode }); 
+          if (success === null || success.expiresAt === null || success.expiresAt.getTime() <= Date.now()){ 
+            socket.emit("join error"); 
+            socket.disconnect(); 
+            return; 
+        }
+
+        } catch (e){ 
+          console.error(e); 
+          socket.emit("join error"); 
+          socket.disconnect(); 
+          return; 
+          
+        }
+        
+      
         // Remember who this socket is so later events don't resend it.
         socket.data.username = cleanUser;
         socket.data.role = role;

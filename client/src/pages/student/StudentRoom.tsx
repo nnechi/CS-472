@@ -24,7 +24,12 @@ export default function StudentRoom() {
             onRoomClosed={()=>  { 
                 window.alert("Your teacher ended this room."); 
                 navigate("/"); 
-            }}  
+            }} 
+            
+            onJoinError = { () => { 
+                window.alert("This room doesn't exist or it's expired."); 
+                navigate("/"); 
+            }}
         />
     )
 }
