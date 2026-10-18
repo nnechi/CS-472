@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { createRoom, deleteRoom } from '../api.ts'
-import useAuth from "../hooks/useAuth"
+import { createRoom, deleteRoom } from '../../api.ts'
+import useAuth from "../../hooks/useAuth"
 
 // Later this can POST /api/rooms so codes are unique and persisted.
 // Rendered inline on the teacher dashboard; `onClose` hides it again.
-export default function CreateRoom({ onClose }: { onClose: () => void }) {
+export default function RoomCreation(/*{ onClose }: { onClose: () => void }*/) {
     const navigate = useNavigate()
 
     const { auth } = useAuth(); 
@@ -77,7 +77,8 @@ export default function CreateRoom({ onClose }: { onClose: () => void }) {
 
     function close(){ 
         discardCode(code); 
-        onClose(); 
+        //onClose();
+        navigate("/dashboard")
     }
 
     return (
