@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom"
+import { Link, Outlet } from "react-router-dom"
 import useAuth from "../hooks/useAuth"
 import Footer from "../components/Footer"
 
@@ -12,9 +12,9 @@ export default function DashboardLayout() {
                 
                 {auth && (
                     <span className="flex items-center gap-4 text-sm text-gray-600">
-                        <span>
+                        <Link to="/dashboard" className="hover:underline">
                             {auth.user.name}
-                        </span>
+                        </Link>
                         <button
                             type="button"
                             className="rounded-lg border border-gray-300 px-3 py-1 text-gray-900 cursor-pointer hover:bg-neutral-100"
