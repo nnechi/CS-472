@@ -6,21 +6,35 @@ interface ChatProps {
   session: Session;
   // Called when the user clicks "Leave room". The parent decides where to go.
   onLeave?: () => void;
+  onRoomClosed? : () => void; 
+  onJoinError? : () => void; 
+
 }
 
 const buttonClass =
   "rounded-lg border border-indigo-600 px-3 py-1.5 text-sm text-indigo-600 cursor-pointer hover:bg-indigo-50";
 
-export default function Chat({ session, onLeave }: ChatProps) {
+export default function Chat({ session, onLeave, onRoomClosed, onJoinError}: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   // Teachers get the room's queue; students only learn their own status.
   const [handQueue, setHandQueue] = useState<RaisedHand[]>([]);
   const [handRaised, setHandRaised] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const onRoomClosedRef = useRef(onRoomClosed); 
+  onRoomClosedRef.current = onRoomClosed; 
+  const onJoinErrorRef = useRef(onJoinError); 
+  onJoinErrorRef.current = onJoinError; 
+
+
+
 
   useEffect(() => {
     const onHistory = (history: ChatMessage[]) => setMessages(history);
+    const onClosed = () => onRoomClosedRef.current?.(); 
+
+    const onJoinError = () => onJoinErrorRef.current?.(); 
+
     const onMessage = (message: ChatMessage) =>
       setMessages((prev) => [...prev, message]);
     const onHandQueue = (queue: RaisedHand[]) => setHandQueue(queue);
@@ -29,6 +43,10 @@ export default function Chat({ session, onLeave }: ChatProps) {
     socket.on("chat message", onMessage);
     socket.on("hand queue", onHandQueue);
     socket.on("hand status", setHandRaised);
+    socket.on("room closed", onClosed); 
+    socket.on("join error", onJoinError); 
+
+
 
     // The socket is opened only while a room is on screen. Socket.IO buffers
     // the "join" below until the connection is up, so emitting right away is
@@ -46,6 +64,8 @@ export default function Chat({ session, onLeave }: ChatProps) {
       socket.off("chat message", onMessage);
       socket.off("hand queue", onHandQueue);
       socket.off("hand status", setHandRaised);
+      socket.off("room closed", onClosed); 
+      socket.off("join error", onJoinError); 
       socket.disconnect();
       setMessages([]);
       setHandQueue([]);

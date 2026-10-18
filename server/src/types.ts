@@ -40,6 +40,8 @@ export interface ServerToClientEvents {
   "hand queue": (queue: RaisedHand[]) => void;
   // Sent to a student when their own hand goes up or down.
   "hand status": (raised: boolean) => void;
+  "room closed" : () => void; 
+  "join error" : () => void; 
 }
 
 //Incase we set up server-to-server events

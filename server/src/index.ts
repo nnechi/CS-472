@@ -4,8 +4,8 @@ import { Server } from "socket.io";
 import cors from "cors";
 
 import { connectToDatabase } from "./db";
-import { registerSocketHandlers } from "./socket";
-import { ClientToServerEvents, ServerToClientEvents } from "./types";
+import {AppServer, closeRoom,  registerSocketHandlers } from "./socket";
+
 
 import { generateRoomCode } from "./utils/roomCode"; 
 import {Room} from "./models/Room"
@@ -24,7 +24,7 @@ function notImplemented(operation: string): RequestHandler {
   };
 }
 
-export function createApp() {
+export function createApp(io : AppServer) {
   const app = express();
   app.use(cors({ origin: CLIENT_ORIGIN }));
   app.use(express.json());
@@ -43,13 +43,20 @@ export function createApp() {
   app.post("/api/rooms", async (req, res) => { 
     
       const code : string = generateRoomCode(); // generate a random code <roomCode.ts> 
-      const hostID = req.body.hostID;
+      let hostID = req.body.hostID;
 
       if (typeof(hostID) !== "string"){ 
         console.error("Invalid Value"); 
         res.status(400).json({error : "Room Creation Error: Invalid Value"}); 
         return; 
       }
+
+      hostID = hostID.trim(); 
+
+       if (!hostID){ 
+          res.status(400).json({error: "Missing HostID. "}); 
+          return; 
+        }
 
       const expiresAt : Date =  new Date(Date.now() + 60 * 60 * 1000); // expires every 60 mins WE CAN CHANGE THIS BTW 
       
@@ -70,11 +77,62 @@ export function createApp() {
   });
 
   // getRoom(roomCode: string): Room
-  app.get("/api/rooms/:roomCode", notImplemented("getRoom"));
+  app.get("/api/rooms/:roomCode", async (req, res) => { 
+    const c : string = req.params.roomCode.trim().toUpperCase(); 
+
+    try { 
+      const roomExists = await Room.findOne({code : c}); 
+      if (roomExists === null || roomExists.expiresAt.getTime() <= Date.now()){ 
+        res.status(404).json({error: "Cannot find room!"}); 
+      } else { 
+        res.status(200).json({message: "Joining room!"}); 
+      }
+    } catch (e){ 
+      console.error(e); 
+      res.status(500).json({error: "Failed to look up room."}); 
+    }
+  }
+  );
 
   // deleteRoom(roomCode: string): boolean
   // TODO: Restrict deletion to the room host and disconnect its participants.
-  app.delete("/api/rooms/:roomCode", notImplemented("deleteRoom"));
+  app.delete("/api/rooms/:roomCode", async (req, res) => { 
+      const c : string = req.params.roomCode.trim().toUpperCase(); 
+      let hostID : string = req.body.hostID; 
+
+      if (typeof(hostID) !== "string"){
+        res.status(400).json({error : "hostID must be a string."}); 
+        return; 
+      }
+      hostID = hostID.trim(); 
+
+
+        if (!c){
+        res.status(400).json({error: "Missing room code."}); 
+        return; 
+        }
+
+        if (!hostID){ 
+          res.status(400).json({error: "Missing HostID. "}); 
+          return; 
+        }
+
+      try { 
+        const deleted = await Room.findOneAndDelete({code : c, hostID : hostID}); 
+
+        if (deleted === null){ 
+          res.status(404).json({error : "Nothing to delete!"}); 
+        } else { 
+          closeRoom(io,c); 
+           res.status(200).json({message : "Successfully deleted room."});
+           return; 
+        }  
+      } catch (e){ 
+        console.error(e); 
+        res.status(500).json({error: "Failed to delete room from server"}); 
+      }
+
+  });
 
   // joinRoom(ID: string, user: Participant): boolean -- body: { user }
   // TODO: Check the room code and capacity before adding the participant.
@@ -111,16 +169,22 @@ export function createApp() {
 
 async function main() {
   await connectToDatabase();
-  const app = createApp();
 
-  // Express only handles the HTTP handler; Socket.IO needs the raw http server.
-  const server = createServer(app);
 
-  const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
-    cors: { origin: CLIENT_ORIGIN, methods: ["GET", "POST"] },
-  });
+const io : AppServer = new Server({ 
+  cors : { origin : CLIENT_ORIGIN, methods : ["GET", "POST"]}, 
+})
+
+    const app = createApp(io);
+    // Express only handles the HTTP handler; Socket.IO needs the raw http server.
+    const server = createServer(app);
+    io.attach(server); 
+
 
   registerSocketHandlers(io);
+
+
+  
 
   server.listen(PORT, () => {
     console.log(`[server] listening on http://localhost:${PORT}`);

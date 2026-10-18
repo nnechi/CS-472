@@ -10,6 +10,27 @@ import {
   SocketData,
 } from "./types";
 
+
+import { Room } from "./models/Room"; 
+
+
+
+export type AppServer = Server< 
+  ClientToServerEvents, 
+  ServerToClientEvents, 
+  InterServerEvents, 
+  SocketData
+>; 
+
+
+
+// need helper function to disconnect all of the things from the room. 
+export function closeRoom(io : AppServer, room : string): void { 
+  io.to(room).emit("room closed"); 
+  handQueues.delete(room); 
+  io.in(room).disconnectSockets(); 
+}
+
 //raise hands are not stored in database, 
 const handQueues = new Map<string, RaisedHand[]>();
 
@@ -23,6 +44,7 @@ export function registerSocketHandlers(
 ): void {
   const getQueue = (room: string) => handQueues.get(room) ?? [];
 
+  
   //separate room, a "channel" for teachers of a room to get the raise hand broadcasts.
   //students don't see other students waiting
   const teacherChannel = (room: string) => `${room}:teachers`;
@@ -71,6 +93,23 @@ export function registerSocketHandlers(
 
         if (!cleanUser || !roomCode) return;
 
+        try{ 
+        const success = await Room.findOne( {code : roomCode }); 
+          if (success === null || success.expiresAt === null || success.expiresAt.getTime() <= Date.now()){ 
+            socket.emit("join error"); 
+            socket.disconnect(); 
+            return; 
+        }
+
+        } catch (e){ 
+          console.error(e); 
+          socket.emit("join error"); 
+          socket.disconnect(); 
+          return; 
+          
+        }
+        
+      
         // Remember who this socket is so later events don't resend it.
         socket.data.username = cleanUser;
         socket.data.role = role;
