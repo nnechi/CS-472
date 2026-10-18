@@ -11,6 +11,7 @@ import SignUp from "../pages/SignUp"
 import SignIn from "../pages/SignIn"
 import TeacherDashboard from "../pages/teacher/TeacherDashboard"
 import TeacherRoom from "../pages/teacher/TeacherRoom"
+import CreateActivity from "../pages/teacher/CreateActivity"
 import StudentRoom from "../pages/student/StudentRoom"
 import NotFound from "../pages/NotFound"
 import JoinRoom from "../pages/JoinRoom"
@@ -41,6 +42,7 @@ export default function AppRoutes() {
             <Route element={<RequiredAuth />}>
                 <Route path="/dashboard" element={<DashboardLayout />}>
                     <Route index element={<TeacherDashboard />} />
+                    <Route path="create-activity" element={<CreateActivity />} />
                 </Route>
 
                 {/* Teacher view of the Socket.IO chat, with the raised-hand queue. */}
