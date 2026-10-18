@@ -77,7 +77,22 @@ export function createApp(io : AppServer) {
   });
 
   // getRoom(roomCode: string): Room
-  app.get("/api/rooms/:roomCode", notImplemented("getRoom"));
+  app.get("/api/rooms/:roomCode", async (req, res) => { 
+    const c : string = req.params.roomCode.trim().toUpperCase(); 
+
+    try { 
+      const roomExists = await Room.findOne({code : c}); 
+      if (roomExists === null || roomExists.expiresAt.getTime() <= Date.now()){ 
+        res.status(404).json({error: "Cannot find room!"}); 
+      } else { 
+        res.status(200).json({message: "Joining room!"}); 
+      }
+    } catch (e){ 
+      console.error(e); 
+      res.status(500).json({error: "Failed to look up room."}); 
+    }
+  }
+  );
 
   // deleteRoom(roomCode: string): boolean
   // TODO: Restrict deletion to the room host and disconnect its participants.

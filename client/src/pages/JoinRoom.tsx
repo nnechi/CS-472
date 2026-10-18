@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { ROOM_CODE_MAX_LENGTH, normalizeRoomCode } from "../utils/roomCode"
+import { checkRoomExists } from "../api.ts"; 
 
 // Students land here, enter the room code their teacher shared, and go straight
 // into the room. No account is needed. The name is only shown in the chat and
@@ -11,7 +12,7 @@ export default function JoinRoom() {
     const [name, setName] = useState("")
     const [error, setError] = useState("")
 
-    const handleSubmit = (e: FormEvent) => {
+    const handleSubmit =  async (e: FormEvent) => {
         e.preventDefault()
         const roomCode = normalizeRoomCode(code)
         const username = name.trim().slice(0, 32)
@@ -24,7 +25,21 @@ export default function JoinRoom() {
             return
         }
         // The name travels in router state, not the URL, so it stays out of links.
-        navigate(`/rooms/join/${roomCode}`, { state: { username } })
+
+        try { 
+            const verifyRoom = await (checkRoomExists(roomCode)); 
+            if (verifyRoom){
+            navigate(`/rooms/join/${roomCode}`, { state: { username } })
+            } else { 
+                setError("That room doesn't exist or it has expired."); 
+                return; 
+            }
+        } catch (e){ 
+            setError("Couldn't reach server, try again."); 
+            console.error(e);
+            return;
+        }
+
     }
 
     return(

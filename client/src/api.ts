@@ -33,3 +33,12 @@ export async function deleteRoom(roomCode : string, hostID : string) : Promise<B
     return res.ok; 
 
 }
+
+export async function checkRoomExists(roomCode : string) : Promise<Boolean> { 
+    const res = await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent(roomCode)}`, { 
+        method: "GET", 
+        headers: {"Content-Type":"application/json"},
+    })
+
+    return res.ok; 
+}

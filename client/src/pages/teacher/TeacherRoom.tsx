@@ -38,6 +38,10 @@ export default function TeacherRoom() {
             // Leaving unmounts the chat, which disconnects the socket.
             // Change this to deleting a room later: DELETE /api/rooms/:roomcode
             onLeave={endRoom}
+            onJoinError = { () => { 
+                window.alert("This room doesn't exist or it's expired."); 
+                navigate("/dashboard"); 
+            }}
         />
     )
 }
