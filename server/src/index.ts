@@ -10,6 +10,13 @@ import { ClientToServerEvents, ServerToClientEvents } from "./types";
 import { generateRoomCode } from "./utils/roomCode"; 
 import {Room} from "./models/Room"
 
+import { authConfig } from "./auth/config";
+
+import { sessionMiddleware } from "./auth/session";
+
+//TEMPORARY, AUTH TEST. Prints the start of client ID (not secret)
+console.log("Google client ID: ", authConfig.googleClientId.slice(0,12) + "...");
+
 
 const PORT = Number(process.env.PORT) || 3000;
 // The browser (running on your host machine) will connect from the Vite dev
@@ -26,6 +33,20 @@ function notImplemented(operation: string): RequestHandler {
 
 export function createApp() {
   const app = express();
+
+  // behind hosting proxy in prod, lets 'secure' cookies work
+  if (authConfig.isProduction) {
+    app.set("trust proxy", 1);
+  }
+  // Turn on sessions for every request.
+  app.use(sessionMiddleware);
+
+  // TEMP - counts how many times this browser loaded the page
+  app.get("/session-test", (req, res) => {
+    req.session.views = (req.session.views ?? 0) + 1;
+    res.send(`Visits in this session: ${req.session.views}`);
+  });
+
   app.use(cors({ origin: CLIENT_ORIGIN }));
   app.use(express.json());
 
