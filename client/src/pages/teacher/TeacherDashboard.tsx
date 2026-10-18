@@ -48,15 +48,15 @@ export default function TeacherDashboard() {
 
                         {/* These are placeholder activities for now. TODO: Show the activites saved under that teacher's profile */}
                         <div className="mt-4 rounded-lg bg-gray-100 p-4 h-128 overflow-y-auto space-y-4">
-                            <Activity />
-                            <Activity />
-                            <Activity />
-                            <Activity />
-                            <Activity />
-                            <Activity />
-                            <Activity />
-                            <Activity />
-                            <Activity />
+                            <Activity name="Activity Name" />
+                            <Activity name="Activity Name" />
+                            <Activity name="Activity Name" />
+                            <Activity name="Activity Name" />
+                            <Activity name="Activity Name" />
+                            <Activity name="Activity Name" />
+                            <Activity name="Activity Name" />
+                            <Activity name="Activity Name" />
+                            <Activity name="Activity Name" />
                         </div>
                     </section>
                 </>
