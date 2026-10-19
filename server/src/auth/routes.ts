@@ -70,7 +70,32 @@ authRouter.get(
             return;
         }
 
-        // TEMPORARY TEST
-        res.send("WORKS: the state matched and Google sent a code.");
+        try {
+        // trade one-time code for tokens. Server sends this to Google, with client secret
+        const { tokens } = await googleClient.getToken(code); // sends the code and client secret straight from our server to google. Browser never sees this. We get back tokens from Google
+        if (!tokens.id_token) { // no openid scope from earlier
+            throw new Error("Google sent no ID token. Is 'openid' in the scopes?");
+        }
+
+        // check the ID token, Googles signature, that it was made for our client ID, Google issued it, and it hasn't expired
+        const ticket = await googleClient.verifyIdToken({
+            idToken: tokens.id_token,
+            audience: authConfig.googleClientId,
+        });
+        const payload = ticket.getPayload(); // returns whats inside the token. Contains person's id, email, and name
+        if (!payload) {
+            throw new Error("The ID token had no payload.");
+        }
+
+        if (!payload.email || payload.email_verified !== true) {
+            res.status(403).send("Your Google account's email address isn't verified."); // forbidden aka not an email google recognizes
+            return;
+        }
+
+    }   catch (err) {
+        console.error("Google login failed:", err);
+        res.status(400).send("Login failed. Please try signing in again.");
+    }
+
     }),
 );
