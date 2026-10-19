@@ -19,7 +19,7 @@ export default function Navbar( {className}: NavbarProps) {
     return(
         <nav className={`relative w-full bg-white text-black ${className}`}>
             
-            <div className="mx-auto flex h-20 w-full items-center justify-between px-4 flex-nowrap">
+            <div className="mx-auto flex h-15 w-full items-center justify-between px-5 flex-nowrap">
                 
                 {/* LEFT GROUP: Logo and Main Nav Links */}
                 <div className="flex flex-nowrap items-center gap-12 whitespace-nowrap">
