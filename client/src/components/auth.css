@@ -138,6 +138,7 @@
   text-align: right;
   margin: -6px 0 14px;
   font-size: 0.8rem;
+  margin-top: 1rem;
 }
 .auth-forgot a {
   color: var(--font-colors);
@@ -200,7 +201,7 @@ font-weight: 400;
 .features-page {
   /* min-height: 100vh;
   /* display: flex; */
-  min-height: 84vh;
+  min-height: 83vh;
   background: #e4dede;
   font-family: "Iosevka Charon", monospace;
   padding: 2rem;
