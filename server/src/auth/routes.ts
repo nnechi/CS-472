@@ -44,3 +44,33 @@ authRouter.get(
         res.redirect(googleLoginUrl); // tells browser to go to this address
     }),
 );
+
+// Step 2 of login, Google sends them back to us
+authRouter.get(
+    "/auth/google/callback",
+    handle(async (req, res) => {
+        const { code, state, error } = req.query; // holds values after ? in address, get code state and error
+        const expectedState = req.session.oauthState;
+        delete req.session.oauthState; // each state value works only once
+
+        // If they clicked cancel on Google's page, or Google gave a problem
+        if (typeof error === "string") {
+            res.redirect(`${authConfig.appUrl}?login=cancelled`);
+            return;
+        }
+
+        // Reject anything that didn't start at our /auth/google route
+        if (typeof state !== "string" || !expectedState || state !== expectedState) {
+            res.status(400).send("Login failed (state mismatch). Please try signing in again.");
+            return;
+        }
+
+        if (typeof code !== "string") {
+            res.status(400).send("Login failed (missing code). Please try signing in again.");
+            return;
+        }
+
+        // TEMPORARY TEST
+        res.send("WORKS: the state matched and Google sent a code.");
+    }),
+);
