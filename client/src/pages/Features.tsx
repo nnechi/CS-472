@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
-import "@fontsource/iosevka-charon";
-import "@fontsource/iosevka-charon/400.css";
+import './Features.css';
 
 type Feature = {
   id: string;

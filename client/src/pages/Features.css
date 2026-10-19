@@ -1,0 +1,61 @@
+.features-page__header {
+/* align-self: flex-start; */
+font-size: 2rem;
+font-weight: 400;
+}
+
+.features-page {
+  /* min-height: 100vh;
+  /* display: flex; */
+  min-height: 83vh;
+  font-family: "Iosevka Charon", monospace;
+  padding: 2rem;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  max-width: 1020px;
+  margin: 0 auto;
+}
+ 
+.features-card {
+  background: #ccc9f7;
+  border-radius: 24px;
+  padding: 70px;
+  min-height: auto;
+  flex-direction: column;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+}
+ 
+.features-card__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+ 
+/* 아이콘 색: 남색 (SVG가 currentColor를 쓰므로 여기 color가 곧 아이콘 색) */
+.features-card__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: #002e69;
+}
+ 
+.features-card__title {
+  font-size: 1.50rem;
+  font-weight: 900;
+  line-height: 1.50;
+  color: #352828;
+}
+
+.features-card__text {
+  font-size: 1.05rem;   
+  font-weight: 500;   
+}
+ 
+@media (max-width: 600px) {
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+}
