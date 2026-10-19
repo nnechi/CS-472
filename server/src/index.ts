@@ -14,6 +14,7 @@ import { authConfig } from "./auth/config";
 
 import { sessionMiddleware } from "./auth/session";
 import { authRouter } from "./auth/routes";
+import { requireLogin } from "./auth/requireLogin";
 
 //TEMPORARY, AUTH TEST. Prints the start of client ID (not secret)
 console.log("Google client ID: ", authConfig.googleClientId.slice(0,12) + "...");
@@ -42,6 +43,10 @@ export function createApp() {
   // Turn on sessions for every request.
   app.use(sessionMiddleware);
   app.use(authRouter);
+  // who is logged in?
+  app.get("/api/me", requireLogin, (req, res) => {
+    res.json({ user: req.session.user });
+  });
 
   // TEMP - counts how many times this browser loaded the page
   app.get("/session-test", (req, res) => {

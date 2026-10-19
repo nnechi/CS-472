@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { OAuth2Client } from "google-auth-library";
 import { authConfig } from "./config";
+import { findOrCreateUserFromGoogle } from "./users"; 
 
 const googleClient = new OAuth2Client ({
     clientId: authConfig.googleClientId,
@@ -25,6 +26,13 @@ function saveSession(req: Request): Promise<void> {
     return new Promise((resolve, reject) => 
         req.session.save((err) => (err ? reject(err) : resolve())),
     );
+}
+
+// swaps the session for a fresh one with a new id
+function regenerateSession(req: Request): Promise<void> {
+    return new Promise((resolve, reject) =>
+    req.session.regenerate((err) => (err ? reject(err) : resolve())),
+);
 }
 
 // Step 1, Sign in with Google link points here:
@@ -91,6 +99,22 @@ authRouter.get(
             res.status(403).send("Your Google account's email address isn't verified."); // forbidden aka not an email google recognizes
             return;
         }
+
+        // Find or create person in our users using the payload given to us
+        const user = await findOrCreateUserFromGoogle({
+            googleId: payload.sub,
+            email: payload.email,
+            name: payload.name,
+            picture: payload.picture,
+        });
+
+        // log them in. Brand new session id at login stops session fixation attacks
+        await regenerateSession(req);
+        req.session.user = { id: user.id, email: user.email, name: user.name };
+        await saveSession(req);
+
+        // send them on, to a clean address without the one-time code
+        res.redirect(authConfig.appUrl);
 
     }   catch (err) {
         console.error("Google login failed:", err);
