@@ -43,7 +43,8 @@ export default function JoinRoom() {
     }
 
     return(
-        <div className="mx-auto flex max-w-sm flex-col gap-3 p-6">
+        <div className="flex min-h-[83vh] items-center justify-center p-6">
+            <div className="flex w-full max-w-sm flex-col gap-3 p-6 rounded-2xl border border-gray-300 bg-white p-9 shadow-md">
             <h1 className="text-2xl font-bold">Join a Room</h1>
 
             <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-3" noValidate>
@@ -92,6 +93,7 @@ export default function JoinRoom() {
                 <Link to="/login" className="underline hover:text-black">Sign in</Link>
                 {" "}to create a room.
             </p>
+        </div>
         </div>
     )
 }

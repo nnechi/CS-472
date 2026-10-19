@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 * {
+  font-family: 'Iosevka Charon', monospace;
   box-sizing: border-box;
-  font-family: 'Courier New', Courier, monospace;
 }
 
 body {
   margin: 0;
-  background-color: white;
+  background-color: #e4dede;
 }

@@ -5,7 +5,7 @@ import SignXLayout from "../layouts/SignXLayout"
 import DashboardLayout from "../layouts/DashboardLayout"
 import Home from "../pages/Home"
 import AboutUs from "../pages/AboutUs"
-import LearnMore from "../pages/LearnMore"
+import Features from "../pages/Features"
 import ContactUs from "../pages/ContactUs"
 import SignUp from "../pages/SignUp"
 import SignIn from "../pages/SignIn"
@@ -25,7 +25,7 @@ export default function AppRoutes() {
             <Route path="/" element={<HomeLayout />}>
                 <Route index element={<Home />}/>
                 <Route path="about" element={<AboutUs />}/>
-                <Route path="learn-more" element={<LearnMore />} />
+                <Route path="features" element={<Features />} />
                 <Route path="contact" element={<ContactUs />} />
                 <Route path="joinroom" element={<JoinRoom />} />
                 <Route path="*" element={<NotFound />} />
