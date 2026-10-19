@@ -13,6 +13,7 @@ import {Room} from "./models/Room"
 import { authConfig } from "./auth/config";
 
 import { sessionMiddleware } from "./auth/session";
+import { authRouter } from "./auth/routes";
 
 //TEMPORARY, AUTH TEST. Prints the start of client ID (not secret)
 console.log("Google client ID: ", authConfig.googleClientId.slice(0,12) + "...");
@@ -40,6 +41,7 @@ export function createApp() {
   }
   // Turn on sessions for every request.
   app.use(sessionMiddleware);
+  app.use(authRouter);
 
   // TEMP - counts how many times this browser loaded the page
   app.get("/session-test", (req, res) => {
