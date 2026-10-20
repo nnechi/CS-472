@@ -4,6 +4,9 @@ FROM node:20-alpine
 # All following commands run inside /app in the container.
 WORKDIR /app
 
+# Python submissions run with the system Python interpreter.
+RUN apk add --no-cache python3
+
 # Copy ONLY the manifest files first. Docker caches this layer, so
 # "npm install" re-runs only when your dependencies actually change.
 COPY package*.json ./

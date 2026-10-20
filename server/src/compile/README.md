@@ -14,11 +14,12 @@ Example request:
 `runJavaScript(request, options)` runs JavaScript in a temporary working
 directory. `runTypeScript(request, options)` type-checks and compiles a
 TypeScript file there, then runs the emitted JavaScript if compilation succeeds.
-Both return collected `stdout` and `stderr` and call `onUpdate` as text arrives,
+`runPython(request, options)` executes a single Python file using `python3`
+with unbuffered output. All three runners return collected `stdout` and `stderr` and call `onUpdate` as text arrives,
 which can later forward each update to the requesting WebSocket client:
 
 ```ts
-import { runJavaScript, runTypeScript } from "./compile";
+import { runJavaScript, runTypeScript, runPython } from "./compile";
 
 const result = await runJavaScript(
   { language: "javascript", code: "console.log('hello')" },
@@ -31,6 +32,9 @@ const tsResult = await runTypeScript(
   { onUpdate: (update) => console.log(update) }
 );
 console.log(tsResult.stdout); // "42\n"
+
+const pyResult = await runPython({ language: "python", code: "print(input())", stdin: "hello\n" });
+console.log(pyResult.stdout); // "hello\n"
 ```
 
 `CompileUpdate` includes status, stdout/stderr chunks, completion, and errors.
@@ -57,14 +61,17 @@ After installation, from the repository root you can run
 repository root looks for `tsx` at the root and fails with
 `ERR_MODULE_NOT_FOUND`; use the npm script above instead.
 
-The other four languages still have command definitions only. Their runners
+Python requires `python3` on the system executable search path. Python syntax
+and runtime errors are streamed on stderr and return a nonzero exit code.
+
+The other three languages still have command definitions only. Their runners
 have not been implemented. Future work should:
 
-1. Add runners for C, C++, Java, and Python.
+1. Add runners for C, C++, and Java.
 2. Add a global concurrency limit and isolated execution with memory limits.
 3. Wire the callback and cancellation signal to the WebSocket layer.
 
-The current server image has Node but does not install Python, Java, GCC, or
+The current server image includes Node and Python but does not install Java, GCC, or
 G++. `tsc` is supplied by the server's TypeScript dependency. These runners are
 suitable for local development; the temporary directory,
 timeout, and output cap do not isolate untrusted code from the server's files

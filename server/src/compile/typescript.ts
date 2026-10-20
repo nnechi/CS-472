@@ -1,4 +1,4 @@
-import { runNodeSubmission, RunOptions } from "./runner";
+import { runSubmission, RunOptions } from "./runner";
 import { CompileResult } from "./types";
 
 export type { RunOptions as TypeScriptRunOptions } from "./runner";
@@ -8,5 +8,5 @@ export function runTypeScript(
   input: unknown,
   options: RunOptions = {}
 ): Promise<CompileResult> {
-  return runNodeSubmission(input, "typescript", options);
+  return runSubmission(input, "typescript", options);
 }

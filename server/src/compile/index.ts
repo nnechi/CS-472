@@ -27,3 +27,5 @@ export {
   MAX_CODE_BYTES,
   MAX_STDIN_BYTES,
 } from "./plan";
+export { runPython } from "./python";
+export type { PythonRunOptions } from "./python";

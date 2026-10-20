@@ -25,15 +25,15 @@ export interface RunOptions {
   maxOutputBytes?: number;
 }
 
-/** Shared process and output handling for JavaScript and TypeScript. */
-export async function runNodeSubmission(
+/** Shared process and output handling for supported submission runners. */
+export async function runSubmission(
   input: unknown,
-  expectedLanguage: "javascript" | "typescript",
+  expectedLanguage: "javascript" | "typescript" | "python",
   options: RunOptions = {}
 ): Promise<CompileResult> {
   const plan = createExecutionPlan(input);
   if (plan.request.language !== expectedLanguage) {
-    const name = expectedLanguage === "javascript" ? "JavaScript" : "TypeScript";
+    const name = { javascript: "JavaScript", typescript: "TypeScript", python: "Python" }[expectedLanguage];
     throw new Error(`run${name} only supports ${name}`);
   }
 
