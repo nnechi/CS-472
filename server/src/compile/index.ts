@@ -29,3 +29,5 @@ export {
 } from "./plan";
 export { runPython } from "./python";
 export type { PythonRunOptions } from "./python";
+export { runJava } from "./java";
+export type { JavaRunOptions } from "./java";

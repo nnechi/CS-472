@@ -39,8 +39,8 @@ export const LANGUAGE_SPECS: Readonly<Record<CompileLanguage, LanguageSpec>> = {
   java: {
     // Java submissions should declare a Main class.
     sourceFile: "Main.java",
-    compile: { executable: "javac", args: ["Main.java"] },
-    run: { executable: "java", args: ["-cp", ".", "Main"] },
+    compile: { executable: "javac", args: ["-encoding", "UTF-8", "Main.java"] },
+    run: { executable: "java", args: ["-Dfile.encoding=UTF-8", "-cp", ".", "Main"] },
   },
   python: {
     sourceFile: "main.py",

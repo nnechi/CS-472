@@ -15,11 +15,12 @@ Example request:
 directory. `runTypeScript(request, options)` type-checks and compiles a
 TypeScript file there, then runs the emitted JavaScript if compilation succeeds.
 `runPython(request, options)` executes a single Python file using `python3`
-with unbuffered output. All three runners return collected `stdout` and `stderr` and call `onUpdate` as text arrives,
+with unbuffered output. `runJava(request, options)` compiles `Main.java` with
+`javac`, then runs `Main` if compilation succeeds. All four runners return collected `stdout` and `stderr` and call `onUpdate` as text arrives,
 which can later forward each update to the requesting WebSocket client:
 
 ```ts
-import { runJavaScript, runTypeScript, runPython } from "./compile";
+import { runJavaScript, runTypeScript, runPython, runJava } from "./compile";
 
 const result = await runJavaScript(
   { language: "javascript", code: "console.log('hello')" },
@@ -35,13 +36,19 @@ console.log(tsResult.stdout); // "42\n"
 
 const pyResult = await runPython({ language: "python", code: "print(input())", stdin: "hello\n" });
 console.log(pyResult.stdout); // "hello\n"
+
+const javaResult = await runJava({
+  language: "java",
+  code: 'public class Main { public static void main(String[] args) { System.out.println("hello"); } }',
+});
+console.log(javaResult.stdout); // "hello\n"
 ```
 
 `CompileUpdate` includes status, stdout/stderr chunks, completion, and errors.
 Use `executionId` to associate updates with their request. To cancel a running
 job, pass an `AbortController` signal and call `abort()` on disconnect or on a
 client cancellation request. The default run timeout is 5 seconds, the
-TypeScript compile timeout is 10 seconds, and the combined output limit is
+TypeScript and Java compile timeout is 10 seconds, and the combined output limit is
 256 KiB. These can be adjusted in the run options. TypeScript diagnostics are
 streamed as output; a failed compile never starts the program. The TypeScript
 runner currently accepts a single source file named `main.ts`.
@@ -64,14 +71,21 @@ repository root looks for `tsx` at the root and fails with
 Python requires `python3` on the system executable search path. Python syntax
 and runtime errors are streamed on stderr and return a nonzero exit code.
 
-The other three languages still have command definitions only. Their runners
+Java requires a JDK (Java 21 is installed in the Docker image), with `javac`
+and `java` available on PATH. Submit a single source file declaring `Main`
+with `public static void main(String[] args)` and no package declaration.
+Source and output use UTF-8. Compile diagnostics and runtime exceptions
+are streamed on stderr; compilation failure prevents the run stage.
+Both stages support cancellation, timeouts, and the shared output cap.
+
+The other two languages still have command definitions only. Their runners
 have not been implemented. Future work should:
 
-1. Add runners for C, C++, and Java.
+1. Add runners for C and C++.
 2. Add a global concurrency limit and isolated execution with memory limits.
 3. Wire the callback and cancellation signal to the WebSocket layer.
 
-The current server image includes Node and Python but does not install Java, GCC, or
+The current server image includes Node, Python, and a Java 21 JDK but does not install GCC or
 G++. `tsc` is supplied by the server's TypeScript dependency. These runners are
 suitable for local development; the temporary directory,
 timeout, and output cap do not isolate untrusted code from the server's files
