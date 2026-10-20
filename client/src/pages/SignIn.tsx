@@ -3,10 +3,20 @@ import { useRef, useEffect, useState, type ChangeEvent, type FormEvent } from "r
 import useAuth from "../hooks/useAuth"
 import { fakeLoginApi } from '../mockDb'
 import AuthCard from "../components/AuthCard"
+/* adding Google Auth Log in  */
+import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
 
 type SignInForm = {
   email: string;
   password: string;
+};
+
+type GoogleProfile = {
+  sub: string;
+  name: string;
+  email: string;
+  picture: string;
 };
 
 export default function SignIn() {
@@ -82,6 +92,29 @@ export default function SignIn() {
         }
     };
 
+    const handleGoogleSuccess = (credentialResponse: CredentialResponse) => {
+        if (!credentialResponse.credential) {
+            setError('Google sign-in failed. Please try again.');
+            return;
+        }
+        // credential은 암호처럼 생긴 문자열(JWT)이라서, 이름/이메일을 꺼내려면 디코딩해야 해요
+        const profile = jwtDecode<GoogleProfile>(credentialResponse.credential);
+        console.log('Google user:', profile);
+
+        setAuth({ 
+            user: 
+            {   id: profile.sub, 
+                name: profile.name, 
+                email: profile.email 
+            } 
+        });
+        navigate(from, { replace: true });
+    };
+
+    const handleGoogleError = () => {
+        setError('Google sign-in failed. Please try again.');
+    };
+
     return(
         <AuthCard title="Sign in">
             <form
@@ -140,6 +173,19 @@ export default function SignIn() {
                     {loading ? 'Signing in…' : 'Sign In'}
                 </button>
             </form>
+                <div style={{ margin: '16px 0', textAlign: 'center'}}>or</div>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <GoogleLogin 
+                        onSuccess={handleGoogleSuccess} 
+                        onError={handleGoogleError} 
+                        shape="pill"
+                        size="large"
+                        theme="outline"
+                        width="314"
+                        {...{ locale: 'en' }}
+                    />
+                </div>
+
                 {/* TODO Make forgot password page and links/route stuff. 
                 We can also move this around once styled*/}
                 <p className="auth-forgot">
