@@ -6,18 +6,19 @@ import AuthCard from "../components/AuthCard"
 /* adding Google Auth Log in  */
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
+import { GoogleProfile } from "../../../server/src/auth/users.ts"
 
 type SignInForm = {
   email: string;
   password: string;
 };
 
-type GoogleProfile = {
-  sub: string;
-  name: string;
-  email: string;
-  picture: string;
-};
+// type GoogleProfile = {
+//   sub: string;
+//   name: string;
+//   email: string;
+//   picture: string;
+// };
 
 export default function SignIn() {
     const navigate = useNavigate();
@@ -103,7 +104,8 @@ export default function SignIn() {
 
         setAuth({ 
             user: 
-            {   id: profile.sub, 
+            {   //id: profile.sub, 
+                id: profile.googleId,
                 name: profile.name, 
                 email: profile.email 
             } 
