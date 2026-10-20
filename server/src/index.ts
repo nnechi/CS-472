@@ -16,9 +16,6 @@ import { sessionMiddleware } from "./auth/session";
 import { authRouter } from "./auth/routes";
 import { requireLogin } from "./auth/requireLogin";
 
-//TEMPORARY, AUTH TEST. Prints the start of client ID (not secret)
-console.log("Google client ID: ", authConfig.googleClientId.slice(0,12) + "...");
-
 
 const PORT = Number(process.env.PORT) || 3000;
 // The browser (running on your host machine) will connect from the Vite dev
@@ -46,12 +43,6 @@ export function createApp() {
   // who is logged in?
   app.get("/api/me", requireLogin, (req, res) => {
     res.json({ user: req.session.user });
-  });
-
-  // TEMP - counts how many times this browser loaded the page
-  app.get("/session-test", (req, res) => {
-    req.session.views = (req.session.views ?? 0) + 1;
-    res.send(`Visits in this session: ${req.session.views}`);
   });
 
   app.use(cors({ origin: CLIENT_ORIGIN }));

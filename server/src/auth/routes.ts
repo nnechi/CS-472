@@ -32,7 +32,14 @@ function saveSession(req: Request): Promise<void> {
 function regenerateSession(req: Request): Promise<void> {
     return new Promise((resolve, reject) =>
     req.session.regenerate((err) => (err ? reject(err) : resolve())),
-);
+    );
+}
+
+// Deletes the session completely
+function destroySession(req: Request): Promise<void> {
+    return new Promise((resolve, reject) => 
+    req.session.destroy((err) => (err ? reject(err) : resolve())),
+    );
 }
 
 // Step 1, Sign in with Google link points here:
@@ -121,5 +128,15 @@ authRouter.get(
         res.status(400).send("Login failed. Please try signing in again.");
     }
 
+    }),
+);
+
+// log out of our app. (they are still signed in to google, that's normal)
+authRouter.post(
+    "/auth/logout",
+    handle(async (req, res) => {
+        await destroySession(req);
+        res.clearCookie("sid");
+        res.redirect(authConfig.appUrl);
     }),
 );

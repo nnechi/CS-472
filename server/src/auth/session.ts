@@ -15,7 +15,6 @@ declare module "express-session" {
     interface SessionData {
         oauthState: string; // a onetime random value for a login in progress
         user: SessionUser; // set once the person is logged
-        views: number; // TEMP FOR TESTING
     }
 }
 
