@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { socket } from "../socket";
-import { ChatMessage, RaisedHand, Session } from "../types";
+import { ChatMessage, RaisedHand, Session, TimerState } from "../types";
+import Timer, { DEFAULT_TIMER_MS } from "./Timer";
 
 interface ChatProps {
   session: Session;
@@ -20,6 +21,12 @@ export default function Chat({ session, onLeave, onRoomClosed, onJoinError}: Cha
   // Teachers get the room's queue; students only learn their own status.
   const [handQueue, setHandQueue] = useState<RaisedHand[]>([]);
   const [handRaised, setHandRaised] = useState(false);
+  // Shared countdown. The server sends it on join and on every play/pause.
+  const [timer, setTimer] = useState<TimerState>({
+    durationMs: DEFAULT_TIMER_MS,
+    remainingMs: DEFAULT_TIMER_MS,
+    running: false,
+  });
   const bottomRef = useRef<HTMLDivElement>(null);
   const onRoomClosedRef = useRef(onRoomClosed); 
   onRoomClosedRef.current = onRoomClosed; 
@@ -43,8 +50,9 @@ export default function Chat({ session, onLeave, onRoomClosed, onJoinError}: Cha
     socket.on("chat message", onMessage);
     socket.on("hand queue", onHandQueue);
     socket.on("hand status", setHandRaised);
-    socket.on("room closed", onClosed); 
-    socket.on("join error", onJoinError); 
+    socket.on("timer state", setTimer);
+    socket.on("room closed", onClosed);
+    socket.on("join error", onJoinError);
 
 
 
@@ -64,12 +72,14 @@ export default function Chat({ session, onLeave, onRoomClosed, onJoinError}: Cha
       socket.off("chat message", onMessage);
       socket.off("hand queue", onHandQueue);
       socket.off("hand status", setHandRaised);
-      socket.off("room closed", onClosed); 
-      socket.off("join error", onJoinError); 
+      socket.off("timer state", setTimer);
+      socket.off("room closed", onClosed);
+      socket.off("join error", onJoinError);
       socket.disconnect();
       setMessages([]);
       setHandQueue([]);
       setHandRaised(false);
+      setTimer({ durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, running: false });
     };
   }, [session.username, session.role, session.room]);
 
@@ -110,6 +120,20 @@ export default function Chat({ session, onLeave, onRoomClosed, onJoinError}: Cha
           <span className="text-gray-500"> — share this with your students</span>
         )}
       </div>
+
+      {/* Countdown: teachers only. Students don't see it. */}
+      {session.role === "teacher" && (
+        <Timer
+          durationMs={timer.durationMs}
+          remainingMs={timer.remainingMs}
+          running={timer.running}
+          isTeacher={true}
+          onPlay={() => socket.emit("timer play")}
+          onPause={() => socket.emit("timer pause")}
+          onRestart={() => socket.emit("timer restart")}
+          onSetMinutes={(minutes) => socket.emit("timer set", { minutes })}
+        />
+      )}
 
       {/* Students: click once to ask for help, again to cancel. */}
       {session.role === "student" && (
