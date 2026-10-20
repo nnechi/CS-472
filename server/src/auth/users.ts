@@ -14,7 +14,7 @@ export interface AppUser {
 export interface GoogleProfile {
     googleId: string;
     email: string;
-    name?: string;
+    name: string;
     picture?: string;
 }
 
