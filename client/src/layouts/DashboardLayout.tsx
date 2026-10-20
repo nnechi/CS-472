@@ -29,7 +29,7 @@ export default function DashboardLayout() {
             <main className="flex-1 p-6">
                 <Outlet />
             </main>
-            <Footer className="min-h-[8vh] flex-shrink-0"/>
+            <Footer className="min-h-[8vh] shrink-0"/>
         </div>
     )
 }

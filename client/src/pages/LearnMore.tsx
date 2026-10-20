@@ -1,6 +1,6 @@
 
-export default function LearnMore() {
+export default function Features() {
     return(
-        <h1>LearnMore page</h1>
+        <h1>Features page</h1>
     )
 }

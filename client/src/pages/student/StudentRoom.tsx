@@ -21,6 +21,15 @@ export default function StudentRoom() {
             // Leaving unmounts the chat, which disconnects the socket and
             // drops the student from the teacher's hand queue.
             onLeave={() => navigate("/")}
+            onRoomClosed={()=>  { 
+                window.alert("Your teacher ended this room."); 
+                navigate("/"); 
+            }} 
+            
+            onJoinError = { () => { 
+                window.alert("This room doesn't exist or it's expired."); 
+                navigate("/"); 
+            }}
         />
     )
 }

@@ -1,26 +1,47 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { socket } from "../socket";
-import { ChatMessage, RaisedHand, Session } from "../types";
+import { ChatMessage, RaisedHand, Session, TimerState } from "../types";
+import Timer, { DEFAULT_TIMER_MS } from "./Timer";
 
 interface ChatProps {
   session: Session;
   // Called when the user clicks "Leave room". The parent decides where to go.
   onLeave?: () => void;
+  onRoomClosed? : () => void; 
+  onJoinError? : () => void; 
+
 }
 
 const buttonClass =
   "rounded-lg border border-indigo-600 px-3 py-1.5 text-sm text-indigo-600 cursor-pointer hover:bg-indigo-50";
 
-export default function Chat({ session, onLeave }: ChatProps) {
+export default function Chat({ session, onLeave, onRoomClosed, onJoinError}: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   // Teachers get the room's queue; students only learn their own status.
   const [handQueue, setHandQueue] = useState<RaisedHand[]>([]);
   const [handRaised, setHandRaised] = useState(false);
+  // Shared countdown. The server sends it on join and on every play/pause.
+  const [timer, setTimer] = useState<TimerState>({
+    durationMs: DEFAULT_TIMER_MS,
+    remainingMs: DEFAULT_TIMER_MS,
+    running: false,
+  });
   const bottomRef = useRef<HTMLDivElement>(null);
+  const onRoomClosedRef = useRef(onRoomClosed); 
+  onRoomClosedRef.current = onRoomClosed; 
+  const onJoinErrorRef = useRef(onJoinError); 
+  onJoinErrorRef.current = onJoinError; 
+
+
+
 
   useEffect(() => {
     const onHistory = (history: ChatMessage[]) => setMessages(history);
+    const onClosed = () => onRoomClosedRef.current?.(); 
+
+    const onJoinError = () => onJoinErrorRef.current?.(); 
+
     const onMessage = (message: ChatMessage) =>
       setMessages((prev) => [...prev, message]);
     const onHandQueue = (queue: RaisedHand[]) => setHandQueue(queue);
@@ -29,6 +50,11 @@ export default function Chat({ session, onLeave }: ChatProps) {
     socket.on("chat message", onMessage);
     socket.on("hand queue", onHandQueue);
     socket.on("hand status", setHandRaised);
+    socket.on("timer state", setTimer);
+    socket.on("room closed", onClosed);
+    socket.on("join error", onJoinError);
+
+
 
     // The socket is opened only while a room is on screen. Socket.IO buffers
     // the "join" below until the connection is up, so emitting right away is
@@ -46,10 +72,14 @@ export default function Chat({ session, onLeave }: ChatProps) {
       socket.off("chat message", onMessage);
       socket.off("hand queue", onHandQueue);
       socket.off("hand status", setHandRaised);
+      socket.off("timer state", setTimer);
+      socket.off("room closed", onClosed);
+      socket.off("join error", onJoinError);
       socket.disconnect();
       setMessages([]);
       setHandQueue([]);
       setHandRaised(false);
+      setTimer({ durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, running: false });
     };
   }, [session.username, session.role, session.room]);
 
@@ -90,6 +120,20 @@ export default function Chat({ session, onLeave }: ChatProps) {
           <span className="text-gray-500"> — share this with your students</span>
         )}
       </div>
+
+      {/* Countdown: teachers only. Students don't see it. */}
+      {session.role === "teacher" && (
+        <Timer
+          durationMs={timer.durationMs}
+          remainingMs={timer.remainingMs}
+          running={timer.running}
+          isTeacher={true}
+          onPlay={() => socket.emit("timer play")}
+          onPause={() => socket.emit("timer pause")}
+          onRestart={() => socket.emit("timer restart")}
+          onSetMinutes={(minutes) => socket.emit("timer set", { minutes })}
+        />
+      )}
 
       {/* Students: click once to ask for help, again to cancel. */}
       {session.role === "student" && (

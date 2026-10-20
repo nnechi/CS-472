@@ -7,11 +7,11 @@
 }
 
 .auth-page {
-  min-height: 100vh;
   display: grid;
   place-items: center;
-  background: #666666; /* dark surround, like the screenshot */
   padding: 24px;
+  min-height: 90vh;
+  background: #e4dede;
 }
 
 .auth-card {
@@ -138,6 +138,7 @@
   text-align: right;
   margin: -6px 0 14px;
   font-size: 0.8rem;
+  margin-top: 1rem;
 }
 .auth-forgot a {
   color: var(--font-colors);
