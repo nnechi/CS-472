@@ -121,17 +121,19 @@ export default function Chat({ session, onLeave, onRoomClosed, onJoinError}: Cha
         )}
       </div>
 
-      {/* Countdown: teachers press play/pause, everyone sees it. */}
-      <Timer
-        durationMs={timer.durationMs}
-        remainingMs={timer.remainingMs}
-        running={timer.running}
-        isTeacher={session.role === "teacher"}
-        onPlay={() => socket.emit("timer play")}
-        onPause={() => socket.emit("timer pause")}
-        onRestart={() => socket.emit("timer restart")}
-        onSetMinutes={(minutes) => socket.emit("timer set", { minutes })}
-      />
+      {/* Countdown: teachers only. Students don't see it. */}
+      {session.role === "teacher" && (
+        <Timer
+          durationMs={timer.durationMs}
+          remainingMs={timer.remainingMs}
+          running={timer.running}
+          isTeacher={true}
+          onPlay={() => socket.emit("timer play")}
+          onPause={() => socket.emit("timer pause")}
+          onRestart={() => socket.emit("timer restart")}
+          onSetMinutes={(minutes) => socket.emit("timer set", { minutes })}
+        />
+      )}
 
       {/* Students: click once to ask for help, again to cancel. */}
       {session.role === "student" && (

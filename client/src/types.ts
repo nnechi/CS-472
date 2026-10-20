@@ -40,7 +40,7 @@ export interface ServerToClientEvents {
   "hand queue": (queue: RaisedHand[]) => void;
   // Sent to a student when their own hand goes up or down.
   "hand status": (raised: boolean) => void;
-  // The room's timer, sent on join and on every play/pause.
+  // The room's timer, sent to teachers on join and on every play/pause.
   "timer state": (timer: TimerState) => void;
   "room closed" : () => void;
   "join error" : () =>  void; 

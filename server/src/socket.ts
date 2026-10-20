@@ -114,9 +114,9 @@ export function registerSocketHandlers(
     io.to(id).emit("hand status", false);
   };
 
-  // Send the room's timer to everyone in it.
+  // Send the room's timer to that room's teachers only.
   const broadcastTimer = (room: string) => {
-    io.to(room).emit("timer state", timerSnapshot(room));
+    io.to(teacherChannel(room)).emit("timer state", timerSnapshot(room));
   };
 
   // Start counting down. When time runs out, the timer stops at zero.
@@ -250,8 +250,8 @@ export function registerSocketHandlers(
           console.error("[socket] failed to load history:", err);
         }
 
-        // Late joiners see the timer as it is right now.
-        socket.emit("timer state", timerSnapshot(roomCode));
+        // Late joining teachers see the timer as it is right now.
+        if (role === "teacher") socket.emit("timer state", timerSnapshot(roomCode));
       });
 
       // Mesages limited by room
@@ -311,7 +311,7 @@ export function registerSocketHandlers(
         removeHand(room, String(id || ""));
       });
 
-      // Only the teacher can start or pause the countdown. Students see it.
+      // Only the teacher can start or pause the countdown.
       socket.on("timer play", () => {
         const { role, room } = socket.data;
         if (!room || role !== "teacher") return;
