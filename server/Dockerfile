@@ -4,8 +4,8 @@ FROM node:20-alpine
 # All following commands run inside /app in the container.
 WORKDIR /app
 
-# Submission runtimes: Python and the Java compiler/runtime.
-RUN apk add --no-cache python3 openjdk21-jdk
+# Submission runtimes: Python, Java, and the C compiler with libc headers.
+RUN apk add --no-cache python3 openjdk21-jdk gcc musl-dev
 
 # Copy ONLY the manifest files first. Docker caches this layer, so
 # "npm install" re-runs only when your dependencies actually change.

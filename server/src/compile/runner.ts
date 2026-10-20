@@ -28,12 +28,12 @@ export interface RunOptions {
 /** Shared process and output handling for supported submission runners. */
 export async function runSubmission(
   input: unknown,
-  expectedLanguage: "javascript" | "typescript" | "python" | "java",
+  expectedLanguage: "javascript" | "typescript" | "python" | "java" | "c",
   options: RunOptions = {}
 ): Promise<CompileResult> {
   const plan = createExecutionPlan(input);
   if (plan.request.language !== expectedLanguage) {
-    const name = { javascript: "JavaScript", typescript: "TypeScript", python: "Python", java: "Java" }[expectedLanguage];
+    const name = { javascript: "JavaScript", typescript: "TypeScript", python: "Python", java: "Java", c: "C" }[expectedLanguage];
     throw new Error(`run${name} only supports ${name}`);
   }
 
@@ -108,7 +108,9 @@ export async function runSubmission(
         shell: false,
         stdio: ["pipe", "pipe", "pipe"],
         // Do not pass server secrets or NODE_OPTIONS into submitted programs.
-        env: expectedLanguage === "java" ? { PATH: process.env.PATH } : {},
+        env: expectedLanguage === "c"
+          ? { PATH: process.env.PATH, TMPDIR: workDir }
+          : expectedLanguage === "java" ? { PATH: process.env.PATH } : {},
       });
 
       const decoders = {

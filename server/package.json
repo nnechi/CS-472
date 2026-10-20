@@ -8,7 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test:compile": "node --import tsx --test src/compile/javascript.test.ts src/compile/typescript.test.ts src/compile/python.test.ts src/compile/java.test.ts"
+    "test:compile": "node --import tsx --test src/compile/javascript.test.ts src/compile/typescript.test.ts src/compile/python.test.ts src/compile/java.test.ts src/compile/c.test.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

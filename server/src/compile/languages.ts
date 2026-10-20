@@ -25,7 +25,7 @@ export const LANGUAGE_SPECS: Readonly<Record<CompileLanguage, LanguageSpec>> = {
   },
   c: {
     sourceFile: "main.c",
-    compile: { executable: "gcc", args: ["main.c", "-o", "program"] },
+    compile: { executable: "gcc", args: ["main.c", "-std=c17", "-o", "program"] },
     run: { executable: "./program", args: [] },
   },
   cpp: {
