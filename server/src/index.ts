@@ -10,6 +10,12 @@ import {AppServer, closeRoom,  registerSocketHandlers } from "./socket";
 import { generateRoomCode } from "./utils/roomCode"; 
 import {Room} from "./models/Room"
 
+import { authConfig } from "./auth/config";
+
+import { sessionMiddleware } from "./auth/session";
+import { authRouter } from "./auth/routes";
+import { requireLogin } from "./auth/requireLogin";
+
 
 const PORT = Number(process.env.PORT) || 3000;
 // The browser (running on your host machine) will connect from the Vite dev
@@ -26,6 +32,19 @@ function notImplemented(operation: string): RequestHandler {
 
 export function createApp(io : AppServer) {
   const app = express();
+
+  // behind hosting proxy in prod, lets 'secure' cookies work
+  if (authConfig.isProduction) {
+    app.set("trust proxy", 1);
+  }
+  // Turn on sessions for every request.
+  app.use(sessionMiddleware);
+  app.use(authRouter);
+  // who is logged in?
+  app.get("/api/me", requireLogin, (req, res) => {
+    res.json({ user: req.session.user });
+  });
+
   app.use(cors({ origin: CLIENT_ORIGIN }));
   app.use(express.json());
 

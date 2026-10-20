@@ -14,6 +14,9 @@ services:
     build: ./server # build from server/Dockerfile
     ports:
       - "3000:3000"
+    env_file:
+      - path: ./server/.env # lets docker get passed the .env file values
+        required: false
     environment:
       # Inside the compose network, "mongo" resolves to the MongoDB container.
       MONGO_URI: mongodb://mongo:27017/chat
