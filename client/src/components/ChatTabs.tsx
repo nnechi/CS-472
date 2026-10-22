@@ -1,114 +1,46 @@
-import { useRoomSocket } from "../hooks/useRoomSocket";
-import { socket } from "../socket";
-import { GROUP_CHAT_ID, Session } from "../types";
-import ChatTabs, { ChatTab } from "./ChatTabs";
-import ChatWindow from "./ChatWindow";
-import { HandQueue, RaiseHandButton } from "../HandQueue";
-import Timer from "./Timer";
-
-interface ChatProps {
-  session: Session;
-  // Called when the user clicks "Leave room". The parent decides where to go.
-  onLeave?: () => void;
-  onRoomClosed? : () => void;
-  onJoinError? : () => void;
-
+export interface ChatTab {
+  id: string;
+  label: string;
 }
 
-export default function Chat({ session, onLeave, onRoomClosed, onJoinError}: ChatProps) {
-  const isTeacher = session.role === "teacher";
-  const {
-    messages,
-    privateChats,
-    activeChatId,
-    unread,
-    handQueue,
-    handRaised,
-    timer,
-    selectChat,
-    sendMessage,
-    openPrivateChat,
-    raiseHand,
-    lowerHand,
-  } = useRoomSocket(session, { onRoomClosed, onJoinError });
+interface ChatTabsProps {
+  tabs: ChatTab[];
+  activeId: string;
+  // New messages per chat id that the user has not seen yet.
+  unread: Record<string, number>;
+  onSelect: (id: string) => void;
+}
 
-  // The group chat first, then one tab for each private chat in the room.
-  const tabs: ChatTab[] = [
-    { id: GROUP_CHAT_ID, label: "Group chat" },
-    ...privateChats.map((chat) => ({
-      id: chat.id,
-      label: `Private: ${isTeacher ? chat.studentName : chat.teacherName}`,
-    })),
-  ];
-
+// The bar of chats above the message input: the group chat, then one tab per
+// private chat. A number on a tab counts messages that arrived while it was hidden.
+export default function ChatTabs({ tabs, activeId, unread, onSelect }: ChatTabsProps) {
   return (
-    <div className="mx-auto flex h-screen w-full flex-col bg-white text-black">
-      <header className="flex items-center justify-between border-b border-gray-200 p-4 font-semibold">
-        <span>LittlePointers</span>
-        <span className="flex items-center gap-3 text-sm font-normal text-gray-500">
-          {session.username} · {session.role}
-          {onLeave && (
-            <button
-              type="button"
-              className="rounded-lg border border-gray-300 px-3 py-1 text-gray-900 cursor-pointer hover:bg-neutral-100"
-              onClick={onLeave}
-            >
-              Leave room
-            </button>
-          )}
-        </span>
-      </header>
-
-      {/* Room banner: teachers share this code with their students. */}
-      <div className="border-b border-gray-200 px-4 py-2 text-sm">
-        Room code: <strong>{session.room}</strong>
-        {isTeacher && (
-          <span className="text-gray-500"> — share this with your students</span>
-        )}
-      </div>
-
-      {/* Countdown: teachers only. Students don't see it. */}
-      {isTeacher && (
-        <Timer
-          durationMs={timer.durationMs}
-          remainingMs={timer.remainingMs}
-          running={timer.running}
-          isTeacher={true}
-          onPlay={() => socket.emit("timer play")}
-          onPause={() => socket.emit("timer pause")}
-          onRestart={() => socket.emit("timer restart")}
-          onSetMinutes={(minutes) => socket.emit("timer set", { minutes })}
-        />
-      )}
-
-      {/* Students: click once to ask for help, again to cancel. */}
-      {!isTeacher && <RaiseHandButton raised={handRaised} onToggle={raiseHand} />}
-
-      {/* Teachers: students needing help, with a private chat for each. */}
-      {isTeacher && (
-        <HandQueue
-          queue={handQueue}
-          onLowerHand={lowerHand}
-          onOpenPrivateChat={openPrivateChat}
-        />
-      )}
-
-      {/* Keyed by chat so a half-typed message never lands in the wrong chat. */}
-      <ChatWindow
-        key={activeChatId}
-        messages={messages[activeChatId] ?? []}
-        username={session.username}
-        placeholder={activeChatId === GROUP_CHAT_ID ? "Type a message..." : "Type a private message..."}
-        onSend={(text) => sendMessage(activeChatId, text)}
-        aboveInput={
-          <ChatTabs
-            tabs={tabs}
-            activeId={activeChatId}
-            unread={unread}
-            onSelect={selectChat}
-          />
-        }
-      />
+    <div role="tablist" aria-label="Chats" className="flex gap-2 overflow-x-auto px-3 pt-2">
+      {tabs.map((tab) => {
+        const active = tab.id === activeId;
+        const count = unread[tab.id] ?? 0;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            className={
+              active
+                ? "flex shrink-0 items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm text-white cursor-pointer"
+                : "flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 cursor-pointer hover:bg-neutral-100"
+            }
+            onClick={() => onSelect(tab.id)}
+          >
+            <span className="max-w-[12rem] truncate">{tab.label}</span>
+            {count > 0 && (
+              <span className="rounded-full bg-red-500 px-1.5 text-xs font-bold leading-5 text-white tabular-nums">
+                {count > 99 ? "99+" : count}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

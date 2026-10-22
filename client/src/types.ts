@@ -9,12 +9,24 @@ export interface Session {
   room: string;
 }
 
+// The group chat's id. Private chats use the student's socket id instead.
+export const GROUP_CHAT_ID = "group";
+
 export interface ChatMessage {
   username: string;
   role: Role;
   text: string;
   room: string;
   createdAt: string; // ISO timestamp
+  chatId: string; // GROUP_CHAT_ID, or the id of a private chat
+}
+
+// A private chat between the room's teacher and one student. `id` is the
+// student's socket id, which is how messages get routed to them.
+export interface PrivateChat {
+  id: string;
+  studentName: string;
+  teacherName: string;
 }
 
 // A student waiting for help. `id` is the student's socket id.
@@ -36,6 +48,11 @@ export interface ServerToClientEvents {
   "chat message": (message: ChatMessage) => void;
   "chat history": (messages: ChatMessage[]) => void;
   "system message": (text: string) => void;
+  // A private chat was opened (or sent again on join). Includes its history.
+  "private chat opened": (payload: { chat: PrivateChat; messages: ChatMessage[] }) => void;
+  // A student left, so their private chat is gone. Sent with the chat id.
+  "private chat closed": (chatId: string) => void;
+  "private message": (message: ChatMessage) => void;
   // Raised hands in the room, oldest first.
   "hand queue": (queue: RaisedHand[]) => void;
   // Sent to a student when their own hand goes up or down.
@@ -60,4 +77,8 @@ export interface ClientToServerEvents {
   "timer restart": () => void;
   // Teachers only: set a new length in whole minutes (1 to 60) and stop the timer.
   "timer set": (payload: { minutes: number }) => void;
+  // Teachers only: open a private chat with a student who raised a hand.
+  "open private chat": (payload: { studentId: string }) => void;
+  // Teachers send to any private chat in the room. Students only to their own.
+  "private message": (payload: { chatId: string; text: string }) => void;
 }
