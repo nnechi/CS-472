@@ -1,5 +1,5 @@
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
-import Chat from "../../components/Chat"
+import Chat from "../../components/chat/MChat"
 import { normalizeRoomCode } from "../../utils/roomCode"
 
 // /rooms/join/:roomCode -- the student's view of a room: chat plus the

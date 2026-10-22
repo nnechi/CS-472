@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, useParams } from "react-router-dom"
-import Chat from "../../components/Chat"
+import Chat from "../../components/chat/MChat"
 import useAuth from "../../hooks/useAuth"
 import { normalizeRoomCode } from "../../utils/roomCode"
 

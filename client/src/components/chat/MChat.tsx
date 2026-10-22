@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { socket } from "../socket";
-import { ChatMessage, RaisedHand, Session, TimerState } from "../types";
-import Timer, { DEFAULT_TIMER_MS } from "./Timer";
+import { socket } from "../../socket";
+import { ChatMessage, RaisedHand, Session, TimerState } from "../../types";
+import Timer, { DEFAULT_TIMER_MS } from "../Timer";
 
 interface ChatProps {
   session: Session;
@@ -167,6 +167,14 @@ export default function Chat({ session, onLeave, onRoomClosed, onJoinError}: Cha
                     type="button"
                     className="rounded-md bg-indigo-100 px-2.5 py-1 text-sm text-indigo-700 cursor-pointer hover:line-through"
                     title="Click once you've helped this student"
+                    onClick={() => socket.emit("lower hand", { id: h.id })}
+                  >
+                    {h.username}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-md bg-indigo-100 px-2.5 py-1 text-sm text-indigo-700 cursor-pointer hover:line-through"
+                    title="Private Chat"
                     onClick={() => socket.emit("lower hand", { id: h.id })}
                   >
                     {h.username}
