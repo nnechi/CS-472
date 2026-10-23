@@ -1,5 +1,5 @@
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
-import { ChatMessage } from "../types";
+import { ChatMessage } from "../../types";
 
 interface ChatWindowProps {
   messages: ChatMessage[];

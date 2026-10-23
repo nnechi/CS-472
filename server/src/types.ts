@@ -5,6 +5,11 @@ export type Role = "student" | "teacher";
 // The group chat's id. Private chats use the student's socket id instead.
 export const GROUP_CHAT_ID = "group";
 
+// The longest activity text a teacher can save or a student can write.
+export const ACTIVITY_MAX_LENGTH = 5000;
+// The longest name a teacher can give an activity.
+export const ACTIVITY_NAME_MAX_LENGTH = 100;
+
 // User role and message of a user, and what room they belong to.
 export interface ChatMessage {
   username: string;
@@ -59,17 +64,28 @@ export interface ClientToServerEvents {
   "open private chat": (payload: { studentId: string }) => void;
   // Teachers send to any private chat in the room. Students only to their own.
   "private message": (payload: { chatId: string; text: string }) => void;
+  // Students only, while their private chat is open: their activity text.
+  "activity update": (payload: { text: string }) => void;
 }
 
 // What the server sends back to clients.
 export interface ServerToClientEvents {
   "chat message": (message: ChatMessage) => void;
   "chat history": (messages: ChatMessage[]) => void;
-  // A private chat was opened (or sent again on join). Includes its history.
-  "private chat opened": (payload: { chat: PrivateChat; messages: ChatMessage[] }) => void;
+  // The room's saved activity text. Sent to everyone on join.
+  "room activity": (text: string) => void;
+  // A private chat was opened (or sent again on join). Includes its history
+  // and the student's current activity text.
+  "private chat opened": (payload: {
+    chat: PrivateChat;
+    messages: ChatMessage[];
+    activity: string;
+  }) => void;
   // A student left, so their private chat is gone. Sent with the chat id.
   "private chat closed": (chatId: string) => void;
   "private message": (message: ChatMessage) => void;
+  // Teachers only: a student's activity text changed in their private chat.
+  "student activity": (payload: { chatId: string; text: string }) => void;
   //TODO not implement yet, for users joining or leaving, sever messages, maintenance, etc.
   "system message": (text: string) => void;
   // Raised hands in the room, oldest first.

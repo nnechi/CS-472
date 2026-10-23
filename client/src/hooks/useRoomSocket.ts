@@ -15,9 +15,12 @@ interface RoomSocketOptions {
   onJoinError?: () => void;
 }
 
+// How long a student's typing waits before it is sent to the teacher.
+const ACTIVITY_SYNC_DELAY_MS = 300;
+
 // Everything the room screen needs from the server: the group chat, private
-// chats, raised hands, and the timer. The components only render this and call
-// the actions it returns.
+// chats, raised hands, the timer, and the activity. The components only render
+// this and call the actions it returns.
 export function useRoomSocket(
   session: Session,
   { onRoomClosed, onJoinError }: RoomSocketOptions
@@ -37,6 +40,12 @@ export function useRoomSocket(
     remainingMs: DEFAULT_TIMER_MS,
     running: false,
   });
+  // The teacher's saved activity: what the group chat shows, and where students start.
+  const [defaultActivity, setDefaultActivity] = useState("");
+  // A student's own copy of the activity. Only the student edits it.
+  const [studentText, setStudentText] = useState("");
+  // Teachers only: each student's activity copy, keyed by that student's chat id.
+  const [studentActivities, setStudentActivities] = useState<Record<string, string>>({});
 
   // Socket listeners run outside render, so they read the latest values here.
   const activeChatRef = useRef(GROUP_CHAT_ID);
@@ -68,13 +77,22 @@ export function useRoomSocket(
       setMessages((prev) => ({ ...prev, [GROUP_CHAT_ID]: history }));
 
     // Sent when a teacher opens a chat, and again to a teacher on join.
-    const onPrivateOpened = ({ chat, messages: history }: { chat: PrivateChat; messages: ChatMessage[] }) => {
+    const onPrivateOpened = ({
+      chat,
+      messages: history,
+      activity,
+    }: {
+      chat: PrivateChat;
+      messages: ChatMessage[];
+      activity: string;
+    }) => {
       setPrivateChats((prev) =>
         prev.some((c) => c.id === chat.id)
           ? prev.map((c) => (c.id === chat.id ? chat : c))
           : [...prev, chat]
       );
       setMessages((prev) => ({ ...prev, [chat.id]: history }));
+      setStudentActivities((prev) => ({ ...prev, [chat.id]: activity }));
       // A student is taken straight to a chat the teacher just opened with them.
       if (session.role === "student") selectChat(chat.id);
     };
@@ -92,7 +110,21 @@ export function useRoomSocket(
         delete next[chatId];
         return next;
       });
+      setStudentActivities((prev) => {
+        const next = { ...prev };
+        delete next[chatId];
+        return next;
+      });
       if (activeChatRef.current === chatId) selectChat(GROUP_CHAT_ID);
+    };
+
+    const onStudentActivity = ({ chatId, text }: { chatId: string; text: string }) =>
+      setStudentActivities((prev) => ({ ...prev, [chatId]: text }));
+
+    // The saved activity, sent on join. Students start from it.
+    const onRoomActivity = (text: string) => {
+      setDefaultActivity(text);
+      setStudentText(text);
     };
 
     const onMessage = (message: ChatMessage) => addMessage(message);
@@ -105,6 +137,8 @@ export function useRoomSocket(
     socket.on("private chat opened", onPrivateOpened);
     socket.on("private chat closed", onPrivateClosed);
     socket.on("private message", onMessage);
+    socket.on("student activity", onStudentActivity);
+    socket.on("room activity", onRoomActivity);
     socket.on("hand queue", onHandQueue);
     socket.on("hand status", setHandRaised);
     socket.on("timer state", setTimer);
@@ -128,6 +162,8 @@ export function useRoomSocket(
       socket.off("private chat opened", onPrivateOpened);
       socket.off("private chat closed", onPrivateClosed);
       socket.off("private message", onMessage);
+      socket.off("student activity", onStudentActivity);
+      socket.off("room activity", onRoomActivity);
       socket.off("hand queue", onHandQueue);
       socket.off("hand status", setHandRaised);
       socket.off("timer state", setTimer);
@@ -141,8 +177,24 @@ export function useRoomSocket(
       setHandQueue([]);
       setHandRaised(false);
       setTimer({ durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, running: false });
+      setDefaultActivity("");
+      setStudentText("");
+      setStudentActivities({});
     };
   }, [session.username, session.role, session.room]);
+
+  // A student's activity goes to the teacher only while their private chat is
+  // open. The effect runs again when the chat opens, so the teacher gets the
+  // student's current text right away.
+  const hasPrivateChat = session.role === "student" && privateChats.length > 0;
+  useEffect(() => {
+    if (!hasPrivateChat) return;
+    const id = setTimeout(
+      () => socket.emit("activity update", { text: studentText }),
+      ACTIVITY_SYNC_DELAY_MS
+    );
+    return () => clearTimeout(id);
+  }, [studentText, hasPrivateChat]);
 
   // Teachers click a student in the hand queue to open their chat.
   const openPrivateChat = (studentId: string) => {
@@ -169,6 +221,10 @@ export function useRoomSocket(
     handQueue,
     handRaised,
     timer,
+    defaultActivity,
+    studentText,
+    setStudentText,
+    studentActivities,
     selectChat,
     sendMessage,
     openPrivateChat,
@@ -176,3 +232,6 @@ export function useRoomSocket(
     lowerHand: (id: string) => socket.emit("lower hand", { id }),
   };
 }
+
+// The state and actions the room screen gets from useRoomSocket.
+export type RoomSocket = ReturnType<typeof useRoomSocket>;
