@@ -9,6 +9,8 @@ export const GROUP_CHAT_ID = "group";
 export const ACTIVITY_MAX_LENGTH = 5000;
 // The longest name a teacher can give an activity.
 export const ACTIVITY_NAME_MAX_LENGTH = 100;
+// The languages a teacher can pick for an activity.
+export const PROGRAMMING_LANGUAGES = ["python", "c++", "javascript", "other"] as const;
 
 // User role and message of a user, and what room they belong to.
 export interface ChatMessage {

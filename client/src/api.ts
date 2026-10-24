@@ -1,4 +1,4 @@
-import type { ActivitySummary } from "./types"
+import type { ActivityQuestion, ActivitySummary, ProgrammingLanguage } from "./types"
 
 export const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
@@ -43,11 +43,11 @@ async function failureMessage(res : Response, fallback : string) : Promise<strin
 }
 
 // Saves a new activity for a teacher. Throws with the server's reason if it fails.
-export async function createActivity(teacherId : string, name : string, data : string) : Promise<ActivitySummary> {
+export async function createActivity(teacherId : string, name : string, language : ProgrammingLanguage, questions : ActivityQuestion[]) : Promise<ActivitySummary> {
     const res = await fetch(`${SERVER_URL}/api/activities`, {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({teacherId, name, data})
+        body: JSON.stringify({teacherId, name, language, questions})
     })
 
     if (!res.ok) throw new Error(await failureMessage(res, "Could not save the activity."));

@@ -12,7 +12,7 @@ import {Room} from "./models/Room"
 import {Activity} from "./models/Activity"
 
 import { authConfig } from "./auth/config";
-import { ACTIVITY_MAX_LENGTH, ACTIVITY_NAME_MAX_LENGTH } from "./types";
+import { ACTIVITY_MAX_LENGTH, ACTIVITY_NAME_MAX_LENGTH, PROGRAMMING_LANGUAGES } from "./types";
 import { isObjectIdOrHexString } from "mongoose";
 
 import { sessionMiddleware } from "./auth/session";
@@ -156,11 +156,12 @@ export function createApp(io : AppServer) {
 
   });
 
-  // Activities a teacher made. createActivity(teacherId, name, data)
+  // Activities a teacher made. createActivity(teacherId, name, language, questions)
   app.post("/api/activities", async (req, res) => {
     const teacherId = typeof req.body?.teacherId === "string" ? req.body.teacherId.trim() : "";
     const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-    const data = req.body?.data ?? "";
+    const language = req.body?.language;
+    const questions = req.body?.questions;
 
     if (!teacherId) {
       res.status(400).json({ error: "Missing teacher id." });
@@ -174,17 +175,41 @@ export function createApp(io : AppServer) {
       res.status(400).json({ error: `Activity names can be at most ${ACTIVITY_NAME_MAX_LENGTH} characters.` });
       return;
     }
-    if (typeof data !== "string") {
-      res.status(400).json({ error: "The activity data must be text." });
+    if (typeof language !== "string" || !(PROGRAMMING_LANGUAGES as readonly string[]).includes(language)) {
+      res.status(400).json({ error: "Choose a programming language." });
       return;
     }
-    if (data.length > ACTIVITY_MAX_LENGTH) {
-      res.status(400).json({ error: `The activity can be at most ${ACTIVITY_MAX_LENGTH} characters.` });
+    if (!Array.isArray(questions) || questions.length === 0) {
+      res.status(400).json({ error: "Add at least one question." });
       return;
+    }
+    for (const item of questions) {
+      const question = typeof item?.question === "string" ? item.question.trim() : "";
+      const output = typeof item?.output === "string" ? item.output : "";
+      if (!question) {
+        res.status(400).json({ error: "Every question needs text." });
+        return;
+      }
+      if (question.length > ACTIVITY_MAX_LENGTH || output.length > ACTIVITY_MAX_LENGTH) {
+        res.status(400).json({ error: `Questions and outputs can be at most ${ACTIVITY_MAX_LENGTH} characters.` });
+        return;
+      }
+      if (!output) {
+        res.status(400).json({ error: "Every question needs a correct output." });
+        return;
+      }
     }
 
     try {
-      const created = await Activity.create({ teacherId, name, data });
+      const created = await Activity.create({
+        teacherId,
+        name,
+        language,
+        questions: questions.map((item: { question: string; output: string }) => ({
+          question: item.question.trim(),
+          output: item.output,
+        })),
+      });
       res.status(201).json({ id: String(created._id), name: created.name });
     } catch (e) {
       console.error(e);

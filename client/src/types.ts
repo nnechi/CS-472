@@ -16,6 +16,15 @@ export const GROUP_CHAT_ID = "group";
 export const ACTIVITY_MAX_LENGTH = 5000;
 // The longest name a teacher can give an activity.
 export const ACTIVITY_NAME_MAX_LENGTH = 100;
+// The languages a teacher can pick for an activity.
+export const PROGRAMMING_LANGUAGES = ["python", "c++", "javascript", "other"] as const;
+export type ProgrammingLanguage = typeof PROGRAMMING_LANGUAGES[number];
+
+// One question in an activity, with the output a correct answer must produce.
+export interface ActivityQuestion {
+  question: string;
+  output: string;
+}
 
 // An activity a teacher made, as listed for picking. Its text is not included.
 export interface ActivitySummary {

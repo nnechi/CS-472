@@ -63,13 +63,14 @@ const roomPrivateChats = (room: string): Map<string, PrivateChatState> => {
   return chats;
 };
 
-// The text of the activity a room uses. Empty if none is picked. If it can't
-// be loaded, students still join, just without the activity text.
+// The questions of the activity a room uses, as the text students see. Outputs
+// are left out. Empty if none is picked. If it can't be loaded, students still
+// join, just without the activity text.
 async function loadActivityText(activityId: unknown): Promise<string> {
   if (!activityId) return "";
   try {
-    const activity = await Activity.findById(activityId).select("data").lean();
-    return activity?.data ?? "";
+    const activity = await Activity.findById(activityId).select("questions").lean();
+    return (activity?.questions ?? []).map((q) => q.question).join("\n\n");
   } catch (err) {
     console.error("[socket] failed to load activity:", err);
     return "";
