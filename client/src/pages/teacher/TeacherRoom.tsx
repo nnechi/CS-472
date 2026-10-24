@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, useParams } from "react-router-dom"
-import ActivityBox from "../../components/chat/ActivityBox"
+import TeacherActivity from "../../components/activity/TeacherActivity"
 import ChatPanel from "../../components/chat/ChatPanel"
 import RoomLayout from "../../components/chat/RoomLayout"
 import { HandQueue } from "../../components/HandQueue"
@@ -86,10 +86,10 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
                 </>
             }
             activity={
-                <ActivityBox
-                    title={activeChat ? `${activeChat.studentName}'s activity` : "Activity"}
-                    text={activeChat ? room.studentActivities[activeChat.id] ?? "" : room.defaultActivity}
-                    readOnly
+                <TeacherActivity
+                    title={activeChat ? `${activeChat.studentName}'s work` : "Activity"}
+                    activity={room.activity}
+                    progress={activeChat ? room.studentProgress(activeChat.id) : undefined}
                 />
             }
             chat={

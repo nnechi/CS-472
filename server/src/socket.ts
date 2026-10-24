@@ -1,15 +1,26 @@
 import { Server, Socket } from "socket.io";
 import { Message } from "./models/Message";
 import { Activity } from "./models/Activity";
+import { ParsonsOptions, DEFAULT_PARSONS_OPTIONS } from "./parsons/options";
+import { parseInitial, studentPool } from "./parsons/parse";
+import { gradeLineBased } from "./parsons/grade";
 import {
+  ActivityType,
+  AnswerProgress,
   ChatMessage,
   ClientToServerEvents,
   ServerToClientEvents,
   ACTIVITY_MAX_LENGTH,
+  ACTIVITY_MAX_QUESTIONS,
+  PARSONS_MAX_LINES,
   GROUP_CHAT_ID,
   InterServerEvents,
+  ParsonsDisplayOptions,
+  ParsonsLine,
   PrivateChat,
   RaisedHand,
+  RoomActivity,
+  RoomQuestion,
   Role,
   SocketData,
   TimerState,
@@ -46,8 +57,8 @@ const handQueues = new Map<string, RaisedHand[]>();
 interface PrivateChatState {
   chat: PrivateChat;
   messages: ChatMessage[];
-  // The student's activity text, as last sent by them.
-  activity: string;
+  // The student's work on the activity, as last sent by them.
+  progress: AnswerProgress;
 }
 const privateChats = new Map<string, Map<string, PrivateChatState>>();
 // Same cap as the group chat's history on join.
@@ -63,23 +74,102 @@ const roomPrivateChats = (room: string): Map<string, PrivateChatState> => {
   return chats;
 };
 
-// The questions of the activity a room uses, as the text students see. Outputs
-// are left out. Empty if none is picked. If it can't be loaded, students still
-// join, just without the activity text.
-async function loadActivityText(activityId: unknown): Promise<string> {
-  if (!activityId) return "";
+// The display settings a student's widget needs, from a question's options.
+function displaySettings(options: Partial<ParsonsOptions> | undefined): ParsonsDisplayOptions {
+  const settings = { ...DEFAULT_PARSONS_OPTIONS, ...options };
+  return {
+    requireDragging: settings.requireDragging,
+    canIndent: settings.canIndent,
+    xIndent: settings.xIndent,
+    showFeedback: settings.showFeedback,
+  };
+}
+
+// The activity a room uses, shaped for the person receiving it. Students get
+// the question text, and for Parsons the lines to arrange plus the display
+// settings. Teachers also get the answers. Null if none is picked. If it can't
+// be loaded, students still join, just without an activity.
+async function loadRoomActivity(activityId: unknown, role: Role): Promise<RoomActivity | null> {
+  if (!activityId) return null;
   try {
-    const activity = await Activity.findById(activityId).select("questions").lean();
-    return (activity?.questions ?? []).map((q) => q.question).join("\n\n");
+    const activity = await Activity.findById(activityId).lean();
+    if (!activity) return null;
+    const type = activity.type as ActivityType;
+
+    const questions: RoomQuestion[] = activity.questions.map((q) => {
+      if (type === "coding") {
+        return role === "teacher" ? { question: q.question, output: q.output } : { question: q.question };
+      }
+      const problem = parseInitial(q.initial);
+      const options = displaySettings(q.options as Partial<ParsonsOptions>);
+      if (role === "teacher") {
+        return { question: q.question, solution: problem.solution, distractors: problem.distractors, options };
+      }
+      const { maxWrongLines } = { ...DEFAULT_PARSONS_OPTIONS, ...(q.options as Partial<ParsonsOptions>) };
+      return {
+        question: q.question,
+        lines: studentPool(problem.solution, problem.distractors, maxWrongLines),
+        options,
+      };
+    });
+    return { type, questions };
   } catch (err) {
     console.error("[socket] failed to load activity:", err);
-    return "";
+    return null;
   }
+}
+
+// One Parsons question of a room's activity: its solution and options, or null
+// if the room has no Parsons question at that index.
+async function loadParsonsQuestion(
+  room: string,
+  questionIndex: number
+): Promise<{ solution: ParsonsLine[]; options: ParsonsOptions } | null> {
+  const found = await Room.findOne({ code: room }).select("activityId").lean();
+  if (!found?.activityId) return null;
+  const activity = await Activity.findById(found.activityId).select("type questions").lean();
+  if (!activity || activity.type !== "parsons") return null;
+  const question = activity.questions[questionIndex];
+  if (!question) return null;
+  return {
+    solution: parseInitial(question.initial).solution,
+    options: { ...DEFAULT_PARSONS_OPTIONS, ...(question.options as Partial<ParsonsOptions>) },
+  };
+}
+
+// One student's arrangement of lines, kept within the teacher editor's limits.
+// Returns null if the message isn't a list of lines.
+function cleanLines(value: unknown): ParsonsLine[] | null {
+  if (!Array.isArray(value)) return null;
+  return value
+    .slice(0, PARSONS_MAX_LINES)
+    .map((line) => ({
+      code: typeof line?.code === "string" ? line.code.slice(0, ACTIVITY_MAX_LENGTH) : "",
+      indent: Number.isInteger(line?.indent) ? Math.min(Math.max(line.indent, 0), MAX_INDENT_LEVEL) : 0,
+    }))
+    .filter((line) => line.code !== "");
+}
+
+// The arrangements for every question. Returns null if the message isn't a list.
+function cleanAnswers(value: unknown): ParsonsLine[][] | null {
+  if (!Array.isArray(value)) return null;
+  return value.slice(0, ACTIVITY_MAX_QUESTIONS).map((lines) => cleanLines(lines) ?? []);
+}
+
+// A copy of list with value set at index. Any gap before it is filled with fill,
+// so the list never has holes.
+function withValue<T>(list: T[], index: number, value: T, fill: T): T[] {
+  const copy = [...list];
+  while (copy.length < index) copy.push(fill);
+  copy[index] = value;
+  return copy;
 }
 
 // Every room starts with a 15 minute countdown that is not running.
 const DEFAULT_TIMER_MS = 15 * 60 * 1000;
 // Teachers can set a length from 1 minute up to 1 hour.
+// The deepest indent a student can give a line in a Parsons problem.
+const MAX_INDENT_LEVEL = 20;
 const MAX_TIMER_MINUTES = 60;
 
 // durationMs is the length the teacher chose (Restart goes back to it).
@@ -166,7 +256,7 @@ export function registerSocketHandlers(
     io.to([state.chat.id, teacherChannel(room)]).emit("private chat opened", {
       chat: state.chat,
       messages: state.messages,
-      activity: state.activity,
+      progress: state.progress,
     });
   };
 
@@ -255,7 +345,7 @@ export function registerSocketHandlers(
 
         if (!cleanUser || !roomCode) return;
 
-        let roomActivity = "";
+        let activityId: unknown = null;
         try{
         const success = await Room.findOne( {code : roomCode });
           if (success === null || success.expiresAt === null || success.expiresAt.getTime() <= Date.now()){
@@ -263,7 +353,7 @@ export function registerSocketHandlers(
             socket.disconnect();
             return;
         }
-          roomActivity = await loadActivityText(success.activityId);
+          activityId = success.activityId;
 
         } catch (e){
           console.error(e); 
@@ -291,13 +381,13 @@ export function registerSocketHandlers(
             socket.emit("private chat opened", {
               chat: state.chat,
               messages: state.messages,
-              activity: state.activity,
+              progress: state.progress,
             });
           }
         }
 
-        // Everyone starts from the teacher's saved activity.
-        socket.emit("room activity", roomActivity);
+        // Everyone gets the room's activity, shaped for their role.
+        socket.emit("room activity", await loadRoomActivity(activityId, role));
 
         //display room code
         // previous room data (messages)
@@ -424,7 +514,7 @@ export function registerSocketHandlers(
             chat: { id, studentName: student.data.username, teacherName: username },
             messages: [],
             // Filled in when the student's copy syncs, right after they're opened.
-            activity: "",
+            progress: { answers: [], results: [] },
           });
         }
         sendPrivateChat(room, chats.get(id)!);
@@ -457,20 +547,68 @@ export function registerSocketHandlers(
         io.to([state.chat.id, teacherChannel(room)]).emit("private message", message);
       });
 
-      // A student's activity only reaches the teacher while their private chat
-      // is open. Otherwise the text stays on the student's screen.
-      socket.on("activity update", ({ text }) => {
+      // A student's work only reaches the teacher while their private chat is
+      // open. Changing an answer clears its result, since the old result no
+      // longer applies.
+      socket.on("activity update", ({ answers }) => {
         const { role, room } = socket.data;
         if (!room || role !== "student") return;
 
         const state = privateChats.get(room)?.get(socket.id);
-        if (!state) return;
+        const cleaned = cleanAnswers(answers);
+        if (!state || !cleaned) return;
 
-        state.activity = String(text ?? "").slice(0, ACTIVITY_MAX_LENGTH);
+        const previous = state.progress;
+        state.progress = {
+          answers: cleaned,
+          results: cleaned.map((lines, i) =>
+            JSON.stringify(lines) === JSON.stringify(previous.answers[i]) ? previous.results[i] ?? null : null
+          ),
+        };
         io.to(teacherChannel(room)).emit("student activity", {
           chatId: socket.id,
-          text: state.activity,
+          progress: state.progress,
         });
+      });
+
+      // A student checks one Parsons question. The grading runs here, so the
+      // solution never leaves the server. The feedback is sent only when the
+      // teacher turned it on; otherwise the student learns right or wrong.
+      socket.on("check answer", async ({ questionIndex, lines }) => {
+        const { role, room } = socket.data;
+        if (!room || role !== "student") return;
+
+        const index = Number(questionIndex);
+        const answer = cleanLines(lines);
+        if (!Number.isInteger(index) || index < 0 || !answer) return;
+
+        try {
+          const question = await loadParsonsQuestion(room, index);
+          if (!question) return;
+
+          const graded = gradeLineBased(question.solution, answer, question.options.canIndent);
+          const showFeedback = question.options.showFeedback;
+          socket.emit("answer result", {
+            questionIndex: index,
+            correct: graded.success,
+            errors: showFeedback ? graded.errors : [],
+            marks: showFeedback ? graded.marks : [],
+          });
+
+          const state = privateChats.get(room)?.get(socket.id);
+          if (state) {
+            state.progress = {
+              answers: withValue(state.progress.answers, index, answer, []),
+              results: withValue(state.progress.results, index, graded.success, null),
+            };
+            io.to(teacherChannel(room)).emit("student activity", {
+              chatId: socket.id,
+              progress: state.progress,
+            });
+          }
+        } catch (err) {
+          console.error("[socket] failed to check answer:", err);
+        }
       });
 
       socket.on("disconnect", () => {

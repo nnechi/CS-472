@@ -1,4 +1,4 @@
-import type { ActivityQuestion, ActivitySummary, ProgrammingLanguage } from "./types"
+import type { ActivitySummary, ActivityType, ParsonsSettings, ProgrammingLanguage } from "./types"
 
 export const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
@@ -42,12 +42,24 @@ async function failureMessage(res : Response, fallback : string) : Promise<strin
     return data?.error ?? `${fallback} (server responded ${res.status})`;
 }
 
+// What the editor sends for one question. Only the fields for the activity's type are set.
+export type ActivityQuestionInput =
+    | { question : string; output : string }
+    | { question : string; code : string; distractors : string; options : ParsonsSettings }
+
+export interface ActivityInput {
+    name : string;
+    type : ActivityType;
+    language : ProgrammingLanguage | null;
+    questions : ActivityQuestionInput[];
+}
+
 // Saves a new activity for a teacher. Throws with the server's reason if it fails.
-export async function createActivity(teacherId : string, name : string, language : ProgrammingLanguage, questions : ActivityQuestion[]) : Promise<ActivitySummary> {
+export async function createActivity(teacherId : string, activity : ActivityInput) : Promise<ActivitySummary> {
     const res = await fetch(`${SERVER_URL}/api/activities`, {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({teacherId, name, language, questions})
+        body: JSON.stringify({teacherId, ...activity})
     })
 
     if (!res.ok) throw new Error(await failureMessage(res, "Could not save the activity."));

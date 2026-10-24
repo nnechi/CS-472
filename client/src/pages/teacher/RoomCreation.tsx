@@ -174,6 +174,7 @@ export default function RoomCreation(/*{ onClose }: { onClose: () => void }*/) {
                                     onChange={() => setSelectedId(a.id)}
                                 />
                                 <span>{a.name}</span>
+                                <span className="ml-auto text-xs text-gray-500">{a.type === "parsons" ? "Parsons" : "Coding"}</span>
                             </label>
                         ))}
                     </div>

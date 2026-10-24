@@ -1,5 +1,5 @@
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
-import ActivityBox from "../../components/chat/ActivityBox"
+import StudentActivity from "../../components/activity/StudentActivity"
 import ChatPanel from "../../components/chat/ChatPanel"
 import RoomLayout from "../../components/chat/RoomLayout"
 import { RaiseHandButton } from "../../components/HandQueue"
@@ -44,7 +44,15 @@ function StudentRoomScreen({ session }: { session: Session }) {
             onLeave={() => navigate("/")}
             controls={<RaiseHandButton raised={room.handRaised} onToggle={room.raiseHand} />}
             activity={
-                <ActivityBox title="Your activity" text={room.studentText} onChange={room.setStudentText} />
+                <StudentActivity
+                    activity={room.activity}
+                    answers={room.studentAnswers}
+                    results={room.studentResults}
+                    feedback={room.studentFeedback}
+                    onChange={room.setStudentAnswer}
+                    onCheck={room.checkAnswer}
+                    onReset={room.resetProblem}
+                />
             }
             chat={
                 <ChatPanel
