@@ -1,10 +1,14 @@
 import { Server, Socket } from "socket.io";
 import { Message } from "./models/Message";
+import { Activity } from "./models/Activity";
 import {
   ChatMessage,
   ClientToServerEvents,
   ServerToClientEvents,
+  ACTIVITY_MAX_LENGTH,
+  GROUP_CHAT_ID,
   InterServerEvents,
+  PrivateChat,
   RaisedHand,
   Role,
   SocketData,
@@ -29,12 +33,49 @@ export type AppServer = Server<
 export function closeRoom(io : AppServer, room : string): void {
   io.to(room).emit("room closed");
   handQueues.delete(room);
+  privateChats.delete(room);
   clearTimer(room);
   io.in(room).disconnectSockets();
 }
 
 //raise hands are not stored in database,
 const handQueues = new Map<string, RaisedHand[]>();
+
+// Private chats are not stored in database, like raised hands. Each room maps
+// a student's socket id to that chat's details and its recent messages.
+interface PrivateChatState {
+  chat: PrivateChat;
+  messages: ChatMessage[];
+  // The student's activity text, as last sent by them.
+  activity: string;
+}
+const privateChats = new Map<string, Map<string, PrivateChatState>>();
+// Same cap as the group chat's history on join.
+const PRIVATE_HISTORY_LIMIT = 50;
+
+// The room's private chats, created on first use.
+const roomPrivateChats = (room: string): Map<string, PrivateChatState> => {
+  let chats = privateChats.get(room);
+  if (!chats) {
+    chats = new Map();
+    privateChats.set(room, chats);
+  }
+  return chats;
+};
+
+// The questions of the activity a room uses, as the text students see. Outputs
+// are left out. Empty if none is picked. If it can't be loaded, students still
+// join, just without the activity text.
+async function loadActivityText(activityId: unknown): Promise<string> {
+  if (!activityId) return "";
+  try {
+    const activity = await Activity.findById(activityId).select("questions").lean();
+    return (activity?.questions ?? []).map((q) => q.question).join("\n\n");
+  } catch (err) {
+    console.error("[socket] failed to load activity:", err);
+    return "";
+  }
+}
 
 // Every room starts with a 15 minute countdown that is not running.
 const DEFAULT_TIMER_MS = 15 * 60 * 1000;
@@ -119,6 +160,22 @@ export function registerSocketHandlers(
     io.to(teacherChannel(room)).emit("timer state", timerSnapshot(room));
   };
 
+  // Tell both the student and the room's teachers that a private chat exists.
+  // The student's socket is in a room named after its own id.
+  const sendPrivateChat = (room: string, state: PrivateChatState) => {
+    io.to([state.chat.id, teacherChannel(room)]).emit("private chat opened", {
+      chat: state.chat,
+      messages: state.messages,
+      activity: state.activity,
+    });
+  };
+
+  // Remove a student's private chat, e.g. when they leave. Teachers see it close.
+  const closePrivateChat = (room: string, studentId: string) => {
+    if (!privateChats.get(room)?.delete(studentId)) return;
+    io.to(teacherChannel(room)).emit("private chat closed", studentId);
+  };
+
   // Start counting down. When time runs out, the timer stops at zero.
   const playTimer = (room: string) => {
     const timer = getTimer(room);
@@ -198,15 +255,17 @@ export function registerSocketHandlers(
 
         if (!cleanUser || !roomCode) return;
 
-        try{ 
-        const success = await Room.findOne( {code : roomCode }); 
-          if (success === null || success.expiresAt === null || success.expiresAt.getTime() <= Date.now()){ 
-            socket.emit("join error"); 
-            socket.disconnect(); 
-            return; 
+        let roomActivity = "";
+        try{
+        const success = await Room.findOne( {code : roomCode });
+          if (success === null || success.expiresAt === null || success.expiresAt.getTime() <= Date.now()){
+            socket.emit("join error");
+            socket.disconnect();
+            return;
         }
+          roomActivity = await loadActivityText(success.activityId);
 
-        } catch (e){ 
+        } catch (e){
           console.error(e); 
           socket.emit("join error"); 
           socket.disconnect(); 
@@ -227,7 +286,18 @@ export function registerSocketHandlers(
         if (role === "teacher") {
           socket.join(teacherChannel(roomCode));
           socket.emit("hand queue", getQueue(roomCode));
+          // Put back any private chats still open in this room.
+          for (const state of roomPrivateChats(roomCode).values()) {
+            socket.emit("private chat opened", {
+              chat: state.chat,
+              messages: state.messages,
+              activity: state.activity,
+            });
+          }
         }
+
+        // Everyone starts from the teacher's saved activity.
+        socket.emit("room activity", roomActivity);
 
         //display room code
         // previous room data (messages)
@@ -243,6 +313,7 @@ export function registerSocketHandlers(
             text: m.text,
             room: m.room,
             createdAt: (m.createdAt as Date).toISOString(),
+            chatId: GROUP_CHAT_ID,
           }));
 
           socket.emit("chat history", history);
@@ -276,6 +347,7 @@ export function registerSocketHandlers(
             text: saved.text,
             room: saved.room,
             createdAt: (saved.createdAt as Date).toISOString(),
+            chatId: GROUP_CHAT_ID,
           };
 
           // broadcast to everyone in this room only.
@@ -336,10 +408,78 @@ export function registerSocketHandlers(
         setTimerLength(room, minutes);
       });
 
+      // Teachers open a private chat from the hand queue. Only students in
+      // this room can be chatted with, and reopening one just resends it.
+      socket.on("open private chat", ({ studentId }) => {
+        const { username, role, room } = socket.data;
+        if (!room || role !== "teacher") return;
+
+        const id = String(studentId || "");
+        const student = io.sockets.sockets.get(id);
+        if (!student || student.data.room !== room || student.data.role !== "student") return;
+
+        const chats = roomPrivateChats(room);
+        if (!chats.has(id)) {
+          chats.set(id, {
+            chat: { id, studentName: student.data.username, teacherName: username },
+            messages: [],
+            // Filled in when the student's copy syncs, right after they're opened.
+            activity: "",
+          });
+        }
+        sendPrivateChat(room, chats.get(id)!);
+      });
+
+      // Students can only write in their own private chat. Teachers can write
+      // in any private chat in their room.
+      socket.on("private message", ({ chatId, text }) => {
+        const { username, role, room } = socket.data;
+        if (!username || !room) return;
+
+        const state = privateChats.get(room)?.get(String(chatId || ""));
+        if (!state) return;
+        if (role === "student" && state.chat.id !== socket.id) return;
+
+        const cleanText = String(text || "").trim().slice(0, 1000);
+        if (!cleanText) return;
+
+        const message: ChatMessage = {
+          username,
+          role,
+          text: cleanText,
+          room,
+          createdAt: new Date().toISOString(),
+          chatId: state.chat.id,
+        };
+        state.messages = [...state.messages, message].slice(-PRIVATE_HISTORY_LIMIT);
+
+        // Only the student in this chat and the room's teachers get it.
+        io.to([state.chat.id, teacherChannel(room)]).emit("private message", message);
+      });
+
+      // A student's activity only reaches the teacher while their private chat
+      // is open. Otherwise the text stays on the student's screen.
+      socket.on("activity update", ({ text }) => {
+        const { role, room } = socket.data;
+        if (!room || role !== "student") return;
+
+        const state = privateChats.get(room)?.get(socket.id);
+        if (!state) return;
+
+        state.activity = String(text ?? "").slice(0, ACTIVITY_MAX_LENGTH);
+        io.to(teacherChannel(room)).emit("student activity", {
+          chatId: socket.id,
+          text: state.activity,
+        });
+      });
+
       socket.on("disconnect", () => {
         console.log("[socket] user disconnected:", socket.id);
         // A student who leaves shouldn't stay in the teacher's list.
         if (socket.data.room) removeHand(socket.data.room, socket.id);
+        if (socket.data.room && socket.data.role === "student") {
+          closePrivateChat(socket.data.room, socket.id);
+        }
       });
     }
   );
