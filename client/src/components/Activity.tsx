@@ -46,18 +46,24 @@ export default function Activity({ name, onDelete } : ActivityProps){
                 <div className="flex items-center gap-2">
                     <button
                         type="button"
-                        className="text-lg rounded-lg border border-gray-300 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100"
+                        className="text-lg rounded-lg border border-gray-500 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100"
                         onClick={() => navigate("/dashboard/room-creation")}
                     >
                         Start Room
                     </button>
                     <button
                         type="button"
-                        className="text-lg rounded-lg border border-gray-300 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="text-lg rounded-lg border border-gray-500 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100"
+                    >
+                        Edit
+                    </button>
+                    <button
+                        type="button"
+                        className="text-lg rounded-lg border border-gray-500 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={handleDelete}
                         disabled={deleting}
                     >
-                        {deleting ? "Deleting..." : "Delete Activity"}
+                        {deleting ? "Deleting..." : "Delete"}
                     </button>
                 </div>
             </div>
