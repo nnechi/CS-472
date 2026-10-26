@@ -2,12 +2,14 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 interface ActivityProps {
+    // The activity's database id, used to link it to a new room
+    id: string
     name: string
     // Called when the user confirms they want to delete this activity. Throws if the delete fails.
     onDelete: () => Promise<void>
 }
 
-export default function Activity({ name, onDelete } : ActivityProps){
+export default function Activity({ id, name, onDelete } : ActivityProps){
     const navigate = useNavigate()
 
     // Boolean to represent if the activity is in the process of deleting
@@ -39,6 +41,12 @@ export default function Activity({ name, onDelete } : ActivityProps){
         }
     }
 
+    // Goes to the room creation page with this activity already chosen.
+    // That page links the activity to the new room code in the background.
+    function startRoom(){
+        navigate("/dashboard/room-creation", { state: { activityId: id } })
+    }
+
     return (
         <div className="rounded-lg border border-gray-400 p-4">
             <div className="flex items-center justify-between">
@@ -47,7 +55,7 @@ export default function Activity({ name, onDelete } : ActivityProps){
                     <button
                         type="button"
                         className="text-lg rounded-lg border border-gray-500 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100"
-                        onClick={() => navigate("/dashboard/room-creation")}
+                        onClick={startRoom}
                     >
                         Start Room
                     </button>

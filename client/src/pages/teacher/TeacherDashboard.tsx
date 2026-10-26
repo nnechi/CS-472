@@ -63,7 +63,7 @@ export default function TeacherDashboard() {
             return <p className="text-gray-600">You haven't made any activities yet. Click "Create an Activity" to create your first activity.</p>
 
         // Otherwise, activities array is loaded and has activities to display, so display the Activity components
-        return activities.map((a) => <Activity key={a.id} name={a.name} onDelete={() => handleDelete(a.id)} />)
+        return activities.map((a) => <Activity key={a.id} id={a.id} name={a.name} onDelete={() => handleDelete(a.id)} />)
     }
 
     // Deletes the activity from the database, then removes it from the list on screen
