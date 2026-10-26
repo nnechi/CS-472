@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import useAuth from "../../hooks/useAuth"
 import Activity from "../../components/Activity"
-import { listActivities } from "../../api"
+import { deleteActivity, listActivities } from "../../api"
 import type { ActivitySummary } from "../../types"
 
 // Teachers create a Socket.IO room and share its code with students.
@@ -63,7 +63,15 @@ export default function TeacherDashboard() {
             return <p className="text-gray-600">You haven't made any activities yet. Click "Create an Activity" to create your first activity.</p>
 
         // Otherwise, activities array is loaded and has activities to display, so display the Activity components
-        return activities.map((a) => <Activity key={a.id} name={a.name} />)
+        return activities.map((a) => <Activity key={a.id} name={a.name} onDelete={() => handleDelete(a.id)} />)
+    }
+
+    // Deletes the activity from the database, then removes it from the list on screen
+    // If the server request fails, the error is thrown so the Activity component can show it
+    async function handleDelete(activityId: string){
+        if (!auth) return
+        await deleteActivity(activityId, auth.user.id)
+        setActivities((current) => current?.filter((a) => a.id !== activityId) ?? null)
     }
 
     return (
