@@ -62,6 +62,17 @@ export async function listActivities(teacherId : string) : Promise<ActivitySumma
     return res.json();
 }
 
+// Deletes one of a teacher's activities. Throws with the server's reason if it fails.
+export async function deleteActivity(activityId : string, teacherId : string) : Promise<void> {
+    const res = await fetch(`${SERVER_URL}/api/activities/${encodeURIComponent(activityId)}`, {
+        method: "DELETE",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({teacherId})
+    })
+
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not delete the activity."));
+}
+
 // Sets the activity a room uses. Throws with the server's reason if it fails.
 export async function saveActivity(roomCode : string, hostID : string, activityId : string) : Promise<void> {
     const res = await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent(roomCode)}/activity`, {

@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from "react"
-import { useNavigate } from "react-router-dom"
-import { createRoom, deleteRoom, listActivities, saveActivity } from '../../api.ts'
+import { useLocation, useNavigate } from "react-router-dom"
+import { createRoom, deleteRoom, saveActivity } from '../../api.ts'
 import useAuth from "../../hooks/useAuth"
-import { ActivitySummary } from "../../types"
 
 // Later this can POST /api/rooms so codes are unique and persisted.
-// Rendered inline on the teacher dashboard; `onClose` hides it again.
-export default function RoomCreation(/*{ onClose }: { onClose: () => void }*/) {
+export default function RoomCreation() {
     const navigate = useNavigate()
+
+    // "Start Room" on an activity sends its id here so it starts out the activity is already chosen
+    const location = useLocation()
+    const startingActivityId : string = location.state?.activityId ?? ""; // activityId of the activity chosen
 
     const { auth } = useAuth();
     const [code, setCode] = useState("");
@@ -15,11 +17,7 @@ export default function RoomCreation(/*{ onClose }: { onClose: () => void }*/) {
     // disabled meanwhile, so the teacher can't open a code that's about to be
     // replaced (and deleted).
     const [busy, setBusy] = useState(true);
-    // The teacher's own activities, A to Z. null until they have loaded.
-    const [activities, setActivities] = useState<ActivitySummary[] | null>(null);
-    const [listError, setListError] = useState("");
-    // The activity the room will use. Saved with the room code on Open room.
-    const [selectedId, setSelectedId] = useState("");
+
     const [saving, setSaving] = useState(false);
     // False once the panel unmounts, so a late response can clean up after itself.
     const mounted = useRef(false);
@@ -64,17 +62,16 @@ export default function RoomCreation(/*{ onClose }: { onClose: () => void }*/) {
     return  () => { cancelled = true; }
 }, []);
 
-    // Load the teacher's activities so they can pick one for this room.
+    // Link the chosen activity to the room code in the background, as soon as
+    // both exist and again whenever either changes. Open room saves it once
+    // more, so a failure here only gets logged.
     useEffect(() => {
-        if (!auth) return;
-        let cancelled = false;
-        listActivities(auth.user.id)
-            .then((list) => { if (!cancelled) setActivities(list); })
-            .catch((e) => {
-                if (!cancelled) setListError(e instanceof Error ? e.message : "Could not load your activities.");
-            });
-        return () => { cancelled = true; };
-    }, [auth?.user.id]);
+        // If no user logged in or no room or no activity ID then do nothing
+        if (!auth || !code || !startingActivityId) return;
+
+        // API call to saveActivity to bind the room to the activity using the activity Id
+        saveActivity(code, auth.user.id, startingActivityId).catch(console.error);
+    }, [auth?.user.id, code, startingActivityId]);
 
     useEffect(() => {
         mounted.current = true;
@@ -94,12 +91,11 @@ export default function RoomCreation(/*{ onClose }: { onClose: () => void }*/) {
         discardCode(oldCode);
     }
 
-    // Save the chosen activity to the room, then go into the room.
+    // Navigate into the room
     async function openRoom(){
-        if (!auth || !selectedId || saving) return;
+        if (!auth || !startingActivityId || saving) return;
         setSaving(true);
         try {
-            await saveActivity(code, auth.user.id, selectedId);
             navigate(`/rooms/${code}`);
         } catch (e) {
             window.alert(`Could not open the room. ${e instanceof Error ? e.message : ""}`.trim());
@@ -107,15 +103,8 @@ export default function RoomCreation(/*{ onClose }: { onClose: () => void }*/) {
         }
     }
 
-    // Leave to make a new activity. This room's code is no longer needed.
-    function createActivityFirst(){
-        discardCode(code);
-        navigate("/dashboard/create-activity");
-    }
-
     function close(){
         discardCode(code);
-        //onClose();
         navigate("/dashboard")
     }
 
@@ -136,50 +125,6 @@ export default function RoomCreation(/*{ onClose }: { onClose: () => void }*/) {
 
             <p className="my-4 text-4xl font-bold tracking-widest">{code}</p>
 
-            <div className="mb-4">
-                <h2 className="mb-2 text-sm text-gray-600">Choose an activity</h2>
-
-                {listError && <p role="alert" className="text-red-600">{listError}</p>}
-                {!listError && activities === null && <p className="text-gray-500">Loading your activities...</p>}
-
-                {activities?.length === 0 && (
-                    <p className="text-gray-600">
-                        You haven't made any activities yet.{" "}
-                        <button
-                            type="button"
-                            className="text-indigo-600 underline cursor-pointer"
-                            onClick={createActivityFirst}
-                        >
-                            Create one
-                        </button>
-                    </p>
-                )}
-
-                {activities && activities.length > 0 && (
-                    <div
-                        role="radiogroup"
-                        aria-label="Your activities"
-                        className="max-h-64 overflow-y-auto rounded-lg border border-gray-300"
-                    >
-                        {activities.map((a) => (
-                            <label
-                                key={a.id}
-                                className={`flex cursor-pointer items-center gap-3 border-b border-gray-200 px-3 py-2 last:border-b-0 hover:bg-neutral-100 ${selectedId === a.id ? "bg-indigo-50" : ""}`}
-                            >
-                                <input
-                                    type="radio"
-                                    name="activity"
-                                    value={a.id}
-                                    checked={selectedId === a.id}
-                                    onChange={() => setSelectedId(a.id)}
-                                />
-                                <span>{a.name}</span>
-                            </label>
-                        ))}
-                    </div>
-                )}
-            </div>
-
             <div className="flex items-center gap-3">
                 <button
                     type="button"
@@ -192,12 +137,12 @@ export default function RoomCreation(/*{ onClose }: { onClose: () => void }*/) {
                 <button
                     type="button"
                     className="rounded-lg bg-neutral-900 px-4 py-2 text-white cursor-pointer hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled = {!code || busy || saving || !selectedId}
+                    disabled = {!code || busy || saving || !startingActivityId}
                     onClick={openRoom}
                 >
                     {saving ? "Opening..." : "Open room"}
                 </button>
-                {!selectedId && <span className="text-sm text-gray-500">Pick an activity to open the room.</span>}
+                {!startingActivityId && <span className="text-sm text-gray-500">Pick an activity to open the room.</span>}
             </div>
         </div>
     )

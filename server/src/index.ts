@@ -235,6 +235,35 @@ export function createApp(io : AppServer) {
     }
   });
 
+  // deleteActivity(activityId, teacherId): only the teacher who made it can delete it.
+  // Rooms that were using it go back to having no activity.
+  app.delete("/api/activities/:activityId", async (req, res) => {
+    const activityId = req.params.activityId.trim();
+    const teacherId = typeof req.body?.teacherId === "string" ? req.body.teacherId.trim() : "";
+
+    if (!teacherId) {
+      res.status(400).json({ error: "Missing teacher id." });
+      return;
+    }
+    if (!isObjectIdOrHexString(activityId)) {
+      res.status(400).json({ error: "Invalid activity id." });
+      return;
+    }
+
+    try {
+      const deleted = await Activity.findOneAndDelete({ _id: activityId, teacherId });
+      if (deleted === null) {
+        res.status(404).json({ error: "Cannot find that activity." });
+        return;
+      }
+      await Room.updateMany({ activityId }, { activityId: null });
+      res.status(200).json({ message: "Deleted activity." });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to delete the activity." });
+    }
+  });
+
   // Sets which activity a room uses. Only the room's host can change it, and
   // only with an activity they made, while the room is still open.
   app.put("/api/rooms/:roomCode/activity", async (req, res) => {
