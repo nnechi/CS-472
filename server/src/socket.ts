@@ -514,7 +514,7 @@ export function registerSocketHandlers(
             chat: { id, studentName: student.data.username, teacherName: username },
             messages: [],
             // Filled in when the student's copy syncs, right after they're opened.
-            progress: { answers: [], results: [] },
+            progress: { answers: [], results: [], marks: [] },
           });
         }
         sendPrivateChat(room, chats.get(id)!);
@@ -559,11 +559,12 @@ export function registerSocketHandlers(
         if (!state || !cleaned) return;
 
         const previous = state.progress;
+        const unchanged = (lines: ParsonsLine[], i: number) =>
+          JSON.stringify(lines) === JSON.stringify(previous.answers[i]);
         state.progress = {
           answers: cleaned,
-          results: cleaned.map((lines, i) =>
-            JSON.stringify(lines) === JSON.stringify(previous.answers[i]) ? previous.results[i] ?? null : null
-          ),
+          results: cleaned.map((lines, i) => (unchanged(lines, i) ? previous.results[i] ?? null : null)),
+          marks: cleaned.map((lines, i) => (unchanged(lines, i) ? previous.marks[i] ?? null : null)),
         };
         io.to(teacherChannel(room)).emit("student activity", {
           chatId: socket.id,
@@ -600,6 +601,7 @@ export function registerSocketHandlers(
             state.progress = {
               answers: withValue(state.progress.answers, index, answer, []),
               results: withValue(state.progress.results, index, graded.success, null),
+              marks: withValue(state.progress.marks, index, graded.marks, null),
             };
             io.to(teacherChannel(room)).emit("student activity", {
               chatId: socket.id,

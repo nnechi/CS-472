@@ -23,7 +23,7 @@ interface RoomSocketOptions {
 // How long a student's arrangement waits before it is sent to the teacher.
 const PROGRESS_SYNC_DELAY_MS = 300;
 
-const EMPTY_PROGRESS: AnswerProgress = { answers: [], results: [] };
+const EMPTY_PROGRESS: AnswerProgress = { answers: [], results: [], marks: [] };
 
 // Fisher-Yates shuffle, for reshuffling a Parsons problem's lines.
 function shuffle<T>(items: T[]): T[] {

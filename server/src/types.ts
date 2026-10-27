@@ -81,6 +81,9 @@ export interface RoomActivity {
 export interface AnswerProgress {
   answers: ParsonsLine[][];
   results: (boolean | null)[];
+  // Which lines of each checked answer are wrong, for the teacher to see.
+  // null until checked, and reset with the result when the answer changes.
+  marks: (LineMark[] | null)[];
 }
 
 //raise hand uses id not username incase multiple people pick the same username.

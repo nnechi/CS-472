@@ -1,4 +1,5 @@
-import { AnswerProgress, ParsonsLine, RoomActivity } from "../../types";
+import { AnswerProgress, RoomActivity } from "../../types";
+import LineBox, { ANSWER_FRAME_STYLE, lineStates } from "./LineBox";
 
 interface TeacherActivityProps {
   // "Activity" in the group chat, or the student's name in their private chat.
@@ -8,13 +9,11 @@ interface TeacherActivityProps {
   progress?: AnswerProgress;
 }
 
-const codeClass = "whitespace-pre overflow-x-auto rounded-md bg-gray-50 p-2 font-mono text-sm";
-
-// Lines as code, with four spaces per indent level, the way the student's answer is shown.
-const formatLines = (lines: ParsonsLine[]) => lines.map((line) => "    ".repeat(line.indent) + line.code).join("\n");
+const DEFAULT_X_INDENT = 50;
 
 // The teacher's view of the activity, with every question whatever its type.
-// Shows the answers, and in a private chat the student's work.
+// Shows the answers as boxes, and in a private chat the student's work colored
+// the way the student sees it.
 export default function TeacherActivity({ title, activity, progress }: TeacherActivityProps) {
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
@@ -26,6 +25,10 @@ export default function TeacherActivity({ title, activity, progress }: TeacherAc
         activity.questions.map((question, index) => {
           const answer = progress?.answers[index] ?? [];
           const result = progress?.results[index] ?? null;
+          const marks = progress?.marks?.[index] ?? null;
+          const xIndent = question.options?.xIndent ?? DEFAULT_X_INDENT;
+          const answerFrame = result === true ? "correct" : result === false ? "incorrect" : "neutral";
+          const states = lineStates(result, marks, answer.length);
 
           return (
             <article key={index} className="flex flex-col gap-2 rounded-lg border border-gray-200 p-3">
@@ -41,19 +44,27 @@ export default function TeacherActivity({ title, activity, progress }: TeacherAc
               {activity.type === "coding" ? (
                 <div>
                   <h3 className="text-xs font-semibold text-gray-600">Correct output</h3>
-                  <pre className={codeClass}>{question.output}</pre>
+                  <pre className="whitespace-pre overflow-x-auto rounded-md bg-gray-50 p-2 font-mono text-sm">{question.output}</pre>
                 </div>
               ) : (
                 <>
                   <div>
                     <h3 className="text-xs font-semibold text-gray-600">Solution, in order</h3>
-                    <pre className={codeClass}>{formatLines(question.solution ?? [])}</pre>
+                    <div className="px-2 pb-2" style={ANSWER_FRAME_STYLE.neutral}>
+                      {(question.solution ?? []).map((line, i) => (
+                        <LineBox key={i} code={line.code} indent={line.indent} xIndent={xIndent} />
+                      ))}
+                    </div>
                   </div>
 
                   {(question.distractors?.length ?? 0) > 0 && (
                     <div>
                       <h3 className="text-xs font-semibold text-gray-600">Extra lines (not in the answer)</h3>
-                      <pre className={codeClass}>{(question.distractors ?? []).join("\n")}</pre>
+                      <div className="px-2 pb-2" style={ANSWER_FRAME_STYLE.neutral}>
+                        {(question.distractors ?? []).map((code, i) => (
+                          <LineBox key={i} code={code} indent={0} xIndent={xIndent} />
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -65,9 +76,12 @@ export default function TeacherActivity({ title, activity, progress }: TeacherAc
                         {result === false && <span className="text-red-600">Incorrect</span>}
                         {result === null && <span className="font-normal text-gray-500">Not checked yet</span>}
                       </h3>
-                      <pre className={codeClass}>
-                        {answer.length > 0 ? formatLines(answer) : "No lines placed yet."}
-                      </pre>
+                      <div className="px-2 pb-2" style={ANSWER_FRAME_STYLE[answerFrame]}>
+                        {answer.length === 0 && <p className="p-2 text-sm text-gray-500">No lines placed yet.</p>}
+                        {answer.map((line, i) => (
+                          <LineBox key={i} code={line.code} indent={line.indent} xIndent={xIndent} state={states[i]} />
+                        ))}
+                      </div>
                     </div>
                   )}
                 </>

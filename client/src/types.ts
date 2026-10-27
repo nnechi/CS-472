@@ -105,6 +105,8 @@ export interface RoomActivity {
 export interface AnswerProgress {
   answers: ParsonsLine[][];
   results: (boolean | null)[];
+  // Which lines of each checked answer are wrong, for the teacher to see.
+  marks: (LineMark[] | null)[];
 }
 
 // The feedback for one checked question: messages and the marked lines.
