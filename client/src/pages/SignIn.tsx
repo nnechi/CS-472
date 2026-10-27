@@ -4,21 +4,14 @@ import useAuth from "../hooks/useAuth"
 import { fakeLoginApi } from '../mockDb'
 import AuthCard from "../components/AuthCard"
 /* adding Google Auth Log in  */
-import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
-import { jwtDecode } from 'jwt-decode';
-import { GoogleProfile } from "../../../server/src/auth/users.ts"
+
 
 type SignInForm = {
   email: string;
   password: string;
 };
 
-// type GoogleProfile = {
-//   sub: string;
-//   name: string;
-//   email: string;
-//   picture: string;
-// };
+
 
 export default function SignIn() {
     const navigate = useNavigate();
@@ -92,30 +85,7 @@ export default function SignIn() {
             setLoading(false)
         }
     };
-
-    const handleGoogleSuccess = (credentialResponse: CredentialResponse) => {
-        if (!credentialResponse.credential) {
-            setError('Google sign-in failed. Please try again.');
-            return;
-        }
-        // credential은 암호처럼 생긴 문자열(JWT)이라서, 이름/이메일을 꺼내려면 디코딩해야 해요
-        const profile = jwtDecode<GoogleProfile>(credentialResponse.credential);
-        console.log('Google user:', profile);
-
-        setAuth({ 
-            user: 
-            {   //id: profile.sub, 
-                id: profile.googleId,
-                name: profile.name, 
-                email: profile.email 
-            } 
-        });
-        navigate(from, { replace: true });
-    };
-
-    const handleGoogleError = () => {
-        setError('Google sign-in failed. Please try again.');
-    };
+    
 
     return(
         <AuthCard title="Sign in">
@@ -177,15 +147,9 @@ export default function SignIn() {
             </form>
                 <div style={{ margin: '16px 0', textAlign: 'center'}}>or</div>
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <GoogleLogin 
-                        onSuccess={handleGoogleSuccess} 
-                        onError={handleGoogleError} 
-                        shape="pill"
-                        size="large"
-                        theme="outline"
-                        width="314"
-                        {...{ locale: 'en' }}
-                    />
+                    <a className="auth-google" href={`${import.meta.env.VITE_SERVER_URL}/auth/google`}>
+                        Sign in with Google
+                    </a>
                 </div>
 
                 {/* TODO Make forgot password page and links/route stuff. 
