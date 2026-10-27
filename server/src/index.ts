@@ -41,6 +41,7 @@ export function createApp(io : AppServer) {
     app.set("trust proxy", 1);
   }
   // Turn on sessions for every request.
+  app.use(cors({ origin: process.env.CLIENT_ORIGIN, credentials: true })); // lets us talk to frontend and send them stuff, namely cookies, sessions, and Google's sign-in payload
   app.use(sessionMiddleware);
   app.use(authRouter);
   // who is logged in?
