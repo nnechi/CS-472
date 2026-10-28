@@ -31,7 +31,7 @@ export type CodeSubmissionAck =
         outputLimitExceeded: boolean;
       }
     | { executionId: string; type: "error"; message: string };
-    
+
 // Everything the chat needs to know about the current user. Built from the
 // signed-in user (AuthProvider) plus the room code from the URL.
 export interface Session {
@@ -122,6 +122,7 @@ export interface ServerToClientEvents {
   "timer state": (timer: TimerState) => void;
   "room closed" : () => void;
   "join error" : () =>  void; 
+  
 }
 
 export interface ClientToServerEvents {
@@ -149,4 +150,5 @@ export interface ClientToServerEvents {
   "private message": (payload: { chatId: string; text: string }) => void;
   // Students only, while their private chat is open: their activity text.
   "activity update": (payload: { text: string }) => void;
+   "code:update": (update: CodeRunUpdate) => void;
 }
