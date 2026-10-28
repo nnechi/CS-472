@@ -519,7 +519,11 @@ export function registerSocketHandlers(
         activeCodeRuns += 1;
         try {
           const runner = receipt.language === "typescript" ? runTypeScript : runJavaScript;
-          const result = await runner(payload, { signal: controller.signal });
+          const result = await runner(payload, { 
+            signal : controller.signal, 
+            onUpdate: (update) => socket.emit("code:update", update)
+          });
+
           acknowledge({
             accepted: true,
             ...receipt,
@@ -527,6 +531,9 @@ export function registerSocketHandlers(
             timedOut: result.timedOut,
             cancelled: result.cancelled,
             outputLimitExceeded: result.outputLimitExceeded,
+            executionId : result.executionId, 
+            stdout : result.stdout, 
+            stderr : result.stderr, 
           });
         } catch (error) {
           console.error("[socket] code run failed:", error);
