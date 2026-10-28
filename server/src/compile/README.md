@@ -51,6 +51,14 @@ program output to the browser. The room shows only the completion status.
 Only one run per socket and two runs across the server can be active at once;
 a disconnect cancels that socket's run.
 
+Basic submission guards: only `language` and `code` fields are accepted, source
+must be nonempty and at most 64 KiB in UTF-8, NUL characters are rejected,
+and Socket.IO messages are capped at 128 KiB. A socket can start up to five
+runs in a rolling minute. User programs also get a 128 MiB V8 heap limit.
+Source code is not rewritten or stripped, since that would change what the
+student wrote. The per-socket rate limit resets on reconnect, and the V8 heap
+limit is not a total process memory limit.
+
 Install server dependencies once from the `server` directory:
 
 ```sh
@@ -70,7 +78,7 @@ The other four languages still have command definitions only. Their runners
 have not been implemented. Future work should:
 
 1. Add runners for C, C++, Java, and Python.
-2. Add a global concurrency limit and isolated execution with memory limits.
+2. Add isolated execution with operating-system memory and process limits.
 3. Wire the output callback to the WebSocket layer when output streaming is ready.
 
 The current server image has Node but does not install Python, Java, GCC, or

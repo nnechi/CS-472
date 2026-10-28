@@ -342,6 +342,7 @@ async function main() {
 
 const io : AppServer = new Server({ 
   cors : { origin : CLIENT_ORIGIN, methods : ["GET", "POST"]}, 
+  maxHttpBufferSize: 128 * 1024,
 })
 
     const app = createApp(io);

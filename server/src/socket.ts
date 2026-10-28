@@ -1,7 +1,7 @@
 import { Server, Socket } from "socket.io";
 import { Message } from "./models/Message";
 import { Activity } from "./models/Activity";
-import { receiveCode } from "./compile/submission";
+import { allowCodeRun, receiveCode } from "./compile/submission";
 import { InvalidCompileRequestError } from "./compile/plan";
 import { runJavaScript, runTypeScript } from "./compile";
 import {
@@ -252,6 +252,7 @@ export function registerSocketHandlers(
     ) => {
       console.log("[socket] a user connected:", socket.id);
       let activeCodeRun: AbortController | null = null;
+      const codeRunHistory: number[] = [];
 
       // Teachers create a room
       // Students join one.
@@ -496,11 +497,27 @@ export function registerSocketHandlers(
           return;
         }
 
+        let receipt: ReturnType<typeof receiveCode>;
+        try {
+          receipt = receiveCode(payload);
+        } catch (error) {
+          if (error instanceof InvalidCompileRequestError) {
+            acknowledge({ accepted: false, message: error.message });
+          } else {
+            console.error("[socket] invalid code submission:", error);
+            acknowledge({ accepted: false, message: "Could not receive code." });
+          }
+          return;
+        }
+        if (!allowCodeRun(codeRunHistory)) {
+          acknowledge({ accepted: false, message: "Too many runs. Try again in a minute." });
+          return;
+        }
+
         const controller = new AbortController();
         activeCodeRun = controller;
         activeCodeRuns += 1;
         try {
-          const receipt = receiveCode(payload);
           const runner = receipt.language === "typescript" ? runTypeScript : runJavaScript;
           const result = await runner(payload, { signal: controller.signal });
           acknowledge({
@@ -512,12 +529,8 @@ export function registerSocketHandlers(
             outputLimitExceeded: result.outputLimitExceeded,
           });
         } catch (error) {
-          if (error instanceof InvalidCompileRequestError) {
-            acknowledge({ accepted: false, message: error.message });
-          } else {
-            console.error("[socket] code run failed:", error);
-            acknowledge({ accepted: false, message: "Could not run code." });
-          }
+          console.error("[socket] code run failed:", error);
+          acknowledge({ accepted: false, message: "Could not run code." });
         } finally {
           activeCodeRun = null;
           activeCodeRuns -= 1;

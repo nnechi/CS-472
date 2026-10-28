@@ -16,6 +16,7 @@ import {
 export const DEFAULT_TIMEOUT_MS = 5_000;
 export const DEFAULT_COMPILE_TIMEOUT_MS = 10_000;
 export const DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024;
+const MAX_NODE_HEAP_MB = 128;
 
 export interface RunOptions {
   onUpdate?: OnCompileUpdate;
@@ -103,7 +104,10 @@ export async function runNodeSubmission(
       const args = command.executable === "tsc"
         ? [require.resolve("typescript/bin/tsc"), ...command.args]
         : command.args;
-      const child = spawn(executable, args, {
+      const processArgs = command.executable === "node"
+        ? [`--max-old-space-size=${MAX_NODE_HEAP_MB}`, ...args]
+        : args;
+      const child = spawn(executable, processArgs, {
         cwd: workDir,
         shell: false,
         stdio: ["pipe", "pipe", "pipe"],

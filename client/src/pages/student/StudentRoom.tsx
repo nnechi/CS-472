@@ -70,6 +70,10 @@ function CodeSubmissionPanel() {
 
     function submitCode() {
         if (!code.trim() || sending) return
+        if (new TextEncoder().encode(code).length > 64 * 1024) {
+            setStatus("Code is too large. Keep it under 64 KiB.")
+            return
+        }
         setSending(true)
         setStatus("Running code on the server...")
 
