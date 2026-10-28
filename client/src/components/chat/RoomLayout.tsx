@@ -3,8 +3,6 @@ import { Session } from "../../types";
 
 interface RoomLayoutProps {
   session: Session;
-  // Leaving is the page's choice. Undefined hides the button.
-  onLeave?: () => void;
   // Shown after the room code in the banner, e.g. the teacher's share note.
   bannerNote?: ReactNode;
   // Role-specific controls under the banner, such as the timer or raise hand.
@@ -15,34 +13,17 @@ interface RoomLayoutProps {
   chat: ReactNode;
 }
 
-// The room screen both roles share: header, room code, controls, then the
-// activity beside the chat. Each room page decides what goes in the slots.
+// This component contains everything below the room navbars and the respective room headers (student header or teacher header)
+// Is reused for both student room and teacher room
 export default function RoomLayout({
   session,
-  onLeave,
   bannerNote,
   controls,
   activity,
   chat,
 }: RoomLayoutProps) {
   return (
-    <div className="mx-auto flex h-screen w-full flex-col bg-white text-black">
-      <header className="flex items-center justify-between border-b border-gray-200 p-4 font-semibold">
-        <span>LittlePointers</span>
-        <span className="flex items-center gap-3 text-sm font-normal text-gray-500">
-          {session.username} · {session.role}
-          {onLeave && (
-            <button
-              type="button"
-              className="rounded-lg border border-gray-300 px-3 py-1 text-gray-900 cursor-pointer hover:bg-neutral-100"
-              onClick={onLeave}
-            >
-              Leave room
-            </button>
-          )}
-        </span>
-      </header>
-
+    <div className="mx-auto flex min-h-0 flex-1 w-full flex-col bg-white text-black">
       <div className="border-b border-gray-200 px-4 py-2 text-sm">
         Room code: <strong>{session.room}</strong>
         {bannerNote}

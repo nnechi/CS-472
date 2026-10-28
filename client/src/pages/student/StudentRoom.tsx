@@ -6,6 +6,7 @@ import { RaiseHandButton } from "../../components/HandQueue"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
 import { Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
+import RoomNavbar from "../../components/chat/RoomNavbar"
 
 // /rooms/join/:roomCode -- the student's view of a room: the activity, the chat,
 // and the raise-hand button. Students have no account; the name comes from the
@@ -37,22 +38,25 @@ function StudentRoomScreen({ session }: { session: Session }) {
     })
 
     return (
-        <RoomLayout
-            session={session}
-            // Leaving unmounts the chat, which disconnects the socket and
-            // drops the student from the teacher's hand queue.
-            onLeave={() => navigate("/")}
-            controls={<RaiseHandButton raised={room.handRaised} onToggle={room.raiseHand} />}
-            activity={
-                <ActivityBox title="Your activity" text={room.studentText} onChange={room.setStudentText} />
-            }
-            chat={
-                <ChatPanel
-                    room={room}
-                    username={session.username}
-                    privateLabel={(chat) => `Private: ${chat.teacherName}`}
-                />
-            }
-        />
+        <div className="flex h-screen flex-col">
+            <RoomNavbar session={session} onLeave={() => navigate("/")} />
+            <RoomLayout
+                session={session}
+                // Leaving unmounts the chat, which disconnects the socket and
+                // drops the student from the teacher's hand queue.
+                // onLeave={() => navigate("/")}
+                controls={<RaiseHandButton raised={room.handRaised} onToggle={room.raiseHand} />}
+                activity={
+                    <ActivityBox title="Your activity" text={room.studentText} onChange={room.setStudentText} />
+                }
+                chat={
+                    <ChatPanel
+                        room={room}
+                        username={session.username}
+                        privateLabel={(chat) => `Private: ${chat.teacherName}`}
+                    />
+                }
+            />
+        </div>
     )
 }
