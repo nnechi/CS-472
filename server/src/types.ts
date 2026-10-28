@@ -13,7 +13,7 @@ export type CodeSubmissionAck =
       timedOut: boolean;
       cancelled: boolean;
       outputLimitExceeded: boolean;
-      executionID : string; 
+      executionId : string; 
       stdout : string; 
       stderr : string; 
     }

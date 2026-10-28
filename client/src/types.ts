@@ -11,7 +11,7 @@ export type CodeSubmissionAck =
       timedOut: boolean;
       cancelled: boolean;
       outputLimitExceeded: boolean;
-      executionID : string; 
+      executionId : string; 
       stdout : string; 
       stderr : string; 
 
@@ -122,6 +122,7 @@ export interface ServerToClientEvents {
   "timer state": (timer: TimerState) => void;
   "room closed" : () => void;
   "join error" : () =>  void; 
+  "code:update": (update: CodeRunUpdate) => void;
   
 }
 
@@ -150,5 +151,5 @@ export interface ClientToServerEvents {
   "private message": (payload: { chatId: string; text: string }) => void;
   // Students only, while their private chat is open: their activity text.
   "activity update": (payload: { text: string }) => void;
-   "code:update": (update: CodeRunUpdate) => void;
+  
 }
