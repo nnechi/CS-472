@@ -15,8 +15,8 @@ export default function NavLinks({ onLinkClick }: NavLinksProp) {
             <NavLink to="/about" className={getLinkClass} onClick={onLinkClick}>
                 About Us
             </NavLink>
-            <NavLink to="/learn-more" className={getLinkClass} onClick={onLinkClick}>
-                Learn More
+            <NavLink to="/features" className={getLinkClass} onClick={onLinkClick}>
+                Features
             </NavLink>
             <NavLink to="/contact" className={getLinkClass} onClick={onLinkClick}>
                 Contact Us

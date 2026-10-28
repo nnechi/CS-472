@@ -4,11 +4,20 @@ import { Server } from "socket.io";
 import cors from "cors";
 
 import { connectToDatabase } from "./db";
-import { registerSocketHandlers } from "./socket";
-import { ClientToServerEvents, ServerToClientEvents } from "./types";
+import {AppServer, closeRoom,  registerSocketHandlers } from "./socket";
+
 
 import { generateRoomCode } from "./utils/roomCode"; 
 import {Room} from "./models/Room"
+import {Activity} from "./models/Activity"
+
+import { authConfig } from "./auth/config";
+import { ACTIVITY_MAX_LENGTH, ACTIVITY_NAME_MAX_LENGTH, PROGRAMMING_LANGUAGES } from "./types";
+import { isObjectIdOrHexString } from "mongoose";
+
+import { sessionMiddleware } from "./auth/session";
+import { authRouter } from "./auth/routes";
+import { requireLogin } from "./auth/requireLogin";
 
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -24,8 +33,22 @@ function notImplemented(operation: string): RequestHandler {
   };
 }
 
-export function createApp() {
+export function createApp(io : AppServer) {
   const app = express();
+
+  // behind hosting proxy in prod, lets 'secure' cookies work
+  if (authConfig.isProduction) {
+    app.set("trust proxy", 1);
+  }
+  // Turn on sessions for every request.
+  app.use(cors({ origin: process.env.CLIENT_ORIGIN, credentials: true })); // lets us talk to frontend and send them stuff, namely cookies, sessions, and Google's sign-in payload
+  app.use(sessionMiddleware);
+  app.use(authRouter);
+  // who is logged in?
+  app.get("/api/me", requireLogin, (req, res) => {
+    res.json({ user: req.session.user });
+  });
+
   app.use(cors({ origin: CLIENT_ORIGIN }));
   app.use(express.json());
 
@@ -43,13 +66,20 @@ export function createApp() {
   app.post("/api/rooms", async (req, res) => { 
     
       const code : string = generateRoomCode(); // generate a random code <roomCode.ts> 
-      const hostID = req.body.hostID;
+      let hostID = req.body.hostID;
 
       if (typeof(hostID) !== "string"){ 
         console.error("Invalid Value"); 
         res.status(400).json({error : "Room Creation Error: Invalid Value"}); 
         return; 
       }
+
+      hostID = hostID.trim(); 
+
+       if (!hostID){ 
+          res.status(400).json({error: "Missing HostID. "}); 
+          return; 
+        }
 
       const expiresAt : Date =  new Date(Date.now() + 60 * 60 * 1000); // expires every 60 mins WE CAN CHANGE THIS BTW 
       
@@ -70,11 +100,208 @@ export function createApp() {
   });
 
   // getRoom(roomCode: string): Room
-  app.get("/api/rooms/:roomCode", notImplemented("getRoom"));
+  app.get("/api/rooms/:roomCode", async (req, res) => { 
+    const c : string = req.params.roomCode.trim().toUpperCase(); 
+
+    try { 
+      const roomExists = await Room.findOne({code : c}); 
+      if (roomExists === null || roomExists.expiresAt.getTime() <= Date.now()){ 
+        res.status(404).json({error: "Cannot find room!"}); 
+      } else { 
+        res.status(200).json({message: "Joining room!"}); 
+      }
+    } catch (e){ 
+      console.error(e); 
+      res.status(500).json({error: "Failed to look up room."}); 
+    }
+  }
+  );
 
   // deleteRoom(roomCode: string): boolean
   // TODO: Restrict deletion to the room host and disconnect its participants.
-  app.delete("/api/rooms/:roomCode", notImplemented("deleteRoom"));
+  app.delete("/api/rooms/:roomCode", async (req, res) => { 
+      const c : string = req.params.roomCode.trim().toUpperCase(); 
+      let hostID : string = req.body.hostID; 
+
+      if (typeof(hostID) !== "string"){
+        res.status(400).json({error : "hostID must be a string."}); 
+        return; 
+      }
+      hostID = hostID.trim(); 
+
+
+        if (!c){
+        res.status(400).json({error: "Missing room code."}); 
+        return; 
+        }
+
+        if (!hostID){ 
+          res.status(400).json({error: "Missing HostID. "}); 
+          return; 
+        }
+
+      try { 
+        const deleted = await Room.findOneAndDelete({code : c, hostID : hostID}); 
+
+        if (deleted === null){ 
+          res.status(404).json({error : "Nothing to delete!"}); 
+        } else { 
+          closeRoom(io,c); 
+           res.status(200).json({message : "Successfully deleted room."});
+           return; 
+        }  
+      } catch (e){ 
+        console.error(e); 
+        res.status(500).json({error: "Failed to delete room from server"}); 
+      }
+
+  });
+
+  // Activities a teacher made. createActivity(teacherId, name, language, questions)
+  app.post("/api/activities", async (req, res) => {
+    const teacherId = typeof req.body?.teacherId === "string" ? req.body.teacherId.trim() : "";
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    const language = req.body?.language;
+    const questions = req.body?.questions;
+
+    if (!teacherId) {
+      res.status(400).json({ error: "Missing teacher id." });
+      return;
+    }
+    if (!name) {
+      res.status(400).json({ error: "Give the activity a name." });
+      return;
+    }
+    if (name.length > ACTIVITY_NAME_MAX_LENGTH) {
+      res.status(400).json({ error: `Activity names can be at most ${ACTIVITY_NAME_MAX_LENGTH} characters.` });
+      return;
+    }
+    if (typeof language !== "string" || !(PROGRAMMING_LANGUAGES as readonly string[]).includes(language)) {
+      res.status(400).json({ error: "Choose a programming language." });
+      return;
+    }
+    if (!Array.isArray(questions) || questions.length === 0) {
+      res.status(400).json({ error: "Add at least one question." });
+      return;
+    }
+    for (const item of questions) {
+      const question = typeof item?.question === "string" ? item.question.trim() : "";
+      const output = typeof item?.output === "string" ? item.output : "";
+      if (!question) {
+        res.status(400).json({ error: "Every question needs text." });
+        return;
+      }
+      if (question.length > ACTIVITY_MAX_LENGTH || output.length > ACTIVITY_MAX_LENGTH) {
+        res.status(400).json({ error: `Questions and outputs can be at most ${ACTIVITY_MAX_LENGTH} characters.` });
+        return;
+      }
+      if (!output) {
+        res.status(400).json({ error: "Every question needs a correct output." });
+        return;
+      }
+    }
+
+    try {
+      const created = await Activity.create({
+        teacherId,
+        name,
+        language,
+        questions: questions.map((item: { question: string; output: string }) => ({
+          question: item.question.trim(),
+          output: item.output,
+        })),
+      });
+      res.status(201).json({ id: String(created._id), name: created.name });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to save the activity." });
+    }
+  });
+
+  // listActivities(teacherId): only that teacher's activities, A to Z.
+  app.get("/api/activities", async (req, res) => {
+    const teacherId = typeof req.query.teacherId === "string" ? req.query.teacherId.trim() : "";
+
+    if (!teacherId) {
+      res.status(400).json({ error: "Missing teacher id." });
+      return;
+    }
+
+    try {
+      const found = await Activity.find({ teacherId }).sort({ name: 1 }).select("name").lean();
+      res.status(200).json(found.map((a) => ({ id: String(a._id), name: a.name })));
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load activities." });
+    }
+  });
+
+  // deleteActivity(activityId, teacherId): only the teacher who made it can delete it.
+  // Rooms that were using it go back to having no activity.
+  app.delete("/api/activities/:activityId", async (req, res) => {
+    const activityId = req.params.activityId.trim();
+    const teacherId = typeof req.body?.teacherId === "string" ? req.body.teacherId.trim() : "";
+
+    if (!teacherId) {
+      res.status(400).json({ error: "Missing teacher id." });
+      return;
+    }
+    if (!isObjectIdOrHexString(activityId)) {
+      res.status(400).json({ error: "Invalid activity id." });
+      return;
+    }
+
+    try {
+      const deleted = await Activity.findOneAndDelete({ _id: activityId, teacherId });
+      if (deleted === null) {
+        res.status(404).json({ error: "Cannot find that activity." });
+        return;
+      }
+      await Room.updateMany({ activityId }, { activityId: null });
+      res.status(200).json({ message: "Deleted activity." });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to delete the activity." });
+    }
+  });
+
+  // Sets which activity a room uses. Only the room's host can change it, and
+  // only with an activity they made, while the room is still open.
+  app.put("/api/rooms/:roomCode/activity", async (req, res) => {
+    const c : string = req.params.roomCode.trim().toUpperCase();
+    const hostID = typeof req.body?.hostID === "string" ? req.body.hostID.trim() : "";
+    const activityId = typeof req.body?.activityId === "string" ? req.body.activityId.trim() : "";
+
+    if (!hostID) {
+      res.status(400).json({ error: "Missing HostID." });
+      return;
+    }
+    if (!isObjectIdOrHexString(activityId)) {
+      res.status(400).json({ error: "Choose an activity." });
+      return;
+    }
+
+    try {
+      const owned = await Activity.exists({ _id: activityId, teacherId: hostID });
+      if (!owned) {
+        res.status(403).json({ error: "You can only use activities you made." });
+        return;
+      }
+
+      const updated = await Room.findOneAndUpdate(
+        { code: c, hostID, expiresAt: { $gt: new Date() } },
+        { activityId }
+      );
+      if (updated === null) {
+        res.status(404).json({ error: "Cannot find room!" });
+      } else {
+        res.status(200).json({ message: "Saved activity." });
+      }
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to save activity." });
+    }
+  });
 
   // joinRoom(ID: string, user: Participant): boolean -- body: { user }
   // TODO: Check the room code and capacity before adding the participant.
@@ -111,16 +338,22 @@ export function createApp() {
 
 async function main() {
   await connectToDatabase();
-  const app = createApp();
 
-  // Express only handles the HTTP handler; Socket.IO needs the raw http server.
-  const server = createServer(app);
 
-  const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
-    cors: { origin: CLIENT_ORIGIN, methods: ["GET", "POST"] },
-  });
+const io : AppServer = new Server({ 
+  cors : { origin : CLIENT_ORIGIN, methods : ["GET", "POST"]}, 
+})
+
+    const app = createApp(io);
+    // Express only handles the HTTP handler; Socket.IO needs the raw http server.
+    const server = createServer(app);
+    io.attach(server); 
+
 
   registerSocketHandlers(io);
+
+
+  
 
   server.listen(PORT, () => {
     console.log(`[server] listening on http://localhost:${PORT}`);
