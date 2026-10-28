@@ -42,12 +42,14 @@ TypeScript compile timeout is 10 seconds, and the combined output limit is
 streamed as output; a failed compile never starts the program. The TypeScript
 runner currently accepts a single source file named `main.ts`.
 
-The student room now sends `{ language, code }` over the existing Socket.IO
+The student room sends `{ language, code }` over the existing Socket.IO
 connection with `code:submit`. The server checks that the socket joined as a
-student, validates the code, and acknowledges its language and UTF-8 byte
-count. This receipt path does not compile, execute, store, or broadcast code.
-The room shows the acknowledgement so the transport can be tested separately
-from execution.
+student, validates the code, then runs JavaScript or TypeScript. Its
+acknowledgement contains the language, UTF-8 byte count, exit code, and stop
+reason flags. It does not send stdout, stderr, compiler diagnostics, or other
+program output to the browser. The room shows only the completion status.
+Only one run per socket and two runs across the server can be active at once;
+a disconnect cancels that socket's run.
 
 Install server dependencies once from the `server` directory:
 
@@ -69,7 +71,7 @@ have not been implemented. Future work should:
 
 1. Add runners for C, C++, Java, and Python.
 2. Add a global concurrency limit and isolated execution with memory limits.
-3. Wire the callback and cancellation signal to the WebSocket layer.
+3. Wire the output callback to the WebSocket layer when output streaming is ready.
 
 The current server image has Node but does not install Python, Java, GCC, or
 G++. `tsc` is supplied by the server's TypeScript dependency. These runners are

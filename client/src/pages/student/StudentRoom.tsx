@@ -66,21 +66,29 @@ function CodeSubmissionPanel() {
     const [language, setLanguage] = useState<CodeSubmissionLanguage>("javascript")
     const [code, setCode] = useState("")
     const [sending, setSending] = useState(false)
-    const [status, setStatus] = useState("Execution is not connected yet.")
+    const [status, setStatus] = useState("Output is not displayed yet.")
 
     function submitCode() {
         if (!code.trim() || sending) return
         setSending(true)
-        setStatus("Sending code to the server...")
+        setStatus("Running code on the server...")
 
-        socket.timeout(5000).emit("code:submit", { language, code }, (error, receipt) => {
+        socket.timeout(20000).emit("code:submit", { language, code }, (error, receipt) => {
             setSending(false)
             if (error) {
-                setStatus("The server did not respond. Check your connection and try again.")
+                setStatus("The server did not respond before the run timed out. Try again.")
             } else if (!receipt.accepted) {
                 setStatus(receipt.message)
+            } else if (receipt.timedOut) {
+                setStatus("The server stopped the run after its time limit.")
+            } else if (receipt.outputLimitExceeded) {
+                setStatus("The server stopped the run after its output limit.")
+            } else if (receipt.cancelled) {
+                setStatus("The run was cancelled.")
+            } else if (receipt.exitCode === null) {
+                setStatus("The server could not start the program.")
             } else {
-                setStatus(`Server received ${receipt.bytes} bytes of ${receipt.language} code. Execution is not connected yet.`)
+                setStatus(`Server finished the ${receipt.language} submission (${receipt.bytes} bytes, exit code ${receipt.exitCode}). Output is not displayed yet.`)
             }
         })
     }

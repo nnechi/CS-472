@@ -3,7 +3,15 @@ export type Role = "student" | "teacher";
 
 export type CodeSubmissionLanguage = "javascript" | "typescript";
 export type CodeSubmissionAck =
-  | { accepted: true; language: CodeSubmissionLanguage; bytes: number }
+  | {
+      accepted: true;
+      language: CodeSubmissionLanguage;
+      bytes: number;
+      exitCode: number | null;
+      timedOut: boolean;
+      cancelled: boolean;
+      outputLimitExceeded: boolean;
+    }
   | { accepted: false; message: string };
 
 
@@ -52,7 +60,7 @@ export interface TimerState {
 
 // What the client is allowed to send to the server.
 export interface ClientToServerEvents {
-  // Acknowledge receipt of code without executing or saving it.
+  // Run submitted code and acknowledge completion without sending output.
   "code:submit": (
     payload: { language: CodeSubmissionLanguage; code: string },
     acknowledge: (response: CodeSubmissionAck) => void

@@ -3,7 +3,15 @@ export type Role = "student" | "teacher";
 
 export type CodeSubmissionLanguage = "javascript" | "typescript";
 export type CodeSubmissionAck =
-  | { accepted: true; language: CodeSubmissionLanguage; bytes: number }
+  | {
+      accepted: true;
+      language: CodeSubmissionLanguage;
+      bytes: number;
+      exitCode: number | null;
+      timedOut: boolean;
+      cancelled: boolean;
+      outputLimitExceeded: boolean;
+    }
   | { accepted: false; message: string };
 
 // Everything the chat needs to know about the current user. Built from the
@@ -99,7 +107,7 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  // The server confirms receipt; code execution is a separate step.
+  // The server confirms that execution completed, without sending output.
   "code:submit": (
     payload: { language: CodeSubmissionLanguage; code: string },
     acknowledge: (response: CodeSubmissionAck) => void

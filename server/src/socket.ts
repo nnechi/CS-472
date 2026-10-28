@@ -3,6 +3,7 @@ import { Message } from "./models/Message";
 import { Activity } from "./models/Activity";
 import { receiveCode } from "./compile/submission";
 import { InvalidCompileRequestError } from "./compile/plan";
+import { runJavaScript, runTypeScript } from "./compile";
 import {
   ChatMessage,
   ClientToServerEvents,
@@ -54,6 +55,8 @@ interface PrivateChatState {
 const privateChats = new Map<string, Map<string, PrivateChatState>>();
 // Same cap as the group chat's history on join.
 const PRIVATE_HISTORY_LIMIT = 50;
+const MAX_ACTIVE_CODE_RUNS = 2;
+let activeCodeRuns = 0;
 
 // The room's private chats, created on first use.
 const roomPrivateChats = (room: string): Map<string, PrivateChatState> => {
@@ -248,6 +251,7 @@ export function registerSocketHandlers(
       >
     ) => {
       console.log("[socket] a user connected:", socket.id);
+      let activeCodeRun: AbortController | null = null;
 
       // Teachers create a room
       // Students join one.
@@ -475,29 +479,53 @@ export function registerSocketHandlers(
         });
       });
 
-      // Confirm that a student's code reached the server. Execution will be
-      // connected separately once submitted programs have an isolated runner.
-      socket.on("code:submit", (payload, acknowledge) => {
+      // Run one submission per student socket. Output stays on the server for
+      // now; the acknowledgement only reports completion status.
+      socket.on("code:submit", async (payload, acknowledge) => {
         if (typeof acknowledge !== "function") return;
         if (socket.data.role !== "student" || !socket.data.room) {
           acknowledge({ accepted: false, message: "Join a room as a student first." });
           return;
         }
+        if (activeCodeRun) {
+          acknowledge({ accepted: false, message: "A code run is already in progress." });
+          return;
+        }
+        if (activeCodeRuns >= MAX_ACTIVE_CODE_RUNS) {
+          acknowledge({ accepted: false, message: "The code runner is busy. Try again shortly." });
+          return;
+        }
 
+        const controller = new AbortController();
+        activeCodeRun = controller;
+        activeCodeRuns += 1;
         try {
           const receipt = receiveCode(payload);
-          acknowledge({ accepted: true, ...receipt });
+          const runner = receipt.language === "typescript" ? runTypeScript : runJavaScript;
+          const result = await runner(payload, { signal: controller.signal });
+          acknowledge({
+            accepted: true,
+            ...receipt,
+            exitCode: result.exitCode,
+            timedOut: result.timedOut,
+            cancelled: result.cancelled,
+            outputLimitExceeded: result.outputLimitExceeded,
+          });
         } catch (error) {
           if (error instanceof InvalidCompileRequestError) {
             acknowledge({ accepted: false, message: error.message });
           } else {
-            console.error("[socket] code submission failed:", error);
-            acknowledge({ accepted: false, message: "Could not receive code." });
+            console.error("[socket] code run failed:", error);
+            acknowledge({ accepted: false, message: "Could not run code." });
           }
+        } finally {
+          activeCodeRun = null;
+          activeCodeRuns -= 1;
         }
       });
 
       socket.on("disconnect", () => {
+        activeCodeRun?.abort();
         console.log("[socket] user disconnected:", socket.id);
         // A student who leaves shouldn't stay in the teacher's list.
         if (socket.data.room) removeHand(socket.data.room, socket.id);
