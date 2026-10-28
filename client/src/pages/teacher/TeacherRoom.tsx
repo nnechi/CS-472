@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, useParams } from "react-router-dom"
-import ActivityBox from "../../components/chat/ActivityBox"
+import TeacherActivity from "../../components/activity/TeacherActivity"
 import ChatPanel from "../../components/chat/ChatPanel"
 import RoomLayout from "../../components/chat/RoomLayout"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
@@ -53,8 +53,8 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
         navigate("/dashboard")
     }
 
-    // The activity box follows the chat on screen: the default activity in the
-    // group chat, or the student's copy in a private chat.
+    // The activity follows the chat on screen: every question in the group
+    // chat, or the student's work in their private chat.
     const activeChat = room.privateChats.find((c) => c.id === room.activeChatId)
 
     return (
@@ -63,10 +63,10 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
             <TeacherHeader session={session} room={room} />
             <RoomLayout
                 activity={
-                    <ActivityBox
-                        title={activeChat ? `${activeChat.studentName}'s activity` : "Activity"}
-                        text={activeChat ? room.studentActivities[activeChat.id] ?? "" : room.defaultActivity}
-                        readOnly
+                    <TeacherActivity
+                        title={activeChat ? `${activeChat.studentName}'s work` : "Activity"}
+                        activity={room.activity}
+                        progress={activeChat ? room.studentProgress(activeChat.id) : undefined}
                     />
                 }
                 chat={

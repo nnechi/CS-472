@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { createRoom, deleteRoom, saveActivity } from '../../api.ts'
-import useAuth from "../../hooks/useAuth"
+import useAuth from "../../hooks/useAuth.tsx"
 
 // Later this can POST /api/rooms so codes are unique and persisted.
 export default function RoomCreation() {

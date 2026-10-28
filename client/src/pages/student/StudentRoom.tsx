@@ -1,5 +1,5 @@
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
-import ActivityBox from "../../components/chat/ActivityBox"
+import StudentActivity from "../../components/activity/StudentActivity"
 import ChatPanel from "../../components/chat/ChatPanel"
 import RoomLayout from "../../components/chat/RoomLayout"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
@@ -39,11 +39,21 @@ function StudentRoomScreen({ session }: { session: Session }) {
 
     return (
         <div className="flex h-screen flex-col">
+            {/* Leaving unmounts the chat, which disconnects the socket and
+                drops the student from the teacher's hand queue. */}
             <RoomNavbar session={session} onLeave={() => navigate("/")} />
             <StudentHeader session={session} room={room} />
             <RoomLayout
                 activity={
-                    <ActivityBox title="Your activity" text={room.studentText} onChange={room.setStudentText} />
+                    <StudentActivity
+                        activity={room.activity}
+                        answers={room.studentAnswers}
+                        results={room.studentResults}
+                        feedback={room.studentFeedback}
+                        onChange={room.setStudentAnswer}
+                        onCheck={room.checkAnswer}
+                        onReset={room.resetProblem}
+                    />
                 }
                 chat={
                     <ChatPanel

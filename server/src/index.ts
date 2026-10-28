@@ -12,7 +12,7 @@ import {Room} from "./models/Room"
 import {Activity} from "./models/Activity"
 
 import { authConfig } from "./auth/config";
-import { ACTIVITY_MAX_LENGTH, ACTIVITY_NAME_MAX_LENGTH, PROGRAMMING_LANGUAGES } from "./types";
+import { parseActivityInput } from "./activityInput";
 import { isObjectIdOrHexString } from "mongoose";
 
 import { sessionMiddleware } from "./auth/session";
@@ -157,61 +157,17 @@ export function createApp(io : AppServer) {
 
   });
 
-  // Activities a teacher made. createActivity(teacherId, name, language, questions)
+  // Activities a teacher made. createActivity(teacherId, name, type, language, questions)
   app.post("/api/activities", async (req, res) => {
-    const teacherId = typeof req.body?.teacherId === "string" ? req.body.teacherId.trim() : "";
-    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-    const language = req.body?.language;
-    const questions = req.body?.questions;
-
-    if (!teacherId) {
-      res.status(400).json({ error: "Missing teacher id." });
+    const parsed = parseActivityInput(req.body);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
       return;
-    }
-    if (!name) {
-      res.status(400).json({ error: "Give the activity a name." });
-      return;
-    }
-    if (name.length > ACTIVITY_NAME_MAX_LENGTH) {
-      res.status(400).json({ error: `Activity names can be at most ${ACTIVITY_NAME_MAX_LENGTH} characters.` });
-      return;
-    }
-    if (typeof language !== "string" || !(PROGRAMMING_LANGUAGES as readonly string[]).includes(language)) {
-      res.status(400).json({ error: "Choose a programming language." });
-      return;
-    }
-    if (!Array.isArray(questions) || questions.length === 0) {
-      res.status(400).json({ error: "Add at least one question." });
-      return;
-    }
-    for (const item of questions) {
-      const question = typeof item?.question === "string" ? item.question.trim() : "";
-      const output = typeof item?.output === "string" ? item.output : "";
-      if (!question) {
-        res.status(400).json({ error: "Every question needs text." });
-        return;
-      }
-      if (question.length > ACTIVITY_MAX_LENGTH || output.length > ACTIVITY_MAX_LENGTH) {
-        res.status(400).json({ error: `Questions and outputs can be at most ${ACTIVITY_MAX_LENGTH} characters.` });
-        return;
-      }
-      if (!output) {
-        res.status(400).json({ error: "Every question needs a correct output." });
-        return;
-      }
     }
 
     try {
-      const created = await Activity.create({
-        teacherId,
-        name,
-        language,
-        questions: questions.map((item: { question: string; output: string }) => ({
-          question: item.question.trim(),
-          output: item.output,
-        })),
-      });
-      res.status(201).json({ id: String(created._id), name: created.name });
+      const created = await Activity.create(parsed.value);
+      res.status(201).json({ id: String(created._id), name: created.name, type: created.type });
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to save the activity." });
@@ -228,8 +184,8 @@ export function createApp(io : AppServer) {
     }
 
     try {
-      const found = await Activity.find({ teacherId }).sort({ name: 1 }).select("name").lean();
-      res.status(200).json(found.map((a) => ({ id: String(a._id), name: a.name })));
+      const found = await Activity.find({ teacherId }).sort({ name: 1 }).select("name type").lean();
+      res.status(200).json(found.map((a) => ({ id: String(a._id), name: a.name, type: a.type })));
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to load activities." });
