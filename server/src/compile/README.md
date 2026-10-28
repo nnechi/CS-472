@@ -42,6 +42,13 @@ TypeScript compile timeout is 10 seconds, and the combined output limit is
 streamed as output; a failed compile never starts the program. The TypeScript
 runner currently accepts a single source file named `main.ts`.
 
+The student room now sends `{ language, code }` over the existing Socket.IO
+connection with `code:submit`. The server checks that the socket joined as a
+student, validates the code, and acknowledges its language and UTF-8 byte
+count. This receipt path does not compile, execute, store, or broadcast code.
+The room shows the acknowledgement so the transport can be tested separately
+from execution.
+
 Install server dependencies once from the `server` directory:
 
 ```sh

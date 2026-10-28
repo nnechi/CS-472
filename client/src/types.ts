@@ -1,6 +1,11 @@
 // Keep this in sync with the server's src/types.ts.
 export type Role = "student" | "teacher";
 
+export type CodeSubmissionLanguage = "javascript" | "typescript";
+export type CodeSubmissionAck =
+  | { accepted: true; language: CodeSubmissionLanguage; bytes: number }
+  | { accepted: false; message: string };
+
 // Everything the chat needs to know about the current user. Built from the
 // signed-in user (AuthProvider) plus the room code from the URL.
 export interface Session {
@@ -94,6 +99,11 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
+  // The server confirms receipt; code execution is a separate step.
+  "code:submit": (
+    payload: { language: CodeSubmissionLanguage; code: string },
+    acknowledge: (response: CodeSubmissionAck) => void
+  ) => void;
   join: (payload: { username: string; role: Role; room: string }) => void;
   "chat message": (payload: { text: string }) => void;
   // Students only: toggles their own hand up/down.

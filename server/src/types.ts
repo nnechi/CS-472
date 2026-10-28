@@ -1,6 +1,11 @@
 // Two kinds of users.
 export type Role = "student" | "teacher";
 
+export type CodeSubmissionLanguage = "javascript" | "typescript";
+export type CodeSubmissionAck =
+  | { accepted: true; language: CodeSubmissionLanguage; bytes: number }
+  | { accepted: false; message: string };
+
 
 // The group chat's id. Private chats use the student's socket id instead.
 export const GROUP_CHAT_ID = "group";
@@ -47,6 +52,11 @@ export interface TimerState {
 
 // What the client is allowed to send to the server.
 export interface ClientToServerEvents {
+  // Acknowledge receipt of code without executing or saving it.
+  "code:submit": (
+    payload: { language: CodeSubmissionLanguage; code: string },
+    acknowledge: (response: CodeSubmissionAck) => void
+  ) => void;
   // Sent once, right after connecting.
   join: (payload: { username: string; role: Role; room: string }) => void;
   // Username, role, and room are remembered server-side, so we only send text.

@@ -1,6 +1,8 @@
 import { Server, Socket } from "socket.io";
 import { Message } from "./models/Message";
 import { Activity } from "./models/Activity";
+import { receiveCode } from "./compile/submission";
+import { InvalidCompileRequestError } from "./compile/plan";
 import {
   ChatMessage,
   ClientToServerEvents,
@@ -471,6 +473,28 @@ export function registerSocketHandlers(
           chatId: socket.id,
           text: state.activity,
         });
+      });
+
+      // Confirm that a student's code reached the server. Execution will be
+      // connected separately once submitted programs have an isolated runner.
+      socket.on("code:submit", (payload, acknowledge) => {
+        if (typeof acknowledge !== "function") return;
+        if (socket.data.role !== "student" || !socket.data.room) {
+          acknowledge({ accepted: false, message: "Join a room as a student first." });
+          return;
+        }
+
+        try {
+          const receipt = receiveCode(payload);
+          acknowledge({ accepted: true, ...receipt });
+        } catch (error) {
+          if (error instanceof InvalidCompileRequestError) {
+            acknowledge({ accepted: false, message: error.message });
+          } else {
+            console.error("[socket] code submission failed:", error);
+            acknowledge({ accepted: false, message: "Could not receive code." });
+          }
+        }
       });
 
       socket.on("disconnect", () => {
