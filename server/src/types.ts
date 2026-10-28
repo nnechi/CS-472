@@ -1,3 +1,5 @@
+import type { CompileUpdate } from "./compile"; 
+
 // Two kinds of users.
 export type Role = "student" | "teacher";
 
@@ -11,6 +13,9 @@ export type CodeSubmissionAck =
       timedOut: boolean;
       cancelled: boolean;
       outputLimitExceeded: boolean;
+      executionID : string; 
+      stdout : string; 
+      stderr : string; 
     }
   | { accepted: false; message: string };
 
