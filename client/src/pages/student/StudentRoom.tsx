@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect} from "react"
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
 import ActivityBox from "../../components/chat/ActivityBox"
 import ChatPanel from "../../components/chat/ChatPanel"
@@ -6,7 +6,7 @@ import RoomLayout from "../../components/chat/RoomLayout"
 import { RaiseHandButton } from "../../components/HandQueue"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
 import { socket } from "../../socket"
-import { CodeSubmissionLanguage, Session } from "../../types"
+import { CodeRunUpdate, CodeSubmissionLanguage, Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
 
 // /rooms/join/:roomCode -- the student's view of a room: the activity, the chat,
@@ -65,9 +65,29 @@ function StudentRoomScreen({ session }: { session: Session }) {
 function CodeSubmissionPanel() {
     const [language, setLanguage] = useState<CodeSubmissionLanguage>("javascript")
     const [code, setCode] = useState("")
+    const [status, setStatus] = useState("")
+    const [output, setOutput] = useState<{ stream: "stdout" | "stderr"; text: string }[]>([])
     const [sending, setSending] = useState(false)
-    const [status, setStatus] = useState("Output is not displayed yet.")
 
+    //listen for live updates -> show status
+
+     useEffect(() => {
+          function onUpdate(update: CodeRunUpdate) {
+              if (update.type === "status") {
+                  setStatus(update.phase === "compiling" ? "Compiling..." : "Running...")
+              } else if (update.type === "output") {
+                  setOutput((chunks) => [...chunks, { stream: update.stream, text: update.chunk }])
+              } else if (update.type === "error") {
+                  setStatus(update.message)
+              }
+          }
+          socket.on("code:update", onUpdate)
+          return () => {
+              socket.off("code:update", onUpdate)
+          }
+      }, []);
+
+    
     function submitCode() {
         if (!code.trim() || sending) return
         if (new TextEncoder().encode(code).length > 64 * 1024) {
@@ -75,26 +95,36 @@ function CodeSubmissionPanel() {
             return
         }
         setSending(true)
+        setOutput([])
         setStatus("Running code on the server...")
 
-        socket.timeout(20000).emit("code:submit", { language, code }, (error, receipt) => {
-            setSending(false)
-            if (error) {
-                setStatus("The server did not respond before the run timed out. Try again.")
-            } else if (!receipt.accepted) {
-                setStatus(receipt.message)
-            } else if (receipt.timedOut) {
-                setStatus("The server stopped the run after its time limit.")
-            } else if (receipt.outputLimitExceeded) {
-                setStatus("The server stopped the run after its output limit.")
-            } else if (receipt.cancelled) {
-                setStatus("The run was cancelled.")
-            } else if (receipt.exitCode === null) {
-                setStatus("The server could not start the program.")
-            } else {
-                setStatus(`Server finished the ${receipt.language} submission (${receipt.bytes} bytes, exit code ${receipt.exitCode}). Output is not displayed yet.`)
-            }
-        })
+       socket.timeout(20000).emit("code:submit", { language, code }, (error, receipt) => {
+              setSending(false)
+              if (error) {
+                  setStatus("The server did not respond before the run timed out. Try again.")
+                  return
+              }
+              if (!receipt.accepted) {
+                  setStatus(receipt.message)
+                  return
+              }
+             //check acknowledgement
+              const final: { stream: "stdout" | "stderr"; text: string }[] = []
+              if (receipt.stdout) final.push({ stream: "stdout", text: receipt.stdout })
+              if (receipt.stderr) final.push({ stream: "stderr", text: receipt.stderr })
+              setOutput(final)
+              if (receipt.timedOut) {
+                  setStatus("The server stopped the run after its time limit.")
+              } else if (receipt.outputLimitExceeded) {
+                  setStatus("The server stopped the run after its output limit.")
+              } else if (receipt.cancelled) {
+                  setStatus("The run was cancelled.")
+              } else if (receipt.exitCode === null) {
+                  setStatus("The server could not start the program.")
+              } else {
+                  setStatus(`Finished with exit code ${receipt.exitCode}.`)
+              }
+          })
     }
 
     return (
@@ -131,6 +161,17 @@ function CodeSubmissionPanel() {
                 </button>
                 <p role="status" className="text-sm text-gray-600">{status}</p>
             </div>
+            {output.length > 0 && (
+                <pre
+                    aria-label="Program output"
+                    className="mt-2 max-h-48 overflow-auto rounded-lg bg-neutral-900 p-3 font-mono text-sm whitespace-pre-wrap text-gray-100">
+                    {output.map((chunk, i) => (
+                        <span key={i} className={chunk.stream === "stderr" ? "text-red-400" : undefined}>
+                            {chunk.text}
+                        </span>
+                    ))}
+                </pre>
+            )}
         </section>
     )
 }
