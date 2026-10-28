@@ -20,6 +20,8 @@ export type CodeSubmissionAck =
   | { accepted: false; message: string };
 
 
+export type CodeRunUpdate = CompileUpdate; 
+
 // The group chat's id. Private chats use the student's socket id instead.
 export const GROUP_CHAT_ID = "group";
 
@@ -65,7 +67,7 @@ export interface TimerState {
 
 // What the client is allowed to send to the server.
 export interface ClientToServerEvents {
-  // Run submitted code and acknowledge completion without sending output.
+  // ack will carry stdout stderr back from server.
   "code:submit": (
     payload: { language: CodeSubmissionLanguage; code: string },
     acknowledge: (response: CodeSubmissionAck) => void
@@ -121,6 +123,7 @@ export interface ServerToClientEvents {
   "timer state": (timer: TimerState) => void;
   "room closed" : () => void;
   "join error" : () => void; 
+  "code:update" : (update : CodeRunUpdate) => void; 
 }
 
 //Incase we set up server-to-server events

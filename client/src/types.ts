@@ -11,9 +11,27 @@ export type CodeSubmissionAck =
       timedOut: boolean;
       cancelled: boolean;
       outputLimitExceeded: boolean;
+      executionID : string; 
+      stdout : string; 
+      stderr : string; 
+
     }
   | { accepted: false; message: string };
 
+   export type CodeRunUpdate =
+    | { executionId: string; type: "status"; phase: "compiling" | "running" }
+    | { executionId: string; type: "output"; stream: "stdout" | "stderr"; chunk: string }
+    | {
+        executionId: string;
+        type: "complete";
+        exitCode: number | null;
+        signal: string | null;
+        timedOut: boolean;
+        cancelled: boolean;
+        outputLimitExceeded: boolean;
+      }
+    | { executionId: string; type: "error"; message: string };
+    
 // Everything the chat needs to know about the current user. Built from the
 // signed-in user (AuthProvider) plus the room code from the URL.
 export interface Session {
