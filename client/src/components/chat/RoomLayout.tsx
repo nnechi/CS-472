@@ -1,36 +1,21 @@
 import { ReactNode } from "react";
-import { Session } from "../../types";
 
 interface RoomLayoutProps {
-  session: Session;
-  // Shown after the room code in the banner, e.g. the teacher's share note.
-  bannerNote?: ReactNode;
-  // Role-specific controls under the banner, such as the timer or raise hand.
-  controls?: ReactNode;
   // The activity, on the left on wide screens.
   activity: ReactNode;
   // The chat, on the right on wide screens.
+  // TODO: CHANGE TO BE A CHAT WINDOW INSTEAD
   chat: ReactNode;
 }
 
 // This component contains everything below the room navbars and the respective room headers (student header or teacher header)
 // Is reused for both student room and teacher room
 export default function RoomLayout({
-  session,
-  bannerNote,
-  controls,
   activity,
   chat,
 }: RoomLayoutProps) {
   return (
     <div className="mx-auto flex min-h-0 flex-1 w-full flex-col bg-white text-black">
-      <div className="border-b border-gray-200 px-4 py-2 text-sm">
-        Room code: <strong>{session.room}</strong>
-        {bannerNote}
-      </div>
-
-      {controls}
-
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <div className="flex min-h-0 flex-1 flex-col md:border-r md:border-gray-200">{activity}</div>
         <div className="flex min-h-0 flex-1 flex-col border-t border-gray-200 md:w-[28rem] md:flex-none md:border-t-0">

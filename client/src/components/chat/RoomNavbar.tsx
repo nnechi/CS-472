@@ -2,6 +2,9 @@ import { Session } from "../../types"
 
 interface RoomNavbarProps {
     session: Session
+
+    // Leaving unmounts the chat, which disconnects the socket and
+    // drops the student from the teacher's hand queue.
     onLeave?: () => void
 }
 

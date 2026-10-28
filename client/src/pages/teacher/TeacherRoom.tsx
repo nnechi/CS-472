@@ -2,16 +2,13 @@ import { Navigate, useNavigate, useParams } from "react-router-dom"
 import ActivityBox from "../../components/chat/ActivityBox"
 import ChatPanel from "../../components/chat/ChatPanel"
 import RoomLayout from "../../components/chat/RoomLayout"
-import { HandQueue } from "../../components/HandQueue"
-import Timer from "../../components/Timer"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
 import useAuth from "../../hooks/useAuth"
-import { socket } from "../../socket"
 import { Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
-
 import { deleteRoom } from "../../api"
 import RoomNavbar from "../../components/chat/RoomNavbar"
+import TeacherHeader from "../../components/chat/TeacherHeader"
 
 // /rooms/:roomId -- the teacher's view of a room: the activity, the chat, the
 // timer, and the raised-hand queue. Students who land here are sent to their
@@ -63,31 +60,8 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
     return (
         <div className="flex h-screen flex-col">
             <RoomNavbar session={session} onLeave={endRoom} />
+            <TeacherHeader session={session} room={room} />
             <RoomLayout
-                session={session}
-                // Leaving unmounts the chat, which disconnects the socket.
-                // Change this to deleting a room later: DELETE /api/rooms/:roomcode
-                // onLeave={endRoom}
-                bannerNote={<span className="text-gray-500"> — share this with your students</span>}
-                controls={
-                    <>
-                        <Timer
-                            durationMs={room.timer.durationMs}
-                            remainingMs={room.timer.remainingMs}
-                            running={room.timer.running}
-                            isTeacher={true}
-                            onPlay={() => socket.emit("timer play")}
-                            onPause={() => socket.emit("timer pause")}
-                            onRestart={() => socket.emit("timer restart")}
-                            onSetMinutes={(minutes) => socket.emit("timer set", { minutes })}
-                        />
-                        <HandQueue
-                            queue={room.handQueue}
-                            onLowerHand={room.lowerHand}
-                            onOpenPrivateChat={room.openPrivateChat}
-                        />
-                    </>
-                }
                 activity={
                     <ActivityBox
                         title={activeChat ? `${activeChat.studentName}'s activity` : "Activity"}
