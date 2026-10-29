@@ -1,44 +1,46 @@
-// Users, for now they live in memory and are gone when server restarts
-// when database stuff is up we'll replace findOrCreateUserFromGoogle with database code
+// Your users, stored in MongoDB. The id each person gets here is permanent,
+// so anything you save under it (like a teacherId) still matches next login.
 
-import { randomUUID } from "node:crypto";
+import { User } from "../models/User";
 
 export interface AppUser {
-    id: string; // Our app's id for user
-    googleId: string; // Google's 'sub', permanent and never reused
-    email: string;
-    name: string | null;
-    pictureUrl: string | null;
+  id: string; // YOUR app's id for this person (the MongoDB _id, as text)
+  googleId: string; // Google's "sub": permanent and never reused
+  email: string;
+  name: string | null;
+  pictureUrl: string | null;
 }
 
 export interface GoogleProfile {
-    googleId: string;
-    email: string;
-    name: string;
-    picture?: string;
+  googleId: string;
+  email: string;
+  name?: string;
+  picture?: string;
 }
 
-const usersByGoogleId = new Map<string, AppUser>();
-
 export async function findOrCreateUserFromGoogle(profile: GoogleProfile): Promise<AppUser> {
-    // look people up by googleId, since emails can change
-    const existing = usersByGoogleId.get(profile.googleId);
-    if (existing) {
-        // returning user = refresh their details in case they changed at Google
-        existing.email = profile.email;
-        existing.name = profile.name ?? null;
-        existing.pictureUrl = profile.picture ?? null;
-        return existing;
-    }
-
-    // on first visit, create them
-    const user: AppUser = {
-        id: randomUUID(),
-        googleId: profile.googleId,
+  // Find the person by googleId and refresh their details. If there's no such
+  // person yet, "upsert" creates them. Either way, we get the saved document back.
+  const user = await User.findOneAndUpdate(
+    { googleId: profile.googleId },
+    {
+      $set: {
         email: profile.email,
         name: profile.name ?? null,
         pictureUrl: profile.picture ?? null,
-    };
-    usersByGoogleId.set(user.googleId, user);
-    return user;
+      },
+    },
+    { upsert: true, returnDocument: "after" },
+  );
+  if (!user) {
+    throw new Error("Could not save the user.");
+  }
+
+  return {
+    id: user._id.toString(),
+    googleId: user.googleId,
+    email: user.email,
+    name: user.name ?? null,
+    pictureUrl: user.pictureUrl ?? null,
+  };
 }
