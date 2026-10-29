@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { Pause, Play, RotateCcw } from "lucide-react"
 
 // Matches the server's default: every room starts with 15 minutes.
 export const DEFAULT_TIMER_MS = 15 * 60 * 1000
@@ -22,6 +23,9 @@ const MAX_MINUTES = 60
 
 const buttonClass =
   "rounded-lg border border-indigo-600 px-3 py-1.5 text-sm text-indigo-600 cursor-pointer hover:bg-indigo-50"
+
+const iconButtonClass =
+  "rounded-lg border border-indigo-600 p-1.5 text-indigo-600 cursor-pointer hover:bg-indigo-50"
 
 // Shows mm:ss. Rounds up so 15:00 shows until the first second has passed.
 function formatTime(ms: number): string {
@@ -73,7 +77,7 @@ export default function Timer({
   const status = running ? "Running" : remaining === 0 ? "Time's up" : "Paused"
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-2 text-sm">
+    <div className="flex flex-wrap items-center gap-3 text-sm">
       <span className="flex items-baseline gap-2">
         <span className="font-semibold">Timer</span>
         <span className="font-mono text-2xl font-bold tabular-nums" aria-live="off">
@@ -110,15 +114,23 @@ export default function Timer({
             type="button"
             className={
               running
-                ? `${buttonClass} bg-indigo-600 text-white hover:bg-indigo-700`
-                : buttonClass
+                ? `${iconButtonClass} bg-indigo-600 text-white hover:bg-indigo-700`
+                : iconButtonClass
             }
             onClick={running ? onPause : onPlay}
+            title={running ? "Pause" : "Play"}
+            aria-label={running ? "Pause timer" : "Play timer"}
           >
-            {running ? "Pause" : "Play"}
+            {running ? <Pause size={16} /> : <Play size={16} />}
           </button>
-          <button type="button" className={buttonClass} onClick={onRestart}>
-            Restart
+          <button
+            type="button"
+            className={iconButtonClass}
+            onClick={onRestart}
+            title="Restart"
+            aria-label="Restart timer"
+          >
+            <RotateCcw size={16} />
           </button>
         </span>
       )}

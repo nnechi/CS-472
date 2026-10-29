@@ -13,35 +13,31 @@ interface HandQueueProps {
 // you've helped them, or open a private chat with them.
 export function HandQueue({ queue, onLowerHand, onOpenPrivateChat }: HandQueueProps) {
   return (
-    <div className="border-b border-gray-200 px-4 py-2 text-sm">
+    <div className="flex flex-wrap items-center gap-2 text-sm">
       <span className="font-semibold">Needs help ({queue.length})</span>
       {queue.length === 0 ? (
-        <span className="ml-2 text-gray-500">No raised hands</span>
+        <span className="text-gray-500">No raised hands</span>
       ) : (
-        <ol className="mt-1.5 list-decimal pl-6">
-          {queue.map((h) => (
-            <li key={h.id} className="mb-1">
-              <span className="inline-flex items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded-md bg-indigo-100 px-2.5 py-1 text-sm text-indigo-700 cursor-pointer hover:line-through"
-                  title="Click once you've helped this student"
-                  onClick={() => onLowerHand(h.id)}
-                >
-                  {h.username}
-                </button>
-                <button
-                  type="button"
-                  className={buttonClass}
-                  title="Open a private chat with this student"
-                  onClick={() => onOpenPrivateChat(h.id)}
-                >
-                  Private chat
-                </button>
-              </span>
-            </li>
-          ))}
-        </ol>
+        queue.map((h) => (
+          <span key={h.id} className="inline-flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-md bg-indigo-100 px-2.5 py-1 text-sm text-indigo-700 cursor-pointer hover:line-through"
+              title="Click once you've helped this student"
+              onClick={() => onLowerHand(h.id)}
+            >
+              {h.username}
+            </button>
+            <button
+              type="button"
+              className={buttonClass}
+              title="Open a private chat with this student"
+              onClick={() => onOpenPrivateChat(h.id)}
+            >
+              Private chat
+            </button>
+          </span>
+        ))
       )}
     </div>
   );
