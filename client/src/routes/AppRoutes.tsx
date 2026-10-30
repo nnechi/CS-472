@@ -10,12 +10,16 @@ import ContactUs from "../pages/ContactUs"
 import SignUp from "../pages/SignUp"
 import SignIn from "../pages/SignIn"
 import TeacherDashboard from "../pages/teacher/TeacherDashboard"
+import Activities from "../pages/teacher/Activities"
+import Notes from "../pages/teacher/Notes"
+import Settings from "../pages/teacher/Settings"
 import TeacherRoom from "../pages/teacher/TeacherRoom"
 import CreateActivity from "../pages/teacher/CreateActivity"
 import StudentRoom from "../pages/student/StudentRoom"
 import NotFound from "../pages/NotFound"
 import JoinRoom from "../pages/JoinRoom"
 import RoomCreation from "../pages/teacher/RoomCreation"
+import SearchResults from "../pages/teacher/SearchResults"
 
 
 export default function AppRoutes() {
@@ -43,8 +47,12 @@ export default function AppRoutes() {
             <Route element={<RequiredAuth />}>
                 <Route path="/dashboard" element={<DashboardLayout />}>
                     <Route index element={<TeacherDashboard />} />
+                    <Route path="activities" element={<Activities />} />
+                    <Route path="notes" element={<Notes />} />
+                    <Route path="settings" element={<Settings />} />
                     <Route path="create-activity" element={<CreateActivity />} />
                     <Route path="room-creation" element={<RoomCreation />} />
+                    <Route path="search" element={<SearchResults />} />
                 </Route>
 
                 {/* Teacher view of the Socket.IO chat, with the raised-hand queue. */}
