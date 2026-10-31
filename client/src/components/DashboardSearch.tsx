@@ -26,7 +26,7 @@ export default function DashboardSearch() {
             </svg>
             <input
                 type="search"
-                className="w-full rounded-lg border border-brand bg-white py-3 pl-12 pr-5 text-lg text-brand focus:border-pop focus:outline-none"
+                className="w-full rounded-lg border border-brand bg-white py-3 pl-12 pr-5 text-base text-brand md:text-lg focus:border-pop focus:outline-none"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search for activities or notes"

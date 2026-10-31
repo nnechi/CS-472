@@ -32,7 +32,7 @@ export default function DashboardLayout() {
     return(
         <div className="min-h-screen flex flex-col bg-paper text-brand">
             {/* The header has no left padding at any size, so the ☰ button and logo stay in the same place. The button lines up with the closed menu's edge. */}
-            <header className="flex h-20 items-center justify-between gap-8 border-b border-brand bg-brand-light pr-8">
+            <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-b border-brand bg-brand-light py-3 pr-4 sm:h-20 sm:py-0 sm:pr-8">
                 <div className="flex h-14 items-center gap-0">
                     <button
                         type="button"
@@ -52,7 +52,8 @@ export default function DashboardLayout() {
                     </Link>
                 </div>
 
-                <div className="flex flex-1 justify-center">
+                {/* Below 640px the search takes a full row under the menu, logo and profile picture, so the placeholder is not cut off. */}
+                <div className="order-last flex w-full justify-center pb-3 pl-4 pr-4 sm:order-none sm:w-auto sm:flex-1 sm:p-0">
                     <DashboardSearch />
                 </div>
 
