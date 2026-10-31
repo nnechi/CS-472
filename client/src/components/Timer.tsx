@@ -1,4 +1,12 @@
 import { useState, useEffect } from "react"
+import { Play, Pause, RotateCcw } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 // Matches the server's default: every room starts with 15 minutes.
 export const DEFAULT_TIMER_MS = 15 * 60 * 1000
@@ -106,20 +114,40 @@ export default function Timer({
           >
             Set
           </button>
-          <button
-            type="button"
-            className={
-              running
-                ? `${buttonClass} bg-indigo-600 text-white hover:bg-indigo-700`
-                : buttonClass
-            }
-            onClick={running ? onPause : onPlay}
-          >
-            {running ? "Pause" : "Play"}
-          </button>
-          <button type="button" className={buttonClass} onClick={onRestart}>
-            Restart
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant={running ? "default" : "outline"}
+                    size="icon"
+                    aria-label={running ? "Pause" : "Play"}
+                    onClick={running ? onPause : onPlay}
+                  >
+                    {running ? <Pause /> : <Play />}
+                  </Button>
+                }
+              />
+              <TooltipContent>{running ? "Pause" : "Play"}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Restart"
+                    onClick={onRestart}
+                  >
+                    <RotateCcw />
+                  </Button>
+                }
+              />
+              <TooltipContent>Restart</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </span>
       )}
     </div>
