@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* The LittlePointers palette. Use these as bg-brand, text-brand, and so on. */
+@theme {
+  --color-brand: #221574;
+  --color-brand-light: #a6cfd5;
+  --color-accent: #e28413;
+  --color-pop: #2ec4b6;
+  --color-warn: #ffafc5;
+  --color-paper: #fafaf7;
+}
+
 * {
   font-family: 'Iosevka Charon', monospace;
   box-sizing: border-box;
