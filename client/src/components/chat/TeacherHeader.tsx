@@ -1,6 +1,7 @@
 import { Session } from "../../types";
 import Timer from "../Timer"
 import { HandQueue } from "../HandQueue"
+import { RoomCodeBadge } from "./RoomCodeBadge"
 import { socket } from "../../socket"
 import type { RoomSocket } from "../../hooks/useRoomSocket"
 
@@ -14,9 +15,8 @@ interface TeacherHeaderProps {
 export default function TeacherHeader({ session, room } : TeacherHeaderProps){
     return (
         <div className="bg-white text-black">
-            <div className="border-b border-gray-200 px-4 py-2 text-sm">
-                Room code: <strong>{session.room}</strong>
-                <span className="text-gray-500"> — share this with your students</span>
+            <div className="flex flex-wrap items-center border-b border-gray-200 px-4 py-2">
+                <RoomCodeBadge code={session.room} hint="Share this with your students" />
             </div>
 
             <div>

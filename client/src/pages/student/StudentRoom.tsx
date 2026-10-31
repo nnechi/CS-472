@@ -5,7 +5,6 @@ import RoomLayout from "../../components/chat/RoomLayout"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
 import { Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
-import RoomNavbar from "../../components/chat/RoomNavbar"
 import StudentHeader from "../../components/chat/StudentHeader"
 
 // /rooms/join/:roomCode -- the student's view of a room: the activity, the chat,
@@ -40,9 +39,9 @@ function StudentRoomScreen({ session }: { session: Session }) {
     return (
         <div className="flex h-screen flex-col">
             {/* Leaving unmounts the chat, which disconnects the socket and
-                drops the student from the teacher's hand queue. */}
-            <RoomNavbar session={session} onLeave={() => navigate("/")} />
-            <StudentHeader session={session} room={room} />
+                drops the student from the teacher's hand queue. The student
+                room has no site-wide navbar — this header is the top of the page. */}
+            <StudentHeader session={session} room={room} onLeave={() => navigate("/")} />
             <RoomLayout
                 activity={
                     <StudentActivity
