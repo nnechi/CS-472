@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useSearchParams } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { listActivities } from "../../api"
 import useAuth from "../../hooks/useAuth"
 import type { ActivitySummary } from "../../types"
@@ -35,8 +35,14 @@ export default function SearchResults() {
         return (
             <ul className="flex flex-col gap-2">
                 {matches.map((a) => (
-                    <li key={a.id} className="rounded-lg border border-gray-300 px-3 py-2 text-base">
-                        {a.name}
+                    <li key={a.id}>
+                        {/* Opens the activities page with this activity scrolled into view and highlighted. */}
+                        <Link
+                            to={`/dashboard/activities?activity=${a.id}`}
+                            className="block rounded-lg border border-gray-300 px-3 py-2 text-base hover:bg-neutral-100"
+                        >
+                            {a.name}
+                        </Link>
                     </li>
                 ))}
             </ul>
@@ -45,7 +51,7 @@ export default function SearchResults() {
 
     return (
         <section className="flex flex-col gap-4">
-            <h1 className="text-3xl font-bold">Search results</h1>
+            <h1 className="text-3xl font-bold">{query === "" ? "Search results" : `Search results for "${query}"`}</h1>
             {query === ""
                 ? <p className="text-gray-600">Type something in the search bar to find activities.</p>
                 : displayResults()}

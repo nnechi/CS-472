@@ -20,13 +20,13 @@ export default function DashboardSearch() {
         <form role="search" className="relative w-full max-w-xl" onSubmit={handleSubmit}>
             {/* The icon sits inside the box, so it stays visible while typing. */}
             {/* An SVG instead of the 🔍 emoji, because emoji ignore text color. */}
-            <svg className="pointer-events-none absolute inset-y-0 left-4 my-auto h-5 w-5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <svg className="pointer-events-none absolute inset-y-0 left-4 my-auto h-5 w-5 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <circle cx="11" cy="11" r="7" />
                 <line x1="16.5" y1="16.5" x2="21" y2="21" />
             </svg>
             <input
                 type="search"
-                className="w-full rounded-lg border border-gray-300 py-3 pl-12 pr-5 text-lg text-black focus:border-indigo-600 focus:outline-none"
+                className="w-full rounded-lg border border-brand bg-white py-3 pl-12 pr-5 text-lg text-brand focus:border-pop focus:outline-none"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search for activities or notes"

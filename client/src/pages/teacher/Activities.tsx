@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import useAuth from "../../hooks/useAuth"
 import Activity from "../../components/Activity"
 import { deleteActivity, listActivities } from "../../api"
@@ -9,7 +9,11 @@ import type { ActivitySummary } from "../../types"
 export default function Activities() {
     const { auth } = useAuth()
     const navigate = useNavigate()
-    
+
+    // When a search result is clicked, the URL carries that activity's id (?activity=...), so it can be highlighted
+    const [params] = useSearchParams()
+    const highlightId = params.get("activity")
+
     // Create activities array to store each activity that the user has in the database. Each activity is represented
     // by an "ActivitySummary" object, which contains an id for the activity and the activity name
     // Default state is either an empty activities array or null - it starts as null when the activities list is not loaded yet
@@ -48,6 +52,12 @@ export default function Activities() {
         return () => { cancelled = true }
     }, [auth])
 
+    // Once the list is loaded, scroll the highlighted activity into view
+    useEffect(() => {
+        if (!highlightId || activities === null) return
+        document.getElementById(`activity-${highlightId}`)?.scrollIntoView({ behavior: "smooth", block: "center" })
+    }, [activities, highlightId])
+
     // Determine what should be displayed in activities box
     function displayActivities(){
         // If there was an error getting the activites, display the error msg in red text
@@ -63,7 +73,15 @@ export default function Activities() {
             return <p className="text-gray-600">You haven't made any activities yet. Click "Create an Activity" to create your first activity.</p>
 
         // Otherwise, activities array is loaded and has activities to display, so display the Activity components
-        return activities.map((a) => <Activity key={a.id} id={a.id} name={a.name} onDelete={() => handleDelete(a.id)} />)
+        return activities.map((a) => (
+            <div
+                key={a.id}
+                id={`activity-${a.id}`}
+                className={a.id === highlightId ? "rounded-lg ring-2 ring-indigo-600" : undefined}
+            >
+                <Activity id={a.id} name={a.name} onDelete={() => handleDelete(a.id)} />
+            </div>
+        ))
     }
 
     // Deletes the activity from the database, then removes it from the list on screen

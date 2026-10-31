@@ -20,6 +20,7 @@ import NotFound from "../pages/NotFound"
 import JoinRoom from "../pages/JoinRoom"
 import RoomCreation from "../pages/teacher/RoomCreation"
 import SearchResults from "../pages/teacher/SearchResults"
+import DashboardNotFound from "../pages/teacher/DashboardNotFound"
 
 
 export default function AppRoutes() {
@@ -53,6 +54,8 @@ export default function AppRoutes() {
                     <Route path="create-activity" element={<CreateActivity />} />
                     <Route path="room-creation" element={<RoomCreation />} />
                     <Route path="search" element={<SearchResults />} />
+                    {/* Any other /dashboard/... URL. Rendered inside the dashboard layout. */}
+                    <Route path="*" element={<DashboardNotFound />} />
                 </Route>
 
                 {/* Teacher view of the Socket.IO chat, with the raised-hand queue. */}

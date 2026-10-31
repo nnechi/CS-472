@@ -17,13 +17,13 @@ export default function UserAvatar({ name, picture }: UserAvatarProps) {
 
     return (
         <Avatar.Root
-            className="inline-flex h-12 w-12 shrink-0 select-none items-center justify-center overflow-hidden rounded-full bg-neutral-200"
+            className="inline-flex h-12 w-12 shrink-0 select-none items-center justify-center overflow-hidden rounded-full bg-white"
             title={name}
         >
             {picture && (
                 <Avatar.Image className="h-full w-full object-cover" src={picture} alt={name} />
             )}
-            <Avatar.Fallback className="text-base font-semibold text-gray-700">
+            <Avatar.Fallback className="text-base font-semibold text-brand">
                 {initials}
             </Avatar.Fallback>
         </Avatar.Root>
