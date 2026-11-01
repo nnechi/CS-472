@@ -1,7 +1,6 @@
 // Two kinds of users.
 export type Role = "student" | "teacher";
 
-
 // The group chat's id. Private chats use the student's socket id instead.
 export const GROUP_CHAT_ID = "group";
 
@@ -27,6 +26,8 @@ export interface ChatMessage {
   room: string;
   createdAt: string; // ISO timestamp
   chatId: string; // GROUP_CHAT_ID, or the id of a private chat
+  // The sender's profile picture URL. Only signed-in teachers have one.
+  avatarUrl?: string | null;
 }
 
 // A private chat between the room's teacher and one student. `id` is the
@@ -178,4 +179,6 @@ export interface SocketData {
   username: string;
   role: Role;
   room: string;
+  // A signed-in teacher's Google picture, from their login session.
+  avatarUrl: string | null;
 }

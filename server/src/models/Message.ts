@@ -10,6 +10,8 @@ const messageSchema = new Schema(
     text: { type: String, required: true, trim: true },
     // Which room this message belongs to.
     room: { type: String, required: true, trim: true, index: true },
+    // The sender's profile picture URL, if they have one (signed-in teachers).
+    avatarUrl: { type: String, default: null },
   },
   {
     // Automatically adds createdAt and updatedAt Date fields.

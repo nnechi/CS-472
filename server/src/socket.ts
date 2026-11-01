@@ -1,4 +1,6 @@
 import { Server, Socket } from "socket.io";
+import type { IncomingMessage } from "http";
+import type { Session, SessionData } from "express-session";
 import { Message } from "./models/Message";
 import { Activity } from "./models/Activity";
 import { ParsonsOptions, DEFAULT_PARSONS_OPTIONS } from "./parsons/options";
@@ -26,10 +28,11 @@ import {
   TimerState,
 } from "./types";
 
-
 import { Room } from "./models/Room"; 
 
-
+// The socket's first HTTP request, with the login session attached
+// (see io.engine.use(sessionMiddleware) in index.ts).
+type SessionRequest = IncomingMessage & { session?: Session & Partial<SessionData> };
 
 export type AppServer = Server< 
   ClientToServerEvents, 
@@ -372,6 +375,11 @@ export function registerSocketHandlers(
       
         // Remember who this socket is so later events don't resend it.
         socket.data.username = cleanUser;
+        // A teacher's picture comes from their login session, not from what the
+        // browser sends, so nobody can show someone else's picture. Students
+        // have no account, so they get none (the chat shows their initials).
+        const sessionUser = (socket.request as SessionRequest).session?.user;
+        socket.data.avatarUrl = role === "teacher" ? sessionUser?.picture ?? null : null;
         socket.data.role = role;
         socket.data.room = roomCode;
 
@@ -412,6 +420,7 @@ export function registerSocketHandlers(
             room: m.room,
             createdAt: (m.createdAt as Date).toISOString(),
             chatId: GROUP_CHAT_ID,
+            avatarUrl: m.avatarUrl ?? null,
           }));
 
           socket.emit("chat history", history);
@@ -437,6 +446,7 @@ export function registerSocketHandlers(
             role,
             text: cleanText,
             room,
+            avatarUrl: socket.data.avatarUrl ?? null,
           });
 
           const message: ChatMessage = {
@@ -446,6 +456,7 @@ export function registerSocketHandlers(
             room: saved.room,
             createdAt: (saved.createdAt as Date).toISOString(),
             chatId: GROUP_CHAT_ID,
+            avatarUrl: saved.avatarUrl ?? null,
           };
 
           // broadcast to everyone in this room only.
@@ -559,6 +570,7 @@ export function registerSocketHandlers(
           room,
           createdAt: new Date().toISOString(),
           chatId: state.chat.id,
+          avatarUrl: socket.data.avatarUrl ?? null,
         };
         state.messages = [...state.messages, message].slice(-PRIVATE_HISTORY_LIMIT);
 

@@ -122,6 +122,8 @@ export interface ChatMessage {
   room: string;
   createdAt: string; // ISO timestamp
   chatId: string; // GROUP_CHAT_ID, or the id of a private chat
+  // The sender's profile picture URL. Only signed-in teachers have one.
+  avatarUrl?: string | null;
 }
 
 // A private chat between the room's teacher and one student. `id` is the
