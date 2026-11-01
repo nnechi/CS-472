@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, useParams } from "react-router-dom"
-import TeacherActivity from "../../components/activity/TeacherParsons"
+import TeacherParsons from "../../components/activity/TeacherParsons"
 import ChatPanel from "../../components/chat/ChatPanel"
 import RoomLayout from "../../components/chat/RoomLayout"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
@@ -64,7 +64,7 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
             <RoomLayout
                 activity={room.activity?.type === "parsons" ?
                     (
-                        <TeacherActivity
+                        <TeacherParsons
                             title={activeChat ? `${activeChat.studentName}'s work` : "Activity"}
                             activity={room.activity}
                             currentQuestion={room.currentQuestion}

@@ -1,7 +1,7 @@
 import { AnswerFeedback, ParsonsLine, RoomActivity } from "../../types";
 import ParsonsProblem from "./ParsonsProblem";
 
-interface StudentActivityProps {
+interface StudentParsonsProps {
   // The current activtity being used in the room
   activity: RoomActivity | null;
   // The question the teacher picked. Students can't change it.
@@ -18,7 +18,7 @@ interface StudentActivityProps {
 
 // The activity as a student sees it: the question the teacher picked. Parsons
 // questions are solved in place. Coding questions show their text.
-export default function StudentActivity({
+export default function StudentParsons({
   activity,
   currentQuestion,
   answers,
@@ -27,7 +27,7 @@ export default function StudentActivity({
   onChange,
   onCheck,
   onReset,
-}: StudentActivityProps) {
+}: StudentParsonsProps) {
   // Display a message when there is no activity currently selected or the activity has no questions
   // Realistically this shouldn't appear
   if (!activity || activity.questions.length === 0) {
@@ -50,7 +50,7 @@ export default function StudentActivity({
       <p className="text-xl font-semibold">
         Question {index + 1} of {activity.questions.length}
       </p>
-      
+
       <div>
         <div className="whitespace-pre-wrap rounded-lg bg-gray-50 p-3">{question.question}</div>
         <ParsonsProblem

@@ -1,7 +1,7 @@
 import { AnswerProgress, RoomActivity } from "../../types";
 import LineBox, { ANSWER_FRAME_STYLE, lineStates } from "./LineBox";
 
-interface TeacherActivityProps {
+interface TeacherParsonsProps {
   // "Activity" in the group chat, or the student's name in their private chat.
   title: string;
   activity: RoomActivity | null;
@@ -18,13 +18,13 @@ const DEFAULT_X_INDENT = 50;
 // Picking a question moves every student in the room to it. Shows the answers
 // as boxes, and in a private chat the student's work colored the way the
 // student sees it.
-export default function TeacherActivity({
+export default function TeacherParsons({
   title,
   activity,
   currentQuestion,
   onSelectQuestion,
   progress,
-}: TeacherActivityProps) {
+}: TeacherParsonsProps) {
   if (!activity || activity.questions.length === 0) {
     return (
       <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
@@ -74,51 +74,44 @@ export default function TeacherActivity({
 
         <p className="whitespace-pre-wrap">{question.question}</p>
 
-        {/* {activity.type === "coding" ? (
+        <>
           <div>
-            <h3 className="text-xs font-semibold text-gray-600">Correct output</h3>
-            <pre className="whitespace-pre overflow-x-auto rounded-md bg-gray-50 p-2 font-mono text-sm">{question.output}</pre>
+            <h3 className="text-xs font-semibold text-gray-600">Solution, in order</h3>
+            <div className="px-2 pb-2" style={ANSWER_FRAME_STYLE.neutral}>
+              {(question.solution ?? []).map((line, i) => (
+                <LineBox key={i} code={line.code} indent={line.indent} xIndent={xIndent} />
+              ))}
+            </div>
           </div>
-        ) : ( */}
-          <>
+
+          {(question.distractors?.length ?? 0) > 0 && (
             <div>
-              <h3 className="text-xs font-semibold text-gray-600">Solution, in order</h3>
+              <h3 className="text-xs font-semibold text-gray-600">Extra lines (not in the answer)</h3>
               <div className="px-2 pb-2" style={ANSWER_FRAME_STYLE.neutral}>
-                {(question.solution ?? []).map((line, i) => (
-                  <LineBox key={i} code={line.code} indent={line.indent} xIndent={xIndent} />
+                {(question.distractors ?? []).map((code, i) => (
+                  <LineBox key={i} code={code} indent={0} xIndent={xIndent} />
                 ))}
               </div>
             </div>
+          )}
 
-            {(question.distractors?.length ?? 0) > 0 && (
-              <div>
-                <h3 className="text-xs font-semibold text-gray-600">Extra lines (not in the answer)</h3>
-                <div className="px-2 pb-2" style={ANSWER_FRAME_STYLE.neutral}>
-                  {(question.distractors ?? []).map((code, i) => (
-                    <LineBox key={i} code={code} indent={0} xIndent={xIndent} />
-                  ))}
-                </div>
+          {progress && (
+            <div>
+              <h3 className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                Student's answer
+                {result === true && <span className="text-green-700">Correct</span>}
+                {result === false && <span className="text-red-600">Incorrect</span>}
+                {result === null && <span className="font-normal text-gray-500">Not checked yet</span>}
+              </h3>
+              <div className="px-2 pb-2" style={ANSWER_FRAME_STYLE[answerFrame]}>
+                {answer.length === 0 && <p className="p-2 text-sm text-gray-500">No lines placed yet.</p>}
+                {answer.map((line, i) => (
+                  <LineBox key={i} code={line.code} indent={line.indent} xIndent={xIndent} state={states[i]} />
+                ))}
               </div>
-            )}
-
-            {progress && (
-              <div>
-                <h3 className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                  Student's answer
-                  {result === true && <span className="text-green-700">Correct</span>}
-                  {result === false && <span className="text-red-600">Incorrect</span>}
-                  {result === null && <span className="font-normal text-gray-500">Not checked yet</span>}
-                </h3>
-                <div className="px-2 pb-2" style={ANSWER_FRAME_STYLE[answerFrame]}>
-                  {answer.length === 0 && <p className="p-2 text-sm text-gray-500">No lines placed yet.</p>}
-                  {answer.map((line, i) => (
-                    <LineBox key={i} code={line.code} indent={line.indent} xIndent={xIndent} state={states[i]} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        {/* )} */}
+            </div>
+          )}
+        </>
       </article>
     </section>
   );

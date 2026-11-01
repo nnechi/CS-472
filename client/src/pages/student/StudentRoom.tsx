@@ -1,5 +1,5 @@
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
-import StudentActivity from "../../components/activity/StudentParsons"
+import StudentParsons from "../../components/activity/StudentParsons"
 import ChatPanel from "../../components/chat/ChatPanel"
 import RoomLayout from "../../components/chat/RoomLayout"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
@@ -46,7 +46,7 @@ function StudentRoomScreen({ session }: { session: Session }) {
             <RoomLayout
                 activity={room.activity?.type === "parsons" ? 
                     (
-                        <StudentActivity
+                        <StudentParsons
                             activity={room.activity}
                             currentQuestion={room.currentQuestion}
                             answers={room.studentAnswers}
