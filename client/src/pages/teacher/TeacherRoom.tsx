@@ -1,6 +1,6 @@
 import { Navigate, useNavigate, useParams } from "react-router-dom"
 import TeacherActivity from "../../components/activity/TeacherActivity"
-import ChatPanel from "../../components/chat/ChatPanel"
+import ChatWidget from "../../components/chat/ChatWidget"
 import RoomLayout from "../../components/chat/RoomLayout"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
 import useAuth from "../../hooks/useAuth"
@@ -70,7 +70,7 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
                     />
                 }
                 chat={
-                    <ChatPanel
+                    <ChatWidget
                         room={room}
                         username={session.username}
                         privateLabel={(chat) => `Private: ${chat.studentName}`}

@@ -73,26 +73,32 @@ export default function Timer({
   const status = running ? "Running" : remaining === 0 ? "Time's up" : "Paused"
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-2 text-sm">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 text-sm text-brand">
       <span className="flex items-baseline gap-2">
         <span className="font-semibold">Timer</span>
         <span className="font-mono text-2xl font-bold tabular-nums" aria-live="off">
           {formatTime(remaining)}
         </span>
-        <span className="text-gray-500">{status}</span>
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+            running ? "bg-pop text-white" : remaining === 0 ? "bg-warn text-brand" : "bg-white text-brand/70 ring-1 ring-brand/20"
+          }`}
+        >
+          {status}
+        </span>
       </span>
 
       {isTeacher && (
         <span className="flex flex-wrap items-center gap-2">
           {/* Length can only change while paused, so pause first. */}
-          <label className="flex items-center gap-1 text-gray-500">
+          <label className="flex items-center gap-1 text-brand/70">
             Minutes
             <input
               type="number"
               min={MIN_MINUTES}
               max={MAX_MINUTES}
               step={1}
-              className="w-16 rounded-md border border-gray-300 px-2 py-1 text-black focus:border-indigo-600 focus:outline-none disabled:bg-gray-100"
+              className="w-16 rounded-md border border-brand/30 bg-white px-2 py-1 text-brand focus:border-brand focus:outline-none disabled:bg-paper disabled:text-brand/50"
               value={minutesInput}
               disabled={running}
               onChange={(e) => setMinutesInput(e.target.value)}
@@ -110,7 +116,7 @@ export default function Timer({
             type="button"
             className={
               running
-                ? `${buttonClass} bg-indigo-600 text-white hover:bg-indigo-700`
+                ? `${buttonClass} bg-brand text-white hover:bg-brand/90`
                 : buttonClass
             }
             onClick={running ? onPause : onPlay}
