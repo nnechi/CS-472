@@ -3,7 +3,7 @@ import { useState } from 'react'
 import useNavbarResize from "../hooks/useNavbarResize"
 import NavLinks from "./NavLinks"
 import SignInLinks from "./SignInLinks"
-import fullLogo from "../assets/LittlePointers Logo/full Logo.png"
+import fullLogo from "../assets/LittlePointers Logo/Full Logo.png"
 
 interface NavbarProps {
     className?: string
