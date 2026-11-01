@@ -88,7 +88,7 @@ export interface ParsonsDisplayOptions {
 export interface RoomQuestion {
   question: string;
   lines?: string[]; // Parsons, students: the lines to arrange, shuffled
-  options?: ParsonsDisplayOptions; // Parsons
+  options: ParsonsDisplayOptions; // Parsons
   solution?: ParsonsLine[]; // Parsons, teachers: the lines in the right order
   distractors?: string[]; // Parsons, teachers: the extra lines that aren't in the answer
   output?: string; // coding, teachers: the output a correct answer produces

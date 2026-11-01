@@ -1,5 +1,5 @@
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
-import StudentActivity from "../../components/activity/StudentActivity"
+import StudentActivity from "../../components/activity/StudentParsons"
 import ChatPanel from "../../components/chat/ChatPanel"
 import RoomLayout from "../../components/chat/RoomLayout"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
@@ -42,26 +42,32 @@ function StudentRoomScreen({ session }: { session: Session }) {
                 drops the student from the teacher's hand queue. The student
                 room has no site-wide navbar — this header is the top of the page. */}
             <StudentHeader session={session} room={room} onLeave={() => navigate("/")} />
+
             <RoomLayout
-                activity={
-                    <StudentActivity
-                        activity={room.activity}
-                        currentQuestion={room.currentQuestion}
-                        answers={room.studentAnswers}
-                        results={room.studentResults}
-                        feedback={room.studentFeedback}
-                        onChange={room.setStudentAnswer}
-                        onCheck={room.checkAnswer}
-                        onReset={room.resetProblem}
-                    />
+                activity={room.activity?.type === "parsons" ? 
+                    (
+                        <StudentActivity
+                            activity={room.activity}
+                            currentQuestion={room.currentQuestion}
+                            answers={room.studentAnswers}
+                            results={room.studentResults}
+                            feedback={room.studentFeedback}
+                            onChange={room.setStudentAnswer}
+                            onCheck={room.checkAnswer}
+                            onReset={room.resetProblem}
+                        />
+                    ) :
+                    (
+                        <p>This is the code editor interface</p>
+                    )
                 }
-                chat={
-                    <ChatPanel
-                        room={room}
-                        username={session.username}
-                        privateLabel={(chat) => `Private: ${chat.teacherName}`}
-                    />
-                }
+                // chat={
+                //     <ChatPanel
+                //         room={room}
+                //         username={session.username}
+                //         privateLabel={(chat) => `Private: ${chat.teacherName}`}
+                //     />
+                // }
             />
         </div>
     )

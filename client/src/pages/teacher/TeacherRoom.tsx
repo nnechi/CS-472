@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, useParams } from "react-router-dom"
-import TeacherActivity from "../../components/activity/TeacherActivity"
+import TeacherActivity from "../../components/activity/TeacherParsons"
 import ChatPanel from "../../components/chat/ChatPanel"
 import RoomLayout from "../../components/chat/RoomLayout"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
@@ -62,22 +62,27 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
             <RoomNavbar session={session} onLeave={endRoom} />
             <TeacherHeader session={session} room={room} />
             <RoomLayout
-                activity={
-                    <TeacherActivity
-                        title={activeChat ? `${activeChat.studentName}'s work` : "Activity"}
-                        activity={room.activity}
-                        currentQuestion={room.currentQuestion}
-                        onSelectQuestion={room.selectQuestion}
-                        progress={activeChat ? room.studentProgress(activeChat.id) : undefined}
-                    />
+                activity={room.activity?.type === "parsons" ?
+                    (
+                        <TeacherActivity
+                            title={activeChat ? `${activeChat.studentName}'s work` : "Activity"}
+                            activity={room.activity}
+                            currentQuestion={room.currentQuestion}
+                            onSelectQuestion={room.selectQuestion}
+                            progress={activeChat ? room.studentProgress(activeChat.id) : undefined}
+                        />
+                    ) :
+                    (
+                        <p>This is the code editor interface</p>
+                    )
                 }
-                chat={
-                    <ChatPanel
-                        room={room}
-                        username={session.username}
-                        privateLabel={(chat) => `Private: ${chat.studentName}`}
-                    />
-                }
+                // chat={
+                //     <ChatPanel
+                //         room={room}
+                //         username={session.username}
+                //         privateLabel={(chat) => `Private: ${chat.studentName}`}
+                //     />
+                // }
             />
         </div>
     )
