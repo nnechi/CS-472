@@ -13,10 +13,11 @@ interface TeacherHeaderProps {
 // but also has the timer and raise hand queue
 export default function TeacherHeader({ session, room } : TeacherHeaderProps){
     return (
-        <div className="bg-white text-black">
-            <div className="border-b border-gray-200 px-4 py-2 text-sm">
-                Room code: <strong>{session.room}</strong>
-                <span className="text-gray-500"> — share this with your students</span>
+        <div className="border-b border-brand/20 bg-paper text-brand shadow-[0_2px_8px_rgba(34,21,116,0.08)]">
+            <div className="flex flex-wrap items-center gap-3 px-6 pt-4 text-sm">
+                <span className="text-brand/70">Room code</span>
+                <strong className="rounded-md border border-brand bg-white px-3 py-1 text-xl tracking-[0.2em] text-brand">{session.room}</strong>
+                <span className="text-brand/70">Share this with your students</span>
             </div>
 
             <div>

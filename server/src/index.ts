@@ -297,19 +297,18 @@ async function main() {
 
 
 const io : AppServer = new Server({ 
-  cors : { origin : CLIENT_ORIGIN, methods : ["GET", "POST"]}, 
+  // credentials lets the browser send the login cookie with the socket.
+  cors : { origin : CLIENT_ORIGIN, methods : ["GET", "POST"], credentials : true }, 
 })
-
-    const app = createApp(io);
-    // Express only handles the HTTP handler; Socket.IO needs the raw http server.
-    const server = createServer(app);
-    io.attach(server); 
-
+  const app = createApp(io);
+  // Express only handles the HTTP handler; Socket.IO needs the raw http server.
+  const server = createServer(app);
+  io.attach(server); 
+  // Sockets read the same login session as HTTP routes, e.g. a teacher's picture.
+  // io.engine only exists after attach(), so this must come after it.
+  io.engine.use(sessionMiddleware); 
 
   registerSocketHandlers(io);
-
-
-  
 
   server.listen(PORT, () => {
     console.log(`[server] listening on http://localhost:${PORT}`);

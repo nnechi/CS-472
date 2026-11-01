@@ -10,9 +10,10 @@ interface StudentHeaderProps {
 // This component contains the header for the student interface. Only contains room code and raise hand button
 export default function StudentHeader({ session, room } : StudentHeaderProps){
     return (
-        <div className="bg-white text-black">
-            <div className="border-b border-gray-200 px-4 py-2 text-sm">
-                Room code: <strong>{session.room}</strong>
+        <div className="border-b border-brand/20 bg-paper text-brand shadow-[0_2px_8px_rgba(34,21,116,0.08)]">
+            <div className="flex flex-wrap items-center gap-3 px-6 pt-4 text-sm">
+                <span className="text-brand/70">Room code</span>
+                <strong className="rounded-md border border-brand bg-white px-3 py-1 text-xl tracking-[0.2em] text-brand">{session.room}</strong>
             </div>
             <RaiseHandButton raised={room.handRaised} onToggle={room.raiseHand} />
         </div>

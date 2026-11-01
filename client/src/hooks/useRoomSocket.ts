@@ -75,8 +75,12 @@ export function useRoomSocket(
   // Teachers only: each student's progress, keyed by that student's chat id.
   const [studentProgress, setStudentProgress] = useState<Record<string, AnswerProgress>>({});
 
+  // Whether the floating chat window is open. Closed, every new message is unread.
+  const [chatOpen, setChatOpenState] = useState(false);
+
   // Socket listeners run outside render, so they read the latest values here.
   const activeChatRef = useRef(GROUP_CHAT_ID);
+  const chatOpenRef = useRef(false);
   const onRoomClosedRef = useRef(onRoomClosed);
   onRoomClosedRef.current = onRoomClosed;
   const onJoinErrorRef = useRef(onJoinError);
@@ -89,13 +93,21 @@ export function useRoomSocket(
     setUnread((prev) => ({ ...prev, [chatId]: 0 }));
   };
 
-  // Add a message to its chat. It counts as unread if that chat is not on screen.
+  // Open or close the chat window. Opening it marks the chat on screen as read.
+  const setChatOpen = (open: boolean) => {
+    chatOpenRef.current = open;
+    setChatOpenState(open);
+    if (open) setUnread((prev) => ({ ...prev, [activeChatRef.current]: 0 }));
+  };
+
+  // Add a message to its chat. It counts as unread if that chat is not on
+  // screen, or if the chat window is closed.
   const addMessage = (message: ChatMessage) => {
     setMessages((prev) => ({
       ...prev,
       [message.chatId]: [...(prev[message.chatId] ?? []), message],
     }));
-    if (message.chatId !== activeChatRef.current) {
+    if (message.chatId !== activeChatRef.current || !chatOpenRef.current) {
       setUnread((prev) => ({ ...prev, [message.chatId]: (prev[message.chatId] ?? 0) + 1 }));
     }
   };
@@ -121,8 +133,12 @@ export function useRoomSocket(
       );
       setMessages((prev) => ({ ...prev, [chat.id]: history }));
       setStudentProgress((prev) => ({ ...prev, [chat.id]: progress }));
-      // A student is taken straight to a chat the teacher just opened with them.
-      if (session.role === "student") selectChat(chat.id);
+      // A student is taken straight to a chat the teacher just opened with them,
+      // and the chat window opens so they see it.
+      if (session.role === "student") {
+        selectChat(chat.id);
+        setChatOpen(true);
+      }
     };
 
     // The student left, so their chat is gone.
@@ -224,6 +240,7 @@ export function useRoomSocket(
       setPrivateChats([]);
       setUnread({});
       selectChat(GROUP_CHAT_ID);
+      setChatOpen(false);
       setHandQueue([]);
       setHandRaised(false);
       setTimer({ durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, running: false });
@@ -268,8 +285,10 @@ export function useRoomSocket(
   };
 
   // Teachers click a student in the hand queue to open their chat.
+  // The chat window opens on that student's chat so the teacher can start typing.
   const openPrivateChat = (studentId: string) => {
     selectChat(studentId);
+    setChatOpen(true);
     socket.emit("open private chat", { studentId });
   };
 
@@ -289,6 +308,8 @@ export function useRoomSocket(
     privateChats,
     activeChatId: shownChatId,
     unread,
+    chatOpen,
+    setChatOpen,
     handQueue,
     handRaised,
     timer,
