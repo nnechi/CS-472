@@ -46,6 +46,7 @@ function StudentRoomScreen({ session }: { session: Session }) {
                 activity={
                     <StudentActivity
                         activity={room.activity}
+                        currentQuestion={room.currentQuestion}
                         answers={room.studentAnswers}
                         results={room.studentResults}
                         feedback={room.studentFeedback}

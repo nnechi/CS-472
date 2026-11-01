@@ -67,6 +67,8 @@ export function useRoomSocket(
   });
   // The room's activity, questions shaped for this person's role.
   const [activity, setActivity] = useState<RoomActivity | null>(null);
+  // The question the teacher picked. The server sends it on join and on every change.
+  const [currentQuestion, setCurrentQuestion] = useState(0);
   // A student's own arrangement of each Parsons question, whether each is right,
   // and the feedback for each (null until checked, or when feedback is off).
   const [studentAnswers, setStudentAnswers] = useState<ParsonsLine[][]>([]);
@@ -188,6 +190,7 @@ export function useRoomSocket(
     socket.on("student activity", onStudentProgress);
     socket.on("answer result", onAnswerResult);
     socket.on("room activity", onRoomActivity);
+    socket.on("current question", setCurrentQuestion);
     socket.on("hand queue", onHandQueue);
     socket.on("hand status", setHandRaised);
     socket.on("timer state", setTimer);
@@ -214,6 +217,7 @@ export function useRoomSocket(
       socket.off("student activity", onStudentProgress);
       socket.off("answer result", onAnswerResult);
       socket.off("room activity", onRoomActivity);
+      socket.off("current question", setCurrentQuestion);
       socket.off("hand queue", onHandQueue);
       socket.off("hand status", setHandRaised);
       socket.off("timer state", setTimer);
@@ -228,6 +232,7 @@ export function useRoomSocket(
       setHandRaised(false);
       setTimer({ durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, running: false });
       setActivity(null);
+      setCurrentQuestion(0);
       setStudentAnswers([]);
       setStudentResults([]);
       setStudentFeedback([]);
@@ -293,6 +298,8 @@ export function useRoomSocket(
     handRaised,
     timer,
     activity,
+    currentQuestion,
+    selectQuestion: (questionIndex: number) => socket.emit("set question", { questionIndex }),
     studentAnswers,
     studentResults,
     studentFeedback,

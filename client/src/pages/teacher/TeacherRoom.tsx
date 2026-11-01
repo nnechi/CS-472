@@ -53,8 +53,8 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
         navigate("/dashboard")
     }
 
-    // The activity follows the chat on screen: every question in the group
-    // chat, or the student's work in their private chat.
+    // The activity follows the chat on screen: the current question in the
+    // group chat, or the student's work on it in their private chat.
     const activeChat = room.privateChats.find((c) => c.id === room.activeChatId)
 
     return (
@@ -66,6 +66,8 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
                     <TeacherActivity
                         title={activeChat ? `${activeChat.studentName}'s work` : "Activity"}
                         activity={room.activity}
+                        currentQuestion={room.currentQuestion}
+                        onSelectQuestion={room.selectQuestion}
                         progress={activeChat ? room.studentProgress(activeChat.id) : undefined}
                     />
                 }
