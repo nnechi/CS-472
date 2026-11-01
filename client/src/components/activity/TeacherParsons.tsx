@@ -7,7 +7,6 @@ interface TeacherParsonsProps {
   activity: RoomActivity | null;
   // The question everyone in the room is on.
   currentQuestion: number;
-  onSelectQuestion: (questionIndex: number) => void;
   // Set in a private chat: the student's arrangement and results for each question.
   progress?: AnswerProgress;
 }
@@ -22,7 +21,6 @@ export default function TeacherParsons({
   title,
   activity,
   currentQuestion,
-  onSelectQuestion,
   progress,
 }: TeacherParsonsProps) {
   if (!activity || activity.questions.length === 0) {
@@ -46,30 +44,10 @@ export default function TeacherParsons({
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
       <h2 className="text-sm font-semibold">{title}</h2>
-
-      <nav aria-label="Questions" className="flex flex-wrap gap-2">
-        {activity.questions.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            aria-current={i === index ? "step" : undefined}
-            className={`rounded-lg px-3 py-1.5 text-sm cursor-pointer ${
-              i === index ? "bg-neutral-900 text-white" : "border border-gray-300 text-gray-900 hover:bg-neutral-100"
-            }`}
-            onClick={() => onSelectQuestion(i)}
-          >
-            Question {i + 1}
-            {progress?.results[i] === true && " ✓"}
-          </button>
-        ))}
-      </nav>
-
       <article className="flex flex-col gap-2 rounded-lg border border-gray-200 p-3">
         <header className="flex items-center justify-between gap-2 text-sm">
           <span className="font-semibold">Question {index + 1}</span>
-          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">
-            {activity.type === "parsons" ? "Parsons problem" : "Coding"}
-          </span>
+          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">Parsons problem</span>
         </header>
 
         <p className="whitespace-pre-wrap">{question.question}</p>

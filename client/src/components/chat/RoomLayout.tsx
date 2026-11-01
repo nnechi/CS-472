@@ -15,7 +15,7 @@ export default function RoomLayout({
   // chat,
 }: RoomLayoutProps) {
   return (
-    <div className="mx-auto flex min-h-0 flex-1 w-full flex-col bg-white text-black">
+    <div className="mx-auto flex min-h-0 flex-1 w-full flex-col">
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       <div className="flex min-h-0 flex-1 flex-col md:border-r md:border-gray-200">{activity}</div>
         {/* <div className="flex min-h-0 flex-1 flex-col border-t border-gray-200 md:w-[28rem] md:flex-none md:border-t-0">

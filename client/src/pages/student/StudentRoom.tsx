@@ -38,7 +38,7 @@ function StudentRoomScreen({ session }: { session: Session }) {
     })
 
     return (
-        <div className="flex h-screen flex-col">
+        <div className="flex h-screen flex-col bg-white text-black">
             {/* Leaving unmounts the chat, which disconnects the socket and
                 drops the student from the teacher's hand queue. The student
                 room has no site-wide navbar — this header is the top of the page. */}
