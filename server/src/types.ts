@@ -58,7 +58,7 @@ export interface ParsonsDisplayOptions {
 }
 
 // One question as the server sends it. What is set depends on who gets it:
-// students get only the question, and for Parsons the shuffled lines to arrange.
+// students get the question and correct output, and for Parsons the shuffled lines to arrange.
 // Teachers also get the answer: the output for coding, the solution for Parsons.
 export interface RoomQuestion {
   question: string;

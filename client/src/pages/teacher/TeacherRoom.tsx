@@ -9,6 +9,7 @@ import { normalizeRoomCode } from "../../utils/roomCode"
 import { deleteRoom } from "../../api"
 import RoomNavbar from "../../components/chat/RoomNavbar"
 import TeacherHeader from "../../components/chat/TeacherHeader"
+import CodeEditor from "../../components/activity/CodeEditor"
 
 // /rooms/:roomId -- the teacher's view of a room: the activity, the chat, the
 // timer, and the raised-hand queue. Students who land here are sent to their
@@ -73,7 +74,11 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
                         />
                     ) :
                     (
-                        <p>This is the code editor interface</p>
+                        <CodeEditor 
+                            activity={room.activity}
+                            currentQuestion={room.currentQuestion}
+                            role="teacher"
+                        />
                     )
                 }
                 // chat={

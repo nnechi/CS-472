@@ -91,7 +91,7 @@ function displaySettings(options: Partial<ParsonsOptions> | undefined): ParsonsD
 }
 
 // The activity a room uses, shaped for the person receiving it. Students get
-// the question text, and for Parsons the lines to arrange plus the display
+// the question text and correct output, and for Parsons the lines to arrange plus the display
 // settings. Teachers also get the answers. Null if none is picked. If it can't
 // be loaded, students still join, just without an activity.
 async function loadRoomActivity(activityId: unknown, role: Role): Promise<RoomActivity | null> {
@@ -103,7 +103,8 @@ async function loadRoomActivity(activityId: unknown, role: Role): Promise<RoomAc
 
     const questions: RoomQuestion[] = activity.questions.map((q) => {
       if (type === "coding") {
-        return role === "teacher" ? { question: q.question, output: q.output } : { question: q.question };
+        return { question: q.question, output: q.output };
+
       }
       const problem = parseInitial(q.initial);
       const options = displaySettings(q.options as Partial<ParsonsOptions>);

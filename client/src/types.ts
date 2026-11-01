@@ -91,7 +91,7 @@ export interface RoomQuestion {
   options: ParsonsDisplayOptions; // Parsons
   solution?: ParsonsLine[]; // Parsons, teachers: the lines in the right order
   distractors?: string[]; // Parsons, teachers: the extra lines that aren't in the answer
-  output?: string; // coding, teachers: the output a correct answer produces
+  output?: string; // coding, students and teachers: the output a correct answer produces
 }
 
 // The room's activity, with the questions shaped for the person receiving it.

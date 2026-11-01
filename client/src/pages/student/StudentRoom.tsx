@@ -6,6 +6,7 @@ import { useRoomSocket } from "../../hooks/useRoomSocket"
 import { Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
 import StudentHeader from "../../components/chat/StudentHeader"
+import CodeEditor from "../../components/activity/CodeEditor"
 
 // /rooms/join/:roomCode -- the student's view of a room: the activity, the chat,
 // and the raise-hand button. Students have no account; the name comes from the
@@ -58,7 +59,11 @@ function StudentRoomScreen({ session }: { session: Session }) {
                         />
                     ) :
                     (
-                        <p>This is the code editor interface</p>
+                        <CodeEditor 
+                            activity={room.activity}
+                            currentQuestion={room.currentQuestion}
+                            role="student"
+                        />
                     )
                 }
                 // chat={
