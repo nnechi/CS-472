@@ -48,12 +48,17 @@ export function closeRoom(io : AppServer, room : string): void {
   io.to(room).emit("room closed");
   handQueues.delete(room);
   privateChats.delete(room);
+  currentQuestions.delete(room);
   clearTimer(room);
   io.in(room).disconnectSockets();
 }
 
 //raise hands are not stored in database,
 const handQueues = new Map<string, RaisedHand[]>();
+
+// The question the teacher picked, by room. Rooms start on the first question.
+// Not stored in database, like raised hands.
+const currentQuestions = new Map<string, number>();
 
 // Private chats are not stored in database, like raised hands. Each room maps
 // a student's socket id to that chat's details and its recent messages.
@@ -89,7 +94,7 @@ function displaySettings(options: Partial<ParsonsOptions> | undefined): ParsonsD
 }
 
 // The activity a room uses, shaped for the person receiving it. Students get
-// the question text, and for Parsons the lines to arrange plus the display
+// the question text and correct output, and for Parsons the lines to arrange plus the display
 // settings. Teachers also get the answers. Null if none is picked. If it can't
 // be loaded, students still join, just without an activity.
 async function loadRoomActivity(activityId: unknown, role: Role): Promise<RoomActivity | null> {
@@ -101,7 +106,8 @@ async function loadRoomActivity(activityId: unknown, role: Role): Promise<RoomAc
 
     const questions: RoomQuestion[] = activity.questions.map((q) => {
       if (type === "coding") {
-        return role === "teacher" ? { question: q.question, output: q.output } : { question: q.question };
+        return { question: q.question, output: q.output };
+
       }
       const problem = parseInitial(q.initial);
       const options = displaySettings(q.options as Partial<ParsonsOptions>);
@@ -396,6 +402,8 @@ export function registerSocketHandlers(
 
         // Everyone gets the room's activity, shaped for their role.
         socket.emit("room activity", await loadRoomActivity(activityId, role));
+        // Late joiners land on the question the teacher has picked.
+        socket.emit("current question", currentQuestions.get(roomCode) ?? 0);
 
         //display room code
         // previous room data (messages)
@@ -507,6 +515,17 @@ export function registerSocketHandlers(
         const { role, room } = socket.data;
         if (!room || role !== "teacher") return;
         setTimerLength(room, minutes);
+      });
+
+      // Only the teacher can change the question, and everyone in the room follows.
+      socket.on("set question", ({ questionIndex }) => {
+        const { role, room } = socket.data;
+        if (!room || role !== "teacher") return;
+
+        if (!Number.isInteger(questionIndex) || questionIndex < 0 || questionIndex >= ACTIVITY_MAX_QUESTIONS) return;
+
+        currentQuestions.set(room, questionIndex);
+        io.to(room).emit("current question", questionIndex);
       });
 
       // Teachers open a private chat from the hand queue. Only students in

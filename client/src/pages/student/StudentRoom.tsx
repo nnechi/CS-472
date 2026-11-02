@@ -1,12 +1,12 @@
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
-import StudentActivity from "../../components/activity/StudentActivity"
+import StudentParsons from "../../components/activity/StudentParsons"
 import ChatWidget from "../../components/chat/ChatWidget"
 import RoomLayout from "../../components/chat/RoomLayout"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
 import { Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
-import RoomNavbar from "../../components/chat/RoomNavbar"
 import StudentHeader from "../../components/chat/StudentHeader"
+import CodeEditor from "../../components/activity/CodeEditor"
 
 // /rooms/join/:roomCode -- the student's view of a room: the activity, the chat,
 // and the raise-hand button. Students have no account; the name comes from the
@@ -38,22 +38,33 @@ function StudentRoomScreen({ session }: { session: Session }) {
     })
 
     return (
-        <div className="flex h-screen flex-col">
+        <div className="flex h-screen flex-col bg-white text-black">
             {/* Leaving unmounts the chat, which disconnects the socket and
-                drops the student from the teacher's hand queue. */}
-            <RoomNavbar session={session} onLeave={() => navigate("/")} />
-            <StudentHeader session={session} room={room} />
+                drops the student from the teacher's hand queue. The student
+                room has no site-wide navbar — this header is the top of the page. */}
+            <StudentHeader session={session} room={room} onLeave={() => navigate("/")} />
+
             <RoomLayout
-                activity={
-                    <StudentActivity
-                        activity={room.activity}
-                        answers={room.studentAnswers}
-                        results={room.studentResults}
-                        feedback={room.studentFeedback}
-                        onChange={room.setStudentAnswer}
-                        onCheck={room.checkAnswer}
-                        onReset={room.resetProblem}
-                    />
+                activity={room.activity?.type === "parsons" ? 
+                    (
+                        <StudentParsons
+                            activity={room.activity}
+                            currentQuestion={room.currentQuestion}
+                            answers={room.studentAnswers}
+                            results={room.studentResults}
+                            feedback={room.studentFeedback}
+                            onChange={room.setStudentAnswer}
+                            onCheck={room.checkAnswer}
+                            onReset={room.resetProblem}
+                        />
+                    ) :
+                    (
+                        <CodeEditor 
+                            activity={room.activity}
+                            currentQuestion={room.currentQuestion}
+                            role="student"
+                        />
+                    )
                 }
                 chat={
                     <ChatWidget

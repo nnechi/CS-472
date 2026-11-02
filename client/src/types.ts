@@ -88,10 +88,10 @@ export interface ParsonsDisplayOptions {
 export interface RoomQuestion {
   question: string;
   lines?: string[]; // Parsons, students: the lines to arrange, shuffled
-  options?: ParsonsDisplayOptions; // Parsons
+  options: ParsonsDisplayOptions; // Parsons
   solution?: ParsonsLine[]; // Parsons, teachers: the lines in the right order
   distractors?: string[]; // Parsons, teachers: the extra lines that aren't in the answer
-  output?: string; // coding, teachers: the output a correct answer produces
+  output?: string; // coding, students and teachers: the output a correct answer produces
 }
 
 // The room's activity, with the questions shaped for the person receiving it.
@@ -155,6 +155,8 @@ export interface ServerToClientEvents {
   "system message": (text: string) => void;
   // The room's activity, sent on join. Null when the teacher picked none.
   "room activity": (activity: RoomActivity | null) => void;
+  // The question the teacher picked, sent on join and on every change.
+  "current question": (questionIndex: number) => void;
   // A private chat was opened (or sent again on join). Includes its history
   // and the student's progress on the activity.
   "private chat opened": (payload: {
@@ -198,6 +200,8 @@ export interface ClientToServerEvents {
   "timer restart": () => void;
   // Teachers only: set a new length in whole minutes (1 to 60) and stop the timer.
   "timer set": (payload: { minutes: number }) => void;
+  // Teachers only: pick the question everyone in the room is on.
+  "set question": (payload: { questionIndex: number }) => void;
   // Teachers only: open a private chat with a student who raised a hand.
   "open private chat": (payload: { studentId: string }) => void;
   // Teachers send to any private chat in the room. Students only to their own.

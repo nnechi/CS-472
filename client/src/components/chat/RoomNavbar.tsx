@@ -2,6 +2,7 @@ import { Session } from "../../types"
 import useAuth from "../../hooks/useAuth"
 import UserAvatar from "../UserAvatar"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
+import { LeaveRoomButton } from "./LeaveRoomButton"
 
 interface RoomNavbarProps {
     session: Session
@@ -27,15 +28,7 @@ export default function RoomNavbar({ session, onLeave } : RoomNavbarProps){
                     <span className="font-semibold">{session.username}</span>
                     <span className="text-sm capitalize text-brand/70">{session.role}</span>
                 </span>
-                {onLeave && (
-                    <button
-                        type="button"
-                        className="rounded-lg bg-brand px-4 py-2 text-white cursor-pointer hover:bg-brand/90"
-                        onClick={onLeave}
-                    >
-                        Leave room
-                    </button>
-                )}
+                {onLeave && <LeaveRoomButton onLeave={onLeave} />}
             </span>
         </header>
     )

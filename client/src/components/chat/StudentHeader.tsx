@@ -1,21 +1,37 @@
 import { RaiseHandButton } from "../HandQueue"
+import { RoomCodeBadge } from "./RoomCodeBadge"
+import { LeaveRoomButton } from "./LeaveRoomButton"
 import type { RoomSocket } from "../../hooks/useRoomSocket"
 import { Session } from "../../types"
+import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
 
 interface StudentHeaderProps {
     session: Session
     room: RoomSocket
+
+    // Leaving unmounts the chat, which disconnects the socket and
+    // drops the student from the teacher's hand queue.
+    onLeave: () => void
 }
 
-// This component contains the header for the student interface. Only contains room code and raise hand button
-export default function StudentHeader({ session, room } : StudentHeaderProps){
+// This is the very top of the student room page (the site-wide navbar is not
+// shown for students): the LP logo, the student's name, and the raise-hand
+// control on the left; the room code and leave-room control on the right.
+export default function StudentHeader({ session, room, onLeave } : StudentHeaderProps){
     return (
-        <div className="border-b border-brand/20 bg-paper text-brand shadow-[0_2px_8px_rgba(34,21,116,0.08)]">
-            <div className="flex flex-wrap items-center gap-3 px-6 pt-4 text-sm">
-                <span className="text-brand/70">Room code</span>
-                <strong className="rounded-md border border-brand bg-white px-3 py-1 text-xl tracking-[0.2em] text-brand">{session.room}</strong>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand bg-brand-light px-4 py-3">
+            <div className="flex items-center gap-4">
+                <img src={shortLogo} alt="LittlePointers" className="h-8 w-auto shrink-0" />
+                <div className="flex items-center gap-3">
+                    <span className="text-lg font-semibold text-brand">{session.username}</span>
+                    <RaiseHandButton raised={room.handRaised} onToggle={room.raiseHand} />
+                </div>
             </div>
-            <RaiseHandButton raised={room.handRaised} onToggle={room.raiseHand} />
+            <div className="flex items-center gap-3">
+                <RoomCodeBadge code={session.room} size="lg" />
+                <span className="h-6 w-px bg-brand/20" aria-hidden="true" />
+                <LeaveRoomButton onLeave={onLeave} />
+            </div>
         </div>
     )
 }

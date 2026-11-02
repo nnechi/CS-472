@@ -1,5 +1,5 @@
 import { Navigate, useNavigate, useParams } from "react-router-dom"
-import TeacherActivity from "../../components/activity/TeacherActivity"
+import TeacherParsons from "../../components/activity/TeacherParsons"
 import ChatWidget from "../../components/chat/ChatWidget"
 import RoomLayout from "../../components/chat/RoomLayout"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
@@ -9,6 +9,7 @@ import { normalizeRoomCode } from "../../utils/roomCode"
 import { deleteRoom } from "../../api"
 import RoomNavbar from "../../components/chat/RoomNavbar"
 import TeacherHeader from "../../components/chat/TeacherHeader"
+import CodeEditor from "../../components/activity/CodeEditor"
 
 // /rooms/:roomId -- the teacher's view of a room: the activity, the chat, the
 // timer, and the raised-hand queue. Students who land here are sent to their
@@ -53,21 +54,32 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
         navigate("/dashboard")
     }
 
-    // The activity follows the chat on screen: every question in the group
-    // chat, or the student's work in their private chat.
+    // The activity follows the chat on screen: the current question in the
+    // group chat, or the student's work on it in their private chat.
     const activeChat = room.privateChats.find((c) => c.id === room.activeChatId)
+    const progress = activeChat ? room.studentProgress(activeChat.id) : undefined
 
     return (
-        <div className="flex h-screen flex-col">
+        <div className="flex h-screen flex-col bg-white text-black">
             <RoomNavbar session={session} onLeave={endRoom} />
-            <TeacherHeader session={session} room={room} />
+            <TeacherHeader session={session} room={room} progress={progress} />
             <RoomLayout
-                activity={
-                    <TeacherActivity
-                        title={activeChat ? `${activeChat.studentName}'s work` : "Activity"}
-                        activity={room.activity}
-                        progress={activeChat ? room.studentProgress(activeChat.id) : undefined}
-                    />
+                activity={room.activity?.type === "parsons" ?
+                    (
+                        <TeacherParsons
+                            title={activeChat ? `${activeChat.studentName}'s work` : "Activity"}
+                            activity={room.activity}
+                            currentQuestion={room.currentQuestion}
+                            progress={progress}
+                        />
+                    ) :
+                    (
+                        <CodeEditor 
+                            activity={room.activity}
+                            currentQuestion={room.currentQuestion}
+                            role="teacher"
+                        />
+                    )
                 }
                 chat={
                     <ChatWidget
