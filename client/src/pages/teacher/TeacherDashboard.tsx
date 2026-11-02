@@ -1,33 +1,77 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { Link, useNavigate } from "react-router-dom"
 import useAuth from "../../hooks/useAuth"
-import CreateRoom from "../../components/CreateRoom"
+import { listActivities } from "../../api"
+import type { ActivitySummary } from "../../types"
 
-// Teachers create a Socket.IO room and share its code with students.
+// /dashboard -- the teacher's home page. Activities and notes are in the ☰ menu.
 export default function TeacherDashboard() {
     const { auth } = useAuth()
-    const [showCreateRoom, setShowCreateRoom] = useState(false)
+    const navigate = useNavigate()
+
+    // The activities for the "Start a room" dropdown. Null until they load.
+    const [activities, setActivities] = useState<ActivitySummary[] | null>(null)
+    const [listError, setListError] = useState("")
+    const [menuOpen, setMenuOpen] = useState(false)
+
+    useEffect(() => {
+        if (!auth) return
+        let cancelled = false
+        listActivities(auth.user.id)
+            .then((found) => { if (!cancelled) setActivities(found) })
+            .catch((err) => {
+                if (!cancelled) setListError(err instanceof Error ? err.message : "Could not load your activities.")
+            })
+        return () => { cancelled = true }
+    }, [auth?.user.id])
+
+    // Opens the room creation page with this activity already chosen, the same way Activity's "Start Room" does.
+    function startRoom(activityId: string) {
+        setMenuOpen(false)
+        navigate("/dashboard/room-creation", { state: { activityId } })
+    }
+
+    function displayChoices() {
+        if (listError) return <p role="alert" className="rounded-md bg-warn px-3 py-2 text-brand">{listError}</p>
+        if (activities === null) return <p className="px-3 py-2 text-gray-600">Loading your activities...</p>
+        if (activities.length === 0) {
+            return (
+                <p className="px-3 py-2 text-gray-600">
+                    You haven't made any activities yet. <Link to="/dashboard/create-activity" className="underline">Create an activity</Link>
+                </p>
+            )
+        }
+        return activities.map((a) => (
+            <button
+                key={a.id}
+                type="button"
+                className="block w-full rounded-md px-3 py-2 text-left text-brand cursor-pointer hover:bg-pop"
+                onClick={() => startRoom(a.id)}
+            >
+                {a.name}
+            </button>
+        ))
+    }
 
     return (
-        <>
-            
-            {showCreateRoom ? (
-                <CreateRoom onClose={() => setShowCreateRoom(false)} />
-            ) : (
-                <>
-                    <h1 className="text-2xl font-bold">Welcome{auth ? `, ${auth.user.name}` : ""}</h1>
-                    <h2 className="mt-4 text-lg">Ready to start a class?</h2>
-                    <p className="text-gray-600">Create a room for your students to join.</p>
-                    {/* Before the "create a room", well add "insert a template" (which has premade skeleton code) 
-                    or "start from scratch" (which has a blank code editor). The template will be a dropdown menu of premade templates the teacher made already. */}
-                    <button
-                        type="button"
-                        className="mt-4 rounded-lg border border-gray-300 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100"
-                        onClick={() => setShowCreateRoom(true)}
-                    >
-                        Create a Room
-                    </button>
-                </>
-            )}
-        </>
+        <section className="mt-8 flex flex-col gap-8">
+            <h1 className="text-5xl font-bold">Welcome{auth ? `, ${auth.user.name}!` : ""}</h1>
+            <div className="relative w-fit">
+                <button
+                    type="button"
+                    className="rounded-lg bg-brand px-4 py-2 text-lg text-white cursor-pointer hover:bg-brand/90"
+                    aria-haspopup="listbox"
+                    aria-expanded={menuOpen}
+                    onClick={() => setMenuOpen((open) => !open)}
+                >
+                    Start a room ▾
+                </button>
+                {menuOpen && (
+                    <div className="absolute left-0 top-full z-20 mt-2 flex max-h-80 w-72 flex-col overflow-y-auto rounded-lg border border-brand bg-white p-2 shadow-md">
+                        {displayChoices()}
+                    </div>
+                )}
+            </div>
+        </section>
     )
 }

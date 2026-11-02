@@ -114,7 +114,7 @@ export default function SignUp() {
     }
 
     return (
-        <AuthCard title="Sign in">
+        <AuthCard title="Sign Up">
             <p
                 ref={errRef}
                 className={errMsg ? "auth-error" : "sr-only"}

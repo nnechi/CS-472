@@ -1,13 +1,18 @@
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
-import Chat from "../../components/Chat"
+import StudentActivity from "../../components/activity/StudentActivity"
+import ChatWidget from "../../components/chat/ChatWidget"
+import RoomLayout from "../../components/chat/RoomLayout"
+import { useRoomSocket } from "../../hooks/useRoomSocket"
+import { Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
+import RoomNavbar from "../../components/chat/RoomNavbar"
+import StudentHeader from "../../components/chat/StudentHeader"
 
-// /rooms/join/:roomCode -- the student's view of a room: chat plus the
-// raise-hand button. Students have no account; the name comes from the home
-// page form via router state. Without a name (e.g. a shared link), send them
-// back to the home page to enter one.
+// /rooms/join/:roomCode -- the student's view of a room: the activity, the chat,
+// and the raise-hand button. Students have no account; the name comes from the
+// home page form via router state. Without a name (e.g. a shared link), send
+// them back to the home page to enter one.
 export default function StudentRoom() {
-    const navigate = useNavigate()
     const location = useLocation()
     const { roomCode } = useParams()
     const room = normalizeRoomCode(roomCode ?? "")
@@ -15,12 +20,49 @@ export default function StudentRoom() {
 
     if (!room || !username) return <Navigate to="/" replace />
 
+    return <StudentRoomScreen session={{ username, role: "student", room }} />
+}
+
+// The socket is opened here, so it only runs once the name check has passed.
+function StudentRoomScreen({ session }: { session: Session }) {
+    const navigate = useNavigate()
+    const room = useRoomSocket(session, {
+        onRoomClosed: () => {
+            window.alert("Your teacher ended this room.")
+            navigate("/")
+        },
+        onJoinError: () => {
+            window.alert("This room doesn't exist or it's expired.")
+            navigate("/")
+        },
+    })
+
     return (
-        <Chat
-            session={{ username, role: "student", room }}
-            // Leaving unmounts the chat, which disconnects the socket and
-            // drops the student from the teacher's hand queue.
-            onLeave={() => navigate("/")}
-        />
+        <div className="flex h-screen flex-col">
+            {/* Leaving unmounts the chat, which disconnects the socket and
+                drops the student from the teacher's hand queue. */}
+            <RoomNavbar session={session} onLeave={() => navigate("/")} />
+            <StudentHeader session={session} room={room} />
+            <RoomLayout
+                activity={
+                    <StudentActivity
+                        activity={room.activity}
+                        answers={room.studentAnswers}
+                        results={room.studentResults}
+                        feedback={room.studentFeedback}
+                        onChange={room.setStudentAnswer}
+                        onCheck={room.checkAnswer}
+                        onReset={room.resetProblem}
+                    />
+                }
+                chat={
+                    <ChatWidget
+                        room={room}
+                        username={session.username}
+                        privateLabel={(chat) => `Private: ${chat.teacherName}`}
+                    />
+                }
+            />
+        </div>
     )
 }

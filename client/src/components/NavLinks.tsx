@@ -7,20 +7,20 @@ interface NavLinksProp {
 export default function NavLinks({ onLinkClick }: NavLinksProp) {
     const getLinkClass = ({isActive}:{isActive:boolean}) => 
         isActive 
-            ? "font-bold text-[#161616]" 
-            : "text-gray-500 hover:font-bold hover:text-[#161616]";
+            ? "font-bold text-brand underline decoration-2 underline-offset-8"
+            : "text-brand/70 hover:text-brand";
    
     return (
         <>
             <NavLink to="/about" className={getLinkClass} onClick={onLinkClick}>
                 About Us
             </NavLink>
-            <NavLink to="/learn-more" className={getLinkClass} onClick={onLinkClick}>
-                Learn More
+            <NavLink to="/features" className={getLinkClass} onClick={onLinkClick}>
+                Features
             </NavLink>
-            <NavLink to="/contact" className={getLinkClass} onClick={onLinkClick}>
+            {/* <NavLink to="/contact" className={getLinkClass} onClick={onLinkClick}>
                 Contact Us
-            </NavLink>
+            </NavLink> */}
             <NavLink to="/joinroom" className={getLinkClass} onClick={onLinkClick}>
                 Join a Room
             </NavLink>
