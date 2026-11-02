@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet } from "react-router-dom"
 import useAuth from "../hooks/useAuth"
 import DashboardSearch from "../components/DashboardSearch"
 import UserAvatar from "../components/UserAvatar"
+import { FolderIcon, HomeIcon, LogoutIcon, PencilIcon, SettingsIcon } from "../components/MenuIcons"
 import shortLogo from "../assets/LittlePointers Logo/Short Logo.png"
 
 // Menu items stack the icon above the text on small screens and sit side by side on laptop and larger.
@@ -71,22 +72,22 @@ export default function DashboardLayout() {
                 {/* Menu. The ☰ button opens and closes it at every screen size. */}
                 <nav id="dashboard-menu" className={`${menuOpen ? "flex w-28 md:w-56" : "hidden md:flex md:w-16"} relative z-10 shrink-0 flex-col gap-2 border-r border-brand bg-brand-light p-2 shadow-[2px_0_8px_rgba(34,21,116,0.18)]`}>
                         <NavLink to="/dashboard" end aria-label="Home" onClick={() => setMenuOpen(false)} className={linkClass}>
-                            <span className="text-xl md:text-lg" aria-hidden="true">🏠︎</span>
+                            <HomeIcon />
                             <span className={labelClass}>Home</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Home</span>
                         </NavLink>
                         <NavLink to="/dashboard/activities" aria-label="Activities" onClick={() => setMenuOpen(false)} className={linkClass}>
-                            <span className="text-xl md:text-lg" aria-hidden="true">✎</span>
+                            <PencilIcon/>
                             <span className={labelClass}>Activities</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Activities</span>
                         </NavLink>
                         <NavLink to="/dashboard/notes" aria-label="Notes" onClick={() => setMenuOpen(false)} className={linkClass}>
-                            <span className="text-xl md:text-lg" aria-hidden="true">🖿</span>
+                            <FolderIcon/>
                             <span className={labelClass}>Notes</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Notes</span>
                         </NavLink>
                         <NavLink to="/dashboard/settings" aria-label="Settings" onClick={() => setMenuOpen(false)} className={linkClass}>
-                            <span className="text-3xl md:text-2xl" aria-hidden="true">⛭</span>
+                            <SettingsIcon/>
                             <span className={labelClass}>Settings</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Settings</span>
                         </NavLink>
@@ -96,7 +97,7 @@ export default function DashboardLayout() {
                             aria-label="Logout"
                             onClick={logout}
                         >
-                            <span className="text-xl md:text-lg" aria-hidden="true">➜]</span>
+                            <LogoutIcon/>
                             <span className={labelClass}>Logout</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Logout</span>
                         </button>

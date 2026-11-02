@@ -1,12 +1,12 @@
 
 export default function Home() {
     return (
-        <main className="px-6 py-16 sm:px-12">
+      <div>
             <section className="mx-auto max-w-5xl text-center">
                 <h1 className="text-5xl font-bold leading-tight sm:text-7xl">
                     Programming Practice Made Fun
                 </h1>
-                <p className="mt-4">
+                <p className="mt-4 text-brand/70">
                     A new way for students to practice programming in class with real-time feedback.
                 </p>
             </section>
@@ -16,7 +16,7 @@ export default function Home() {
                 <ol className="mt-10 grid list-none gap-10 p-0 md:grid-cols-3">
                     <li>
                         <div className="flex items-center gap-6">
-                            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border text-5xl">
+                            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-brand text-5xl text-white">
                                 1
                             </span>
                             <h3 className="text-3xl">Create a room</h3>
@@ -27,7 +27,7 @@ export default function Home() {
                     </li>
                     <li>
                         <div className="flex items-center gap-6">
-                            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border text-5xl">
+                            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-brand text-5xl text-white">
                                 2
                             </span>
                             <h3 className="text-3xl">Join with the code</h3>
@@ -38,7 +38,7 @@ export default function Home() {
                     </li>
                     <li>
                         <div className="flex items-center gap-6">
-                            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border text-5xl">
+                            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-brand text-5xl text-white">
                                 3
                             </span>
                             <h3 className="text-3xl">Code, run, get help</h3>
@@ -49,6 +49,7 @@ export default function Home() {
                     </li>
                 </ol>
             </section>
-        </main>
+        </div>
+
     )
 }
