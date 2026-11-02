@@ -94,7 +94,7 @@ export default function Activity({ id, name, questionCount, createdAt, onDelete,
     // Goes to the room creation page with this activity already chosen.
     // That page links the activity to the new room code in the background.
     function startRoom(){
-        navigate("/dashboard/room-creation", { state: { activityId: id } })
+        navigate("/room-creation", { state: { activityId: id } })
     }
 
     return (

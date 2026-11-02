@@ -3,6 +3,7 @@ import RequiredAuth from "../routes/RequireAuth"
 import HomeLayout from "../layouts/HomeLayout"
 import SignXLayout from "../layouts/SignXLayout"
 import DashboardLayout from "../layouts/DashboardLayout"
+import RoomLayout from "../layouts/RoomLayout"
 import Home from "../pages/Home"
 import AboutUs from "../pages/AboutUs"
 import Features from "../pages/Features"
@@ -52,10 +53,14 @@ export default function AppRoutes() {
                     <Route path="notes" element={<Notes />} />
                     <Route path="settings" element={<Settings />} />
                     <Route path="create-activity" element={<CreateActivity />} />
-                    <Route path="room-creation" element={<RoomCreation />} />
                     <Route path="search" element={<SearchResults />} />
                     {/* Any other /dashboard/... URL. Rendered inside the dashboard layout. */}
                     <Route path="*" element={<DashboardNotFound />} />
+                </Route>
+
+                {/* Create a room: its own page, without the dashboard header and menu. */}
+                <Route element={<RoomLayout />}>
+                    <Route path="/room-creation" element={<RoomCreation />} />
                 </Route>
 
                 {/* Teacher view of the Socket.IO chat, with the raised-hand queue. */}
