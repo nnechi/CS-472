@@ -86,13 +86,12 @@ function FeatureCard({ title, description, icon }: Feature) {
 
   export default function Features() {
   return (
-    <main className="features-page">
-        <h1 className="features-page__header">Features</h1>
+    <div className="features-page">
         <div className="features-grid">
           {FEATURES.map((f) => (
             <FeatureCard key={f.id} {...f} />
           ))}
         </div>
-    </main>
+    </div>
   );
 }
