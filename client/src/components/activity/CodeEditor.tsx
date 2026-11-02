@@ -38,7 +38,7 @@ export default function CodeEditor({ activity, currentQuestion, role } : CodeEdi
     const question = activity.questions[index];
 
     // Function for Monaco editor to set editor options on mount
-    const handleMount: OnMount = (editor, monaco) => {
+    const handleMount: OnMount = (editor, _monaco) => {
         editor.setPosition({ lineNumber: 2, column: 1 });
         editor.focus();
     };
