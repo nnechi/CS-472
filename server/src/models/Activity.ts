@@ -1,5 +1,10 @@
 import { Schema, model, InferSchemaType } from "mongoose";
-import { ACTIVITY_MAX_LENGTH, ACTIVITY_NAME_MAX_LENGTH, PROGRAMMING_LANGUAGES } from "../types";
+import {
+  ACTIVITY_MAX_LENGTH,
+  ACTIVITY_NAME_MAX_LENGTH,
+  ACTIVITY_TYPES,
+  PROGRAMMING_LANGUAGES,
+} from "../types";
 
 // An activity a teacher made. Only the teacher in teacherId can use it in a room.
 const activitySchema = new Schema(
@@ -7,15 +12,22 @@ const activitySchema = new Schema(
     // The teacher's id, the same one they sign in with.
     teacherId: { type: String, required: true, trim: true, index: true },
     name: { type: String, required: true, trim: true, maxlength: ACTIVITY_NAME_MAX_LENGTH },
-    // The programming language every question in the activity uses.
-    language: { type: String, required: true, enum: [...PROGRAMMING_LANGUAGES] },
-    // The questions students work on, each with the output a correct answer produces.
-    // Only the question text is sent to students; the output stays on the server.
+    // "coding" or "parsons". Every question in an activity has the same type.
+    type: { type: String, required: true, enum: [...ACTIVITY_TYPES] },
+    // The programming language of a coding activity. Not used for Parsons.
+    language: { type: String, enum: [...PROGRAMMING_LANGUAGES], default: null },
+    // The questions students work on.
+    //   coding: output is the correct output.
+    //   parsons: initial is the problem in the generator's format (see
+    //     server/src/parsons/parse.ts), and options are its settings.
+    // Only the question text, and for Parsons the shuffled lines, go to students.
     questions: {
       type: [
         {
           question: { type: String, required: true, maxlength: ACTIVITY_MAX_LENGTH },
-          output: { type: String, required: true, maxlength: ACTIVITY_MAX_LENGTH },
+          output: { type: String, default: "", maxlength: ACTIVITY_MAX_LENGTH },
+          initial: { type: String, default: "", maxlength: ACTIVITY_MAX_LENGTH * 60 },
+          options: { type: Schema.Types.Mixed, default: {} },
         },
       ],
       default: [],

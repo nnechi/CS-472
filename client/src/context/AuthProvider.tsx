@@ -5,6 +5,7 @@ export interface AuthState {
         id: string,
         email: string,
         name: string,
+        picture?: string | null,
     }
 }
 
@@ -27,7 +28,7 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL
 
 // What the server's GET /api/me sends back when someone is logged in
 type MeResponse = {
-    user: { id: string, email: string, name: string | null }
+    user: { id: string, email: string, name: string | null, picture: string | null }
 }
 
 export function AuthProvider( {children}: {children: ReactNode} ) {
@@ -54,6 +55,7 @@ export function AuthProvider( {children}: {children: ReactNode} ) {
                             id: data.user.id,
                             email: data.user.email,
                             name: data.user.name ?? data.user.email,
+                            picture: data.user.picture,
                         },
                     })
                 }

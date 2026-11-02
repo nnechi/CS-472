@@ -8,6 +8,7 @@ export interface SessionUser {
     id: string;
     email: string;
     name: string | null;
+    picture: string | null; // Google profile picture URL, if they have one
 }
 
 // Tells ts which values are kept in a session

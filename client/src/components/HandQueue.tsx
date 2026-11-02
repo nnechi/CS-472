@@ -13,10 +13,10 @@ interface HandQueueProps {
 // you've helped them, or open a private chat with them.
 export function HandQueue({ queue, onLowerHand, onOpenPrivateChat }: HandQueueProps) {
   return (
-    <div className="border-b border-gray-200 px-4 py-2 text-sm">
+    <div className="border-t border-brand/15 px-6 py-3 text-sm text-brand">
       <span className="font-semibold">Needs help ({queue.length})</span>
       {queue.length === 0 ? (
-        <span className="ml-2 text-gray-500">No raised hands</span>
+        <span className="ml-2 text-brand/60">No raised hands</span>
       ) : (
         <ol className="mt-1.5 list-decimal pl-6">
           {queue.map((h) => (
@@ -24,7 +24,7 @@ export function HandQueue({ queue, onLowerHand, onOpenPrivateChat }: HandQueuePr
               <span className="inline-flex items-center gap-2">
                 <button
                   type="button"
-                  className="rounded-md bg-indigo-100 px-2.5 py-1 text-sm text-indigo-700 cursor-pointer hover:line-through"
+                  className="rounded-md bg-warn px-2.5 py-1 text-sm font-semibold text-brand cursor-pointer hover:line-through"
                   title="Click once you've helped this student"
                   onClick={() => onLowerHand(h.id)}
                 >
@@ -55,11 +55,11 @@ interface RaiseHandButtonProps {
 // Students: click once to ask for help, again to cancel.
 export function RaiseHandButton({ raised, onToggle }: RaiseHandButtonProps) {
   return (
-    <div className="border-b border-gray-200 px-4 py-2">
+    <div className="px-6 py-3">
       <button
         type="button"
         className={
-          raised ? `${buttonClass} bg-indigo-600 text-white hover:bg-indigo-700` : buttonClass
+          raised ? `${buttonClass} border-accent bg-accent text-white hover:bg-accent/90` : buttonClass
         }
         onClick={onToggle}
       >

@@ -1,13 +1,14 @@
 import { useState, useEffect} from "react"
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
-import ActivityBox from "../../components/chat/ActivityBox"
-import ChatPanel from "../../components/chat/ChatPanel"
+import StudentActivity from "../../components/activity/StudentActivity"
+import ChatWidget from "../../components/chat/ChatWidget"
 import RoomLayout from "../../components/chat/RoomLayout"
-import { RaiseHandButton } from "../../components/HandQueue"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
 import { socket } from "../../socket"
 import { CodeRunUpdate, CodeSubmissionLanguage, Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
+import RoomNavbar from "../../components/chat/RoomNavbar"
+import StudentHeader from "../../components/chat/StudentHeader"
 
 // /rooms/join/:roomCode -- the student's view of a room: the activity, the chat,
 // and the raise-hand button. Students have no account; the name comes from the
@@ -39,26 +40,35 @@ function StudentRoomScreen({ session }: { session: Session }) {
     })
 
     return (
-        <RoomLayout
-            session={session}
-            // Leaving unmounts the chat, which disconnects the socket and
-            // drops the student from the teacher's hand queue.
-            onLeave={() => navigate("/")}
-            controls={<RaiseHandButton raised={room.handRaised} onToggle={room.raiseHand} />}
-            activity={
+        <div className="flex h-screen flex-col">
+            {/* Leaving unmounts the chat, which disconnects the socket and
+                drops the student from the teacher's hand queue. */}
+            <RoomNavbar session={session} onLeave={() => navigate("/")} />
+            <StudentHeader session={session} room={room} />
+            <RoomLayout
+                activity={
                 <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-                    <ActivityBox title="Your activity" text={room.studentText} onChange={room.setStudentText} />
+                        <StudentActivity
+                        activity={room.activity}
+                        answers={room.studentAnswers}
+                        results={room.studentResults}
+                        feedback={room.studentFeedback}
+                        onChange={room.setStudentAnswer}
+                        onCheck={room.checkAnswer}
+                        onReset={room.resetProblem}
+                    />
                     <CodeSubmissionPanel />
                 </div>
-            }
-            chat={
-                <ChatPanel
-                    room={room}
-                    username={session.username}
-                    privateLabel={(chat) => `Private: ${chat.teacherName}`}
-                />
-            }
-        />
+                }
+                chat={
+                    <ChatWidget
+                        room={room}
+                        username={session.username}
+                        privateLabel={(chat) => `Private: ${chat.teacherName}`}
+                    />
+                }
+            />
+        </div>
     )
 }
 

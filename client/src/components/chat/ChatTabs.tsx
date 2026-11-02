@@ -15,7 +15,7 @@ interface ChatTabsProps {
 // private chat. A number on a tab counts messages that arrived while it was hidden.
 export default function ChatTabs({ tabs, activeId, unread, onSelect }: ChatTabsProps) {
   return (
-    <div role="tablist" aria-label="Chats" className="flex gap-2 overflow-x-auto px-3 pt-2">
+    <div role="tablist" aria-label="Chats" className="flex gap-2 overflow-x-auto bg-paper px-3 py-2">
       {tabs.map((tab) => {
         const active = tab.id === activeId;
         const count = unread[tab.id] ?? 0;
@@ -27,14 +27,14 @@ export default function ChatTabs({ tabs, activeId, unread, onSelect }: ChatTabsP
             aria-selected={active}
             className={
               active
-                ? "flex shrink-0 items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm text-white cursor-pointer"
-                : "flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 cursor-pointer hover:bg-neutral-100"
+                ? "flex shrink-0 items-center gap-2 rounded-lg bg-brand px-3 py-1.5 text-sm text-white cursor-pointer"
+                : "flex shrink-0 items-center gap-2 rounded-lg border border-brand/30 bg-white px-3 py-1.5 text-sm text-brand cursor-pointer hover:bg-brand-light/40"
             }
             onClick={() => onSelect(tab.id)}
           >
             <span className="max-w-[12rem] truncate">{tab.label}</span>
             {count > 0 && (
-              <span className="rounded-full bg-red-500 px-1.5 text-xs font-bold leading-5 text-white tabular-nums">
+              <span className="rounded-full bg-accent px-1.5 text-xs font-bold leading-5 text-white tabular-nums">
                 {count > 99 ? "99+" : count}
               </span>
             )}

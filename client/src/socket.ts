@@ -10,5 +10,6 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 // after the user has chosen a username.
 export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(
   SERVER_URL,
-  { autoConnect: false }
+  // withCredentials sends the login cookie, so the server knows a teacher's picture.
+  { autoConnect: false, withCredentials: true }
 );

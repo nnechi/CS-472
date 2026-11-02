@@ -1,27 +1,35 @@
 import { Server, Socket } from "socket.io";
+import type { IncomingMessage } from "http";
+import type { Session, SessionData } from "express-session";
 import { Message } from "./models/Message";
 import { Activity } from "./models/Activity";
-import { allowCodeRun, receiveCode } from "./compile/submission";
-import { InvalidCompileRequestError } from "./compile/plan";
-import { runJavaScript, runTypeScript } from "./compile";
 import {
+  ActivityType,
+  AnswerProgress,
   ChatMessage,
   ClientToServerEvents,
   ServerToClientEvents,
   ACTIVITY_MAX_LENGTH,
+  ACTIVITY_MAX_QUESTIONS,
+  PARSONS_MAX_LINES,
   GROUP_CHAT_ID,
   InterServerEvents,
+  ParsonsDisplayOptions,
+  ParsonsLine,
   PrivateChat,
   RaisedHand,
+  RoomActivity,
+  RoomQuestion,
   Role,
   SocketData,
   TimerState,
 } from "./types";
 
-
 import { Room } from "./models/Room"; 
 
-
+// The socket's first HTTP request, with the login session attached
+// (see io.engine.use(sessionMiddleware) in index.ts).
+type SessionRequest = IncomingMessage & { session?: Session & Partial<SessionData> };
 
 export type AppServer = Server< 
   ClientToServerEvents, 
@@ -49,8 +57,8 @@ const handQueues = new Map<string, RaisedHand[]>();
 interface PrivateChatState {
   chat: PrivateChat;
   messages: ChatMessage[];
-  // The student's activity text, as last sent by them.
-  activity: string;
+  // The student's work on the activity, as last sent by them.
+  progress: AnswerProgress;
 }
 const privateChats = new Map<string, Map<string, PrivateChatState>>();
 // Same cap as the group chat's history on join.
@@ -68,23 +76,102 @@ const roomPrivateChats = (room: string): Map<string, PrivateChatState> => {
   return chats;
 };
 
-// The questions of the activity a room uses, as the text students see. Outputs
-// are left out. Empty if none is picked. If it can't be loaded, students still
-// join, just without the activity text.
-async function loadActivityText(activityId: unknown): Promise<string> {
-  if (!activityId) return "";
+// The display settings a student's widget needs, from a question's options.
+function displaySettings(options: Partial<ParsonsOptions> | undefined): ParsonsDisplayOptions {
+  const settings = { ...DEFAULT_PARSONS_OPTIONS, ...options };
+  return {
+    requireDragging: settings.requireDragging,
+    canIndent: settings.canIndent,
+    xIndent: settings.xIndent,
+    showFeedback: settings.showFeedback,
+  };
+}
+
+// The activity a room uses, shaped for the person receiving it. Students get
+// the question text, and for Parsons the lines to arrange plus the display
+// settings. Teachers also get the answers. Null if none is picked. If it can't
+// be loaded, students still join, just without an activity.
+async function loadRoomActivity(activityId: unknown, role: Role): Promise<RoomActivity | null> {
+  if (!activityId) return null;
   try {
-    const activity = await Activity.findById(activityId).select("questions").lean();
-    return (activity?.questions ?? []).map((q) => q.question).join("\n\n");
+    const activity = await Activity.findById(activityId).lean();
+    if (!activity) return null;
+    const type = activity.type as ActivityType;
+
+    const questions: RoomQuestion[] = activity.questions.map((q) => {
+      if (type === "coding") {
+        return role === "teacher" ? { question: q.question, output: q.output } : { question: q.question };
+      }
+      const problem = parseInitial(q.initial);
+      const options = displaySettings(q.options as Partial<ParsonsOptions>);
+      if (role === "teacher") {
+        return { question: q.question, solution: problem.solution, distractors: problem.distractors, options };
+      }
+      const { maxWrongLines } = { ...DEFAULT_PARSONS_OPTIONS, ...(q.options as Partial<ParsonsOptions>) };
+      return {
+        question: q.question,
+        lines: studentPool(problem.solution, problem.distractors, maxWrongLines),
+        options,
+      };
+    });
+    return { type, questions };
   } catch (err) {
     console.error("[socket] failed to load activity:", err);
-    return "";
+    return null;
   }
+}
+
+// One Parsons question of a room's activity: its solution and options, or null
+// if the room has no Parsons question at that index.
+async function loadParsonsQuestion(
+  room: string,
+  questionIndex: number
+): Promise<{ solution: ParsonsLine[]; options: ParsonsOptions } | null> {
+  const found = await Room.findOne({ code: room }).select("activityId").lean();
+  if (!found?.activityId) return null;
+  const activity = await Activity.findById(found.activityId).select("type questions").lean();
+  if (!activity || activity.type !== "parsons") return null;
+  const question = activity.questions[questionIndex];
+  if (!question) return null;
+  return {
+    solution: parseInitial(question.initial).solution,
+    options: { ...DEFAULT_PARSONS_OPTIONS, ...(question.options as Partial<ParsonsOptions>) },
+  };
+}
+
+// One student's arrangement of lines, kept within the teacher editor's limits.
+// Returns null if the message isn't a list of lines.
+function cleanLines(value: unknown): ParsonsLine[] | null {
+  if (!Array.isArray(value)) return null;
+  return value
+    .slice(0, PARSONS_MAX_LINES)
+    .map((line) => ({
+      code: typeof line?.code === "string" ? line.code.slice(0, ACTIVITY_MAX_LENGTH) : "",
+      indent: Number.isInteger(line?.indent) ? Math.min(Math.max(line.indent, 0), MAX_INDENT_LEVEL) : 0,
+    }))
+    .filter((line) => line.code !== "");
+}
+
+// The arrangements for every question. Returns null if the message isn't a list.
+function cleanAnswers(value: unknown): ParsonsLine[][] | null {
+  if (!Array.isArray(value)) return null;
+  return value.slice(0, ACTIVITY_MAX_QUESTIONS).map((lines) => cleanLines(lines) ?? []);
+}
+
+// A copy of list with value set at index. Any gap before it is filled with fill,
+// so the list never has holes.
+function withValue<T>(list: T[], index: number, value: T, fill: T): T[] {
+  const copy = [...list];
+  while (copy.length < index) copy.push(fill);
+  copy[index] = value;
+  return copy;
 }
 
 // Every room starts with a 15 minute countdown that is not running.
 const DEFAULT_TIMER_MS = 15 * 60 * 1000;
 // Teachers can set a length from 1 minute up to 1 hour.
+// The deepest indent a student can give a line in a Parsons problem.
+const MAX_INDENT_LEVEL = 20;
 const MAX_TIMER_MINUTES = 60;
 
 // durationMs is the length the teacher chose (Restart goes back to it).
@@ -171,7 +258,7 @@ export function registerSocketHandlers(
     io.to([state.chat.id, teacherChannel(room)]).emit("private chat opened", {
       chat: state.chat,
       messages: state.messages,
-      activity: state.activity,
+      progress: state.progress,
     });
   };
 
@@ -262,7 +349,7 @@ export function registerSocketHandlers(
 
         if (!cleanUser || !roomCode) return;
 
-        let roomActivity = "";
+        let activityId: unknown = null;
         try{
         const success = await Room.findOne( {code : roomCode });
           if (success === null || success.expiresAt === null || success.expiresAt.getTime() <= Date.now()){
@@ -270,7 +357,7 @@ export function registerSocketHandlers(
             socket.disconnect();
             return;
         }
-          roomActivity = await loadActivityText(success.activityId);
+          activityId = success.activityId;
 
         } catch (e){
           console.error(e); 
@@ -283,6 +370,11 @@ export function registerSocketHandlers(
       
         // Remember who this socket is so later events don't resend it.
         socket.data.username = cleanUser;
+        // A teacher's picture comes from their login session, not from what the
+        // browser sends, so nobody can show someone else's picture. Students
+        // have no account, so they get none (the chat shows their initials).
+        const sessionUser = (socket.request as SessionRequest).session?.user;
+        socket.data.avatarUrl = role === "teacher" ? sessionUser?.picture ?? null : null;
         socket.data.role = role;
         socket.data.room = roomCode;
 
@@ -298,13 +390,13 @@ export function registerSocketHandlers(
             socket.emit("private chat opened", {
               chat: state.chat,
               messages: state.messages,
-              activity: state.activity,
+              progress: state.progress,
             });
           }
         }
 
-        // Everyone starts from the teacher's saved activity.
-        socket.emit("room activity", roomActivity);
+        // Everyone gets the room's activity, shaped for their role.
+        socket.emit("room activity", await loadRoomActivity(activityId, role));
 
         //display room code
         // previous room data (messages)
@@ -321,6 +413,7 @@ export function registerSocketHandlers(
             room: m.room,
             createdAt: (m.createdAt as Date).toISOString(),
             chatId: GROUP_CHAT_ID,
+            avatarUrl: m.avatarUrl ?? null,
           }));
 
           socket.emit("chat history", history);
@@ -346,6 +439,7 @@ export function registerSocketHandlers(
             role,
             text: cleanText,
             room,
+            avatarUrl: socket.data.avatarUrl ?? null,
           });
 
           const message: ChatMessage = {
@@ -355,6 +449,7 @@ export function registerSocketHandlers(
             room: saved.room,
             createdAt: (saved.createdAt as Date).toISOString(),
             chatId: GROUP_CHAT_ID,
+            avatarUrl: saved.avatarUrl ?? null,
           };
 
           // broadcast to everyone in this room only.
@@ -431,7 +526,7 @@ export function registerSocketHandlers(
             chat: { id, studentName: student.data.username, teacherName: username },
             messages: [],
             // Filled in when the student's copy syncs, right after they're opened.
-            activity: "",
+            progress: { answers: [], results: [], marks: [] },
           });
         }
         sendPrivateChat(room, chats.get(id)!);
@@ -457,6 +552,7 @@ export function registerSocketHandlers(
           room,
           createdAt: new Date().toISOString(),
           chatId: state.chat.id,
+          avatarUrl: socket.data.avatarUrl ?? null,
         };
         state.messages = [...state.messages, message].slice(-PRIVATE_HISTORY_LIMIT);
 
@@ -464,84 +560,29 @@ export function registerSocketHandlers(
         io.to([state.chat.id, teacherChannel(room)]).emit("private message", message);
       });
 
-      // A student's activity only reaches the teacher while their private chat
-      // is open. Otherwise the text stays on the student's screen.
-      socket.on("activity update", ({ text }) => {
+      // A student's work only reaches the teacher while their private chat is
+      // open. Changing an answer clears its result, since the old result no
+      // longer applies.
+      socket.on("activity update", ({ answers }) => {
         const { role, room } = socket.data;
         if (!room || role !== "student") return;
 
         const state = privateChats.get(room)?.get(socket.id);
-        if (!state) return;
+        const cleaned = cleanAnswers(answers);
+        if (!state || !cleaned) return;
 
-        state.activity = String(text ?? "").slice(0, ACTIVITY_MAX_LENGTH);
+        const previous = state.progress;
+        const unchanged = (lines: ParsonsLine[], i: number) =>
+          JSON.stringify(lines) === JSON.stringify(previous.answers[i]);
+        state.progress = {
+          answers: cleaned,
+          results: cleaned.map((lines, i) => (unchanged(lines, i) ? previous.results[i] ?? null : null)),
+          marks: cleaned.map((lines, i) => (unchanged(lines, i) ? previous.marks[i] ?? null : null)),
+        };
         io.to(teacherChannel(room)).emit("student activity", {
           chatId: socket.id,
-          text: state.activity,
+          progress: state.progress,
         });
-      });
-
-      // Run one submission per student socket. Output stays on the server for
-      // now; the acknowledgement only reports completion status.
-      socket.on("code:submit", async (payload, acknowledge) => {
-        if (typeof acknowledge !== "function") return;
-        if (socket.data.role !== "student" || !socket.data.room) {
-          acknowledge({ accepted: false, message: "Join a room as a student first." });
-          return;
-        }
-        if (activeCodeRun) {
-          acknowledge({ accepted: false, message: "A code run is already in progress." });
-          return;
-        }
-        if (activeCodeRuns >= MAX_ACTIVE_CODE_RUNS) {
-          acknowledge({ accepted: false, message: "The code runner is busy. Try again shortly." });
-          return;
-        }
-
-        let receipt: ReturnType<typeof receiveCode>;
-        try {
-          receipt = receiveCode(payload);
-        } catch (error) {
-          if (error instanceof InvalidCompileRequestError) {
-            acknowledge({ accepted: false, message: error.message });
-          } else {
-            console.error("[socket] invalid code submission:", error);
-            acknowledge({ accepted: false, message: "Could not receive code." });
-          }
-          return;
-        }
-        if (!allowCodeRun(codeRunHistory)) {
-          acknowledge({ accepted: false, message: "Too many runs. Try again in a minute." });
-          return;
-        }
-
-        const controller = new AbortController();
-        activeCodeRun = controller;
-        activeCodeRuns += 1;
-        try {
-          const runner = receipt.language === "typescript" ? runTypeScript : runJavaScript;
-          const result = await runner(payload, { 
-            signal : controller.signal, 
-            onUpdate: (update) => socket.emit("code:update", update)
-          });
-
-          acknowledge({
-            accepted: true,
-            ...receipt,
-            exitCode: result.exitCode,
-            timedOut: result.timedOut,
-            cancelled: result.cancelled,
-            outputLimitExceeded: result.outputLimitExceeded,
-            executionId : result.executionId, 
-            stdout : result.stdout, 
-            stderr : result.stderr, 
-          });
-        } catch (error) {
-          console.error("[socket] code run failed:", error);
-          acknowledge({ accepted: false, message: "Could not run code." });
-        } finally {
-          activeCodeRun = null;
-          activeCodeRuns -= 1;
-        }
       });
 
       socket.on("disconnect", () => {

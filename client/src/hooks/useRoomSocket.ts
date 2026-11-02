@@ -2,10 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { DEFAULT_TIMER_MS } from "../components/Timer";
 import { socket } from "../socket";
 import {
+  AnswerFeedback,
+  AnswerProgress,
   ChatMessage,
   GROUP_CHAT_ID,
+  ParsonsLine,
   PrivateChat,
   RaisedHand,
+  RoomActivity,
+  RoomQuestion,
   Session,
   TimerState,
 } from "../types";
@@ -15,8 +20,28 @@ interface RoomSocketOptions {
   onJoinError?: () => void;
 }
 
-// How long a student's typing waits before it is sent to the teacher.
-const ACTIVITY_SYNC_DELAY_MS = 300;
+// How long a student's arrangement waits before it is sent to the teacher.
+const PROGRESS_SYNC_DELAY_MS = 300;
+
+const EMPTY_PROGRESS: AnswerProgress = { answers: [], results: [], marks: [] };
+
+// Fisher-Yates shuffle, for reshuffling a Parsons problem's lines.
+function shuffle<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+// Where a student's answer starts. With dragging required, the lines start in
+// the trash area, so the answer is empty. Otherwise every line starts in the
+// answer, all at indent 0.
+function startingAnswer(question: RoomQuestion): ParsonsLine[] {
+  if (question.options?.requireDragging ?? true) return [];
+  return shuffle(question.lines ?? []).map((code) => ({ code, indent: 0 }));
+}
 
 // Everything the room screen needs from the server: the group chat, private
 // chats, raised hands, the timer, and the activity. The components only render
@@ -40,15 +65,22 @@ export function useRoomSocket(
     remainingMs: DEFAULT_TIMER_MS,
     running: false,
   });
-  // The teacher's saved activity: what the group chat shows, and where students start.
-  const [defaultActivity, setDefaultActivity] = useState("");
-  // A student's own copy of the activity. Only the student edits it.
-  const [studentText, setStudentText] = useState("");
-  // Teachers only: each student's activity copy, keyed by that student's chat id.
-  const [studentActivities, setStudentActivities] = useState<Record<string, string>>({});
+  // The room's activity, questions shaped for this person's role.
+  const [activity, setActivity] = useState<RoomActivity | null>(null);
+  // A student's own arrangement of each Parsons question, whether each is right,
+  // and the feedback for each (null until checked, or when feedback is off).
+  const [studentAnswers, setStudentAnswers] = useState<ParsonsLine[][]>([]);
+  const [studentResults, setStudentResults] = useState<(boolean | null)[]>([]);
+  const [studentFeedback, setStudentFeedback] = useState<(AnswerFeedback | null)[]>([]);
+  // Teachers only: each student's progress, keyed by that student's chat id.
+  const [studentProgress, setStudentProgress] = useState<Record<string, AnswerProgress>>({});
+
+  // Whether the floating chat window is open. Closed, every new message is unread.
+  const [chatOpen, setChatOpenState] = useState(false);
 
   // Socket listeners run outside render, so they read the latest values here.
   const activeChatRef = useRef(GROUP_CHAT_ID);
+  const chatOpenRef = useRef(false);
   const onRoomClosedRef = useRef(onRoomClosed);
   onRoomClosedRef.current = onRoomClosed;
   const onJoinErrorRef = useRef(onJoinError);
@@ -61,13 +93,21 @@ export function useRoomSocket(
     setUnread((prev) => ({ ...prev, [chatId]: 0 }));
   };
 
-  // Add a message to its chat. It counts as unread if that chat is not on screen.
+  // Open or close the chat window. Opening it marks the chat on screen as read.
+  const setChatOpen = (open: boolean) => {
+    chatOpenRef.current = open;
+    setChatOpenState(open);
+    if (open) setUnread((prev) => ({ ...prev, [activeChatRef.current]: 0 }));
+  };
+
+  // Add a message to its chat. It counts as unread if that chat is not on
+  // screen, or if the chat window is closed.
   const addMessage = (message: ChatMessage) => {
     setMessages((prev) => ({
       ...prev,
       [message.chatId]: [...(prev[message.chatId] ?? []), message],
     }));
-    if (message.chatId !== activeChatRef.current) {
+    if (message.chatId !== activeChatRef.current || !chatOpenRef.current) {
       setUnread((prev) => ({ ...prev, [message.chatId]: (prev[message.chatId] ?? 0) + 1 }));
     }
   };
@@ -80,11 +120,11 @@ export function useRoomSocket(
     const onPrivateOpened = ({
       chat,
       messages: history,
-      activity,
+      progress,
     }: {
       chat: PrivateChat;
       messages: ChatMessage[];
-      activity: string;
+      progress: AnswerProgress;
     }) => {
       setPrivateChats((prev) =>
         prev.some((c) => c.id === chat.id)
@@ -92,9 +132,13 @@ export function useRoomSocket(
           : [...prev, chat]
       );
       setMessages((prev) => ({ ...prev, [chat.id]: history }));
-      setStudentActivities((prev) => ({ ...prev, [chat.id]: activity }));
-      // A student is taken straight to a chat the teacher just opened with them.
-      if (session.role === "student") selectChat(chat.id);
+      setStudentProgress((prev) => ({ ...prev, [chat.id]: progress }));
+      // A student is taken straight to a chat the teacher just opened with them,
+      // and the chat window opens so they see it.
+      if (session.role === "student") {
+        selectChat(chat.id);
+        setChatOpen(true);
+      }
     };
 
     // The student left, so their chat is gone.
@@ -110,7 +154,7 @@ export function useRoomSocket(
         delete next[chatId];
         return next;
       });
-      setStudentActivities((prev) => {
+      setStudentProgress((prev) => {
         const next = { ...prev };
         delete next[chatId];
         return next;
@@ -118,13 +162,33 @@ export function useRoomSocket(
       if (activeChatRef.current === chatId) selectChat(GROUP_CHAT_ID);
     };
 
-    const onStudentActivity = ({ chatId, text }: { chatId: string; text: string }) =>
-      setStudentActivities((prev) => ({ ...prev, [chatId]: text }));
+    const onStudentProgress = ({ chatId, progress }: { chatId: string; progress: AnswerProgress }) =>
+      setStudentProgress((prev) => ({ ...prev, [chatId]: progress }));
 
-    // The saved activity, sent on join. Students start from it.
-    const onRoomActivity = (text: string) => {
-      setDefaultActivity(text);
-      setStudentText(text);
+    // The room's activity, sent on join. Students start with nothing arranged.
+    const onRoomActivity = (next: RoomActivity | null) => {
+      setActivity(next);
+      const questions = next?.questions ?? [];
+      setStudentAnswers(questions.map(startingAnswer));
+      setStudentResults(questions.map(() => null));
+      setStudentFeedback(questions.map(() => null));
+    };
+
+    const onAnswerResult = ({
+      questionIndex,
+      correct,
+      errors,
+      marks,
+    }: {
+      questionIndex: number;
+      correct: boolean;
+      errors: string[];
+      marks: AnswerFeedback["marks"];
+    }) => {
+      setStudentResults((prev) => prev.map((result, i) => (i === questionIndex ? correct : result)));
+      setStudentFeedback((prev) =>
+        prev.map((feedback, i) => (i === questionIndex ? { errors, marks } : feedback))
+      );
     };
 
     const onMessage = (message: ChatMessage) => addMessage(message);
@@ -137,7 +201,8 @@ export function useRoomSocket(
     socket.on("private chat opened", onPrivateOpened);
     socket.on("private chat closed", onPrivateClosed);
     socket.on("private message", onMessage);
-    socket.on("student activity", onStudentActivity);
+    socket.on("student activity", onStudentProgress);
+    socket.on("answer result", onAnswerResult);
     socket.on("room activity", onRoomActivity);
     socket.on("hand queue", onHandQueue);
     socket.on("hand status", setHandRaised);
@@ -162,7 +227,8 @@ export function useRoomSocket(
       socket.off("private chat opened", onPrivateOpened);
       socket.off("private chat closed", onPrivateClosed);
       socket.off("private message", onMessage);
-      socket.off("student activity", onStudentActivity);
+      socket.off("student activity", onStudentProgress);
+      socket.off("answer result", onAnswerResult);
       socket.off("room activity", onRoomActivity);
       socket.off("hand queue", onHandQueue);
       socket.off("hand status", setHandRaised);
@@ -174,31 +240,55 @@ export function useRoomSocket(
       setPrivateChats([]);
       setUnread({});
       selectChat(GROUP_CHAT_ID);
+      setChatOpen(false);
       setHandQueue([]);
       setHandRaised(false);
       setTimer({ durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, running: false });
-      setDefaultActivity("");
-      setStudentText("");
-      setStudentActivities({});
+      setActivity(null);
+      setStudentAnswers([]);
+      setStudentResults([]);
+      setStudentFeedback([]);
+      setStudentProgress({});
     };
   }, [session.username, session.role, session.room]);
 
-  // A student's activity goes to the teacher only while their private chat is
-  // open. The effect runs again when the chat opens, so the teacher gets the
-  // student's current text right away.
+  // A student's arrangement goes to the teacher only while their private chat
+  // is open. The effect runs again when the chat opens, so the teacher gets the
+  // current arrangement right away.
   const hasPrivateChat = session.role === "student" && privateChats.length > 0;
   useEffect(() => {
     if (!hasPrivateChat) return;
     const id = setTimeout(
-      () => socket.emit("activity update", { text: studentText }),
-      ACTIVITY_SYNC_DELAY_MS
+      () => socket.emit("activity update", { answers: studentAnswers }),
+      PROGRESS_SYNC_DELAY_MS
     );
     return () => clearTimeout(id);
-  }, [studentText, hasPrivateChat]);
+  }, [studentAnswers, hasPrivateChat]);
+
+  // Student: change the lines in one question. A changed answer has no result or feedback yet.
+  const setStudentAnswer = (questionIndex: number, lines: ParsonsLine[]) => {
+    setStudentAnswers((prev) => prev.map((answer, i) => (i === questionIndex ? lines : answer)));
+    setStudentResults((prev) => prev.map((result, i) => (i === questionIndex ? null : result)));
+    setStudentFeedback((prev) => prev.map((feedback, i) => (i === questionIndex ? null : feedback)));
+  };
+
+  // Student: ask the server whether this question's arrangement is right.
+  const checkAnswer = (questionIndex: number) => {
+    socket.emit("check answer", { questionIndex, lines: studentAnswers[questionIndex] ?? [] });
+  };
+
+  // Student: start the question over with its lines reshuffled, as "Reset Problem" does.
+  const resetProblem = (questionIndex: number) => {
+    const question = activity?.questions[questionIndex];
+    if (!question) return;
+    setStudentAnswer(questionIndex, startingAnswer(question));
+  };
 
   // Teachers click a student in the hand queue to open their chat.
+  // The chat window opens on that student's chat so the teacher can start typing.
   const openPrivateChat = (studentId: string) => {
     selectChat(studentId);
+    setChatOpen(true);
     socket.emit("open private chat", { studentId });
   };
 
@@ -218,13 +308,19 @@ export function useRoomSocket(
     privateChats,
     activeChatId: shownChatId,
     unread,
+    chatOpen,
+    setChatOpen,
     handQueue,
     handRaised,
     timer,
-    defaultActivity,
-    studentText,
-    setStudentText,
-    studentActivities,
+    activity,
+    studentAnswers,
+    studentResults,
+    studentFeedback,
+    setStudentAnswer,
+    checkAnswer,
+    resetProblem,
+    studentProgress: (chatId: string) => studentProgress[chatId] ?? EMPTY_PROGRESS,
     selectChat,
     sendMessage,
     openPrivateChat,

@@ -117,7 +117,7 @@ authRouter.get(
 
         // log them in. Brand new session id at login stops session fixation attacks
         await regenerateSession(req);
-        req.session.user = { id: user.id, email: user.email, name: user.name };
+        req.session.user = { id: user.id, email: user.email, name: user.name, picture: user.pictureUrl };
         await saveSession(req);
 
         // send them on, to a clean address without the one-time code
