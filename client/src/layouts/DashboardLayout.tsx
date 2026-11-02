@@ -30,9 +30,9 @@ export default function DashboardLayout() {
     const labelClass = menuOpen ? "" : "md:hidden"
 
     return(
-        <div className="min-h-screen flex flex-col bg-paper text-brand">
+        <div className="min-h-screen flex flex-col bg-white text-brand">
             {/* The header has no left padding at any size, so the ☰ button and logo stay in the same place. The button lines up with the closed menu's edge. */}
-            <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-b border-brand bg-brand-light py-3 pr-4 sm:h-20 sm:py-0 sm:pr-8">
+            <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 bg-brand-light py-3 pr-4 sm:h-20 sm:py-0 sm:pr-8">
                 <div className="flex h-14 items-center gap-0">
                     <button
                         type="button"
@@ -102,7 +102,7 @@ export default function DashboardLayout() {
                         </button>
                     </nav>
 
-                <main className="flex-1 p-6">
+                <main className="flex-1 border-t border-brand p-6">
                     <Outlet />
                 </main>
             </div>

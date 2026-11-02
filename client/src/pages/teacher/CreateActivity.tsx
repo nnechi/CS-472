@@ -138,7 +138,7 @@ export default function CreateActivity(){
                 <button
                     type="button"
                     className="rounded-lg px-2 text-3xl leading-none text-gray-600 cursor-pointer hover:bg-neutral-100 hover:text-black"
-                    onClick={() => navigate("/dashboard")}
+                    onClick={() => navigate("/dashboard/activities")}
                     aria-label="Cancel"
                     title="Cancel"
                 >
@@ -275,7 +275,7 @@ export default function CreateActivity(){
                 <button
                     type="button"
                     className="rounded-lg border border-gray-300 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100"
-                    onClick={() => navigate("/dashboard")}
+                    onClick={() => navigate("/dashboard/activities")}
                 >
                     Cancel
                 </button>
