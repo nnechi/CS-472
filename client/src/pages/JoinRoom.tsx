@@ -43,15 +43,15 @@ export default function JoinRoom() {
     }
 
     return(
-        <div className="flex min-h-[83vh] items-center justify-center p-6">
-            <div className="flex w-full max-w-sm flex-col gap-3 p-6 rounded-2xl border border-gray-300 bg-white p-9 shadow-md">
+        <div className="flex item-center justify-center py-12">
+            <div className="flex w-full max-w-sm flex-col gap-3 rounded-2xl border border-brand bg-white p-9 text-brand shadow-[0_4px_14px_rgba(34,21,116,0.15)]">
             <h1 className="text-2xl font-bold">Join a Room</h1>
 
             <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-3" noValidate>
                 <label htmlFor="roomCode" className="font-bold">Code</label>
                 <input
                     id="roomCode"
-                    className="rounded-lg border border-gray-300 px-3 py-2 uppercase placeholder:normal-case"
+                    className="rounded-lg border border-brand/30 px-3 py-2 uppercase tracking-widest placeholder:normal-case placeholder:tracking-normal placeholder:text-brand/40 focus:border-brand focus:outline-none"
                     value={code}
                     onChange={(e) => {
                         setCode(e.target.value)
@@ -66,7 +66,7 @@ export default function JoinRoom() {
                 <label htmlFor="displayName" className="font-bold">Your name</label>
                 <input
                     id="displayName"
-                    className="rounded-lg border border-gray-300 px-3 py-2"
+                    className="rounded-lg border border-brand/30 px-3 py-2 placeholder:text-brand/40 focus:border-brand focus:outline-none"
                     value={name}
                     onChange={(e) => {
                         setName(e.target.value)
@@ -78,11 +78,11 @@ export default function JoinRoom() {
                 />
 
                 {error && (
-                    <p role="alert" className="text-sm text-red-700">{error}</p>
+                    <p role="alert" className="rounded-md bg-warn px-3 py-2 text-sm text-brand">{error}</p>
                 )}
                 <button
                     type="submit"
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100"
+                    className="rounded-lg bg-brand px-4 py-2 text-white cursor-pointer hover:bg-brand/90"
                 >
                     Join 
                 </button>
