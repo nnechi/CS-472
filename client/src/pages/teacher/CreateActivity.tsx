@@ -28,7 +28,7 @@ const EMPTY_QUESTION : ActivityQuestion = {
 
 const TYPE_LABELS : Record<ActivityType, string> = {
     coding: "Coding: students write code that prints the output",
-    parsons: "Parsons problem: students put the lines in the right order",
+    parsons: "Parsons problem: students arrange code lines into correct order",
 }
 
 // What the server receives for one question, for the activity's type.
@@ -76,7 +76,6 @@ export default function CreateActivity(){
     // Reads a code file into the question's code box. The teacher can still edit it.
     async function uploadCode(event : ChangeEvent<HTMLInputElement>){
         const file = event.target.files?.[0]
-        event.target.value = ""
         if (!file) return
         if (file.size > UPLOAD_LIMIT) {
             setError(`That file is too large. Upload code under ${UPLOAD_LIMIT} characters.`)
@@ -137,7 +136,7 @@ export default function CreateActivity(){
                 <h1 className="text-4xl font-bold">Create an activity</h1>
                 <button
                     type="button"
-                    className="rounded-lg px-2 text-3xl leading-none text-gray-600 cursor-pointer hover:bg-neutral-100 hover:text-black"
+                    className="rounded-lg px-2 text-3xl leading-none text-brand/70 cursor-pointer hover:bg-brand-light hover:text-brand"
                     onClick={() => navigate("/dashboard/activities")}
                     aria-label="Cancel"
                     title="Cancel"
@@ -146,10 +145,10 @@ export default function CreateActivity(){
                 </button>
             </div>
 
-            <label className="flex flex-col gap-1 text-sm text-gray-600">
+            <label className="flex flex-col gap-1 text-sm text-brand/70">
                 Name
                 <input
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-base text-black focus:border-indigo-600 focus:outline-none"
+                    className="rounded-lg border border-brand/30 px-3 py-2 text-base text-brand focus:border-brand focus:outline-none"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Name your activity..."
@@ -158,10 +157,10 @@ export default function CreateActivity(){
                 />
             </label>
 
-            <fieldset className="flex flex-col gap-2 text-sm text-gray-600">
+            <fieldset className="flex flex-col gap-2 text-sm text-brand/70">
                 <legend className="mb-1">Activity type</legend>
                 {ACTIVITY_TYPES.map((option) => (
-                    <label key={option} className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-300 px-3 py-2 text-base text-black has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50">
+                    <label key={option} className="flex cursor-pointer items-center gap-3 rounded-lg border border-brand/30 px-3 py-2 text-base text-brand has-[:checked]:border-brand has-[:checked]:bg-brand-light/30">
                         <input
                             type="radio"
                             name="activity-type"
@@ -175,10 +174,10 @@ export default function CreateActivity(){
             </fieldset>
 
             {type === "coding" && (
-                <label className="flex flex-col gap-1 text-sm text-gray-600">
+                <label className="flex flex-col gap-1 text-sm text-brand/70">
                     Programming language
                     <select
-                        className="rounded-lg border border-gray-300 px-3 py-2 text-base text-black focus:border-indigo-600 focus:outline-none"
+                        className="rounded-lg border border-brand/30 px-3 py-2 text-base text-brand focus:border-brand focus:outline-none"
                         value={language}
                         onChange={(e) => setLanguage(e.target.value as ProgrammingLanguage)}
                         required
@@ -192,7 +191,7 @@ export default function CreateActivity(){
             )}
 
             <div className="flex flex-col gap-6 md:flex-row">
-                <nav  aria-label="Question Navigation" className="flex flex-col gap-2 rounded-lg border border-gray-300 p-3 md:relative md:w-56 md:shrink-0">
+                <nav  aria-label="Question Navigation" className="flex flex-col gap-2 rounded-lg border border-brand/30 p-3 md:relative md:w-56 md:shrink-0">
                     {/* On desktop the nav stretches to the height of the question editor,
                         so the list scrolls once it reaches the bottom of the editor. */}
                     <div className="flex flex-col gap-2 md:absolute md:inset-3">
@@ -203,8 +202,8 @@ export default function CreateActivity(){
                                 type="button"
                                 className={`rounded-lg px-3 py-2 text-left text-base cursor-pointer ${
                                     index === selected
-                                        ? "bg-neutral-900 text-white"
-                                        : "text-gray-900 hover:bg-neutral-100"
+                                        ? "bg-brand text-white"
+                                        : "text-brand hover:bg-brand-light"
                                 }`}
                                 onClick={() => setSelected(index)}
                                 aria-current={index === selected ? "step" : undefined}
@@ -216,7 +215,7 @@ export default function CreateActivity(){
 
                         <button
                             type="button"
-                            className="rounded-lg border border-gray-300 px-3 py-2 text-left text-base text-gray-900 cursor-pointer hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="rounded-lg border border-brand/30 px-3 py-2 text-left text-base text-brand cursor-pointer hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-50"
                             onClick={addQuestion}
                             disabled={questions.length >= ACTIVITY_MAX_QUESTIONS}
                             aria-label="Add another question"
@@ -230,10 +229,10 @@ export default function CreateActivity(){
                     <section className="flex flex-1 flex-col gap-4">
                         <h2 className="text-xl font-semibold">Question {selected + 1}</h2>
 
-                        <label className="flex flex-col gap-1 text-sm text-gray-600">
+                        <label className="flex flex-col gap-1 text-base text-brand/70">
                             Question
                             <textarea
-                                className="h-32 resize-none overflow-y-auto rounded-lg border border-gray-300 p-3 text-base text-black focus:border-indigo-600 focus:outline-none"
+                                className="h-32 resize-none overflow-y-auto rounded-lg border border-brand/30 p-3 text-base text-brand focus:border-brand focus:outline-none"
                                 value={current.question}
                                 onChange={(e) => updateQuestion(selected, { question: e.target.value })}
                                 placeholder={type === "coding" ? "Write the programming challenge..." : "Write what the finished code should do..."}
@@ -274,14 +273,14 @@ export default function CreateActivity(){
             <div className="flex justify-end gap-3">
                 <button
                     type="button"
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100"
+                    className="rounded-lg border border-brand/30 px-4 py-2 text-brand cursor-pointer hover:bg-brand-light"
                     onClick={() => navigate("/dashboard/activities")}
                 >
                     Cancel
                 </button>
                 <button
                     type="submit"
-                    className="rounded-lg bg-neutral-900 px-4 py-2 text-white cursor-pointer hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg bg-brand px-4 py-2 text-white cursor-pointer hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={saving}
                 >
                     {saving ? "Saving..." : "Save activity"}
