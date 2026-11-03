@@ -117,7 +117,7 @@ export default function Timer({
   }
 
   return (
-    <div className="flex justify-center px-6 py-3">
+    <div className="flex items-center justify-center">
       <div
         role="group"
         aria-label="Activity timer"
@@ -135,10 +135,9 @@ export default function Timer({
                 render={
                   <Button
                     type="button"
-                    variant="outline"
                     size="icon"
                     aria-label={playPauseLabel}
-                    className="size-11 shrink-0 rounded-full border-brand/30 text-brand hover:bg-brand/10 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    className="size-11 shrink-0 rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                     onClick={running ? onPause : onPlay}
                   >
                     {running ? <Pause /> : <Play />}
@@ -220,10 +219,9 @@ export default function Timer({
                 render={
                   <Button
                     type="button"
-                    variant="outline"
                     size="icon"
                     aria-label="Restart timer"
-                    className="size-11 shrink-0 rounded-full border-brand/30 text-brand hover:bg-brand/10 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    className="size-11 shrink-0 rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                     onClick={onRestart}
                   >
                     <RotateCcw />
