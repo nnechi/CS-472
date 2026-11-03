@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { ROOM_CODE_MAX_LENGTH, normalizeRoomCode } from "../utils/roomCode"
-import { checkRoomExists } from "../api.ts"; 
+import { getRoomStatus } from "../api.ts";
 
 // Students land here, enter the room code their teacher shared, and go straight
 // into the room. No account is needed. The name is only shown in the chat and
@@ -27,12 +27,13 @@ export default function JoinRoom() {
         // The name travels in router state, not the URL, so it stays out of links.
 
         try { 
-            const verifyRoom = await (checkRoomExists(roomCode)); 
-            if (verifyRoom){
-            navigate(`/rooms/join/${roomCode}`, { state: { username } })
-            } else { 
-                setError("That room doesn't exist or it has expired."); 
-                return; 
+            const status = await getRoomStatus(roomCode);
+            if (status === "ok") {
+                navigate(`/rooms/join/${roomCode}`, { state: { username } })
+            } else if (status === "not-open") {
+                setError("Your teacher hasn't opened this room yet. Try again in a moment.");
+            } else {
+                setError("That room doesn't exist or it has expired.");
             }
         } catch (e){ 
             setError("Couldn't reach server, try again."); 

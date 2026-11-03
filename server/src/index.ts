@@ -107,6 +107,9 @@ export function createApp(io : AppServer) {
       const roomExists = await Room.findOne({code : c}); 
       if (roomExists === null || roomExists.expiresAt.getTime() <= Date.now()){ 
         res.status(404).json({error: "Cannot find room!"}); 
+      } else if (!roomExists.isOpen){ 
+        // The room exists, but the teacher hasn't clicked Open room yet.
+        res.status(409).json({error : "This room isn't open yet."}); 
       } else { 
         res.status(200).json({message: "Joining room!"}); 
       }

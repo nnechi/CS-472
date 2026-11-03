@@ -96,13 +96,16 @@ export async function saveActivity(roomCode : string, hostID : string, activityI
     if (!res.ok) throw new Error(await failureMessage(res, "Could not save the activity."));
 }
 
-export async function checkRoomExists(roomCode : string) : Promise<Boolean> {
-    const res = await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent(roomCode)}`, { 
-        method: "GET", 
-        headers: {"Content-Type":"application/json"},
-    })
+// determines whether the roomstatus is allowing students to join. 
+export type RoomStatus = "ok" | "not-found" | "not-open";
 
-    return res.ok; 
+export async function getRoomStatus(roomCode : string) : Promise<RoomStatus> {
+    const res = await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent(roomCode)}`)
+
+    if (res.ok) return "ok";
+    if (res.status === 404) return "not-found";
+    if (res.status === 409) return "not-open";
+    throw new Error(await failureMessage(res, "Could not look up the room."));
 }
 
 // mark the room open for students to join
