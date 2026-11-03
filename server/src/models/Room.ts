@@ -8,7 +8,8 @@ const RoomSchema = new Schema(
     hostID : { type : String, required : true},
     expiresAt : { type : Date, required : true},
     // The activity the teacher picked for this room. Students start from its data.
-    activityId : { type : Schema.Types.ObjectId, ref : "Activity", default : null }
+    activityId : { type : Schema.Types.ObjectId, ref : "Activity", default : null }, 
+    isOpen : { type : Boolean, default : false, required : true}
 
  },
 

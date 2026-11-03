@@ -227,7 +227,6 @@ export function createApp(io : AppServer) {
     const c : string = req.params.roomCode.trim().toUpperCase();
     const hostID = typeof req.body?.hostID === "string" ? req.body.hostID.trim() : "";
     const activityId = typeof req.body?.activityId === "string" ? req.body.activityId.trim() : "";
-
     if (!hostID) {
       res.status(400).json({ error: "Missing HostID." });
       return;
@@ -258,6 +257,37 @@ export function createApp(io : AppServer) {
       res.status(500).json({ error: "Failed to save activity." });
     }
   });
+
+// toggle open flags on the room to prevent early student joins. 
+  app.put("/api/rooms/:roomCode/open", async (req, res) => { 
+    const c : string = req.params.roomCode.trim().toUpperCase();
+    const hostID = typeof req.body?.hostID === "string" ? req.body.hostID.trim() : "";
+    const activityId = typeof req.body?.activityId === "string" ? req.body.activityId.trim() : "";
+    if (!hostID) {
+      res.status(400).json({ error: "Missing HostID." });
+      return;
+    }
+    if (!isObjectIdOrHexString(activityId)) {
+      res.status(400).json({ error: "Choose an activity." });
+      return;
+    }
+
+    try { 
+      const updated = await Room.findOneAndUpdate( 
+        {code : c, hostID, expiresAt: { $gt: new Date() }, activityId}, { isOpen : true }
+      ); 
+      if (updated === null){ 
+        res.status(404).json({error : "Cannot find room!"}); 
+
+      } else { 
+        res.status(200).json({ message : "Opened room."}); 
+      }
+    } catch (e){ 
+      console.error(e); 
+      res.status(500).json({error: "Failed to open room."}); 
+    }
+  }); 
+
 
   // joinRoom(ID: string, user: Participant): boolean -- body: { user }
   // TODO: Check the room code and capacity before adding the participant.
