@@ -19,82 +19,84 @@ interface HandQueueProps {
 // Teachers: students needing help, in the order they asked. Each row can be
 // marked helped (lowers the hand) or opened as a private chat.
 export function HandQueue({ queue, onLowerHand, onOpenPrivateChat }: HandQueueProps) {
+  const needsHelp = queue.length > 0;
+
   return (
     <section
       aria-label="Students needing help"
       className={cn(
-        "rounded-xl border bg-white p-4 shadow-sm transition-colors",
-        queue.length > 0 ? "border-2 border-red-300" : "border border-brand/15"
+        "overflow-hidden rounded-lg border bg-white transition-colors",
+        needsHelp ? "border-2 border-red-400 shadow-sm" : "border border-brand/15 shadow-md"
       )}
     >
-      <header className="flex items-center gap-2">
-        <Hand className="size-4 text-brand/70" aria-hidden="true" />
-        <h2 className="text-sm font-semibold text-brand">Needs help</h2>
-        <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-brand">
+      <header className="flex items-center gap-2 bg-brand px-4 py-2.5">
+        <Hand className="size-4 text-white" aria-hidden="true" />
+        <h2 className="text-sm font-semibold text-white">Needs help</h2>
+        <span className="ml-auto rounded-full bg-brand-light px-2.5 py-0.5 text-xs font-bold tabular-nums text-brand">
           {queue.length}
         </span>
       </header>
 
-      {queue.length === 0 ? (
-        <p className="mt-2 text-sm text-brand/60">No hands raised right now.</p>
-      ) : (
-        <ol className="mt-3 flex flex-col gap-2">
-          {queue.map((h, i) => (
-            <li
-              key={h.id}
-              className="flex flex-wrap items-center gap-2 rounded-lg bg-paper px-3 py-2"
-            >
-              <span
-                aria-hidden="true"
-                className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand/10 text-xs font-bold tabular-nums text-brand"
+      <div className="p-3">
+        {queue.length === 0 ? (
+          <p className="px-1 py-1.5 text-sm text-brand/60">No hands raised right now.</p>
+        ) : (
+          <ol className="flex flex-col gap-2">
+            {queue.map((h, i) => (
+              <li
+                key={h.id}
+                className="flex flex-wrap items-center gap-3 rounded-r-lg border-l-4 border-red-300 bg-paper px-3 py-2"
               >
-                {i + 1}
-              </span>
-              <span className="flex-1 truncate text-sm font-semibold text-brand">
-                {h.username}
-              </span>
-              <TooltipProvider>
-                <span className="flex items-center gap-1.5">
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          aria-label={`Mark ${h.username} as helped`}
-                          className="size-9 rounded-full border-brand/30 text-brand hover:border-green-600 hover:bg-green-50 hover:text-green-700 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-                          onClick={() => onLowerHand(h.id)}
-                        >
-                          <Check />
-                        </Button>
-                      }
-                    />
-                    <TooltipContent>Mark as helped</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          aria-label={`Open private chat with ${h.username}`}
-                          className="size-9 rounded-full border-brand/30 text-brand hover:bg-brand/10 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-                          onClick={() => onOpenPrivateChat(h.id)}
-                        >
-                          <MessageSquare />
-                        </Button>
-                      }
-                    />
-                    <TooltipContent>Private chat</TooltipContent>
-                  </Tooltip>
+                <span
+                  aria-hidden="true"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold tabular-nums text-brand"
+                >
+                  {i + 1}
                 </span>
-              </TooltipProvider>
-            </li>
-          ))}
-        </ol>
-      )}
+                <span className="flex-1 truncate text-sm font-semibold text-brand">
+                  {h.username}
+                </span>
+                <TooltipProvider>
+                  <span className="flex items-center gap-2">
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            type="button"
+                            size="icon"
+                            aria-label={`Mark ${h.username} as helped`}
+                            className="size-9 rounded-full bg-pop text-brand shadow-sm hover:bg-pop/80 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                            onClick={() => onLowerHand(h.id)}
+                          >
+                            <Check />
+                          </Button>
+                        }
+                      />
+                      <TooltipContent>Mark as helped</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            type="button"
+                            size="icon"
+                            aria-label={`Open private chat with ${h.username}`}
+                            className="size-9 rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                            onClick={() => onOpenPrivateChat(h.id)}
+                          >
+                            <MessageSquare />
+                          </Button>
+                        }
+                      />
+                      <TooltipContent>Private chat</TooltipContent>
+                    </Tooltip>
+                  </span>
+                </TooltipProvider>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </section>
   );
 }

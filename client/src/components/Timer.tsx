@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useId, useState } from "react"
+import { FormEvent, useEffect, useId, useRef, useState } from "react"
 import { Play, Pause, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -36,6 +36,9 @@ interface TimerProps {
 const MIN_MINUTES = 1
 const MAX_MINUTES = 60
 
+// At or under this, the timer is "running low" for both roles.
+const LOW_TIME_THRESHOLD_MS = 10_000
+
 // Shows mm:ss. Rounds up so 15:00 shows until the first second has passed.
 function formatTime(ms: number): string {
   const totalSeconds = Math.ceil(ms / 1000)
@@ -59,6 +62,11 @@ export default function Timer({
   const [minutesInput, setMinutesInput] = useState(String(durationMs / 60000))
   // The "change length" popover, opened from the time display itself.
   const [setOpen, setSetOpen] = useState(false)
+  // A one-time pop the moment the countdown crosses into its last 10 seconds,
+  // so it still catches the eye without a continuous flash for the whole
+  // window (which would risk both distraction and a WCAG flash-rate issue).
+  const [justEnteredLowTime, setJustEnteredLowTime] = useState(false)
+  const wasLowTime = useRef(false)
   const minutesFieldId = useId()
   const minutesErrorId = useId()
   const triggerDescriptionId = useId()
@@ -96,10 +104,31 @@ export default function Timer({
   }, [remainingMs, running])
 
   const expired = !running && remaining === 0
-  // Only changes at an actual state transition (running starts/stops, or hits
-  // zero) rather than every tick, so a screen reader announces it once instead
-  // of flooding the user every second.
-  const status = running ? "Timer running" : expired ? "Time's up" : "Timer paused"
+  // Based on the time left, not on running/paused -- a paused timer with 8
+  // seconds on the clock should still read as urgent the moment you glance
+  // at it, not only while it happens to be counting down.
+  const lowTime = !expired && remaining > 0 && remaining <= LOW_TIME_THRESHOLD_MS
+
+  useEffect(() => {
+    if (!wasLowTime.current && lowTime) {
+      setJustEnteredLowTime(true)
+      const id = setTimeout(() => setJustEnteredLowTime(false), 700)
+      wasLowTime.current = lowTime
+      return () => clearTimeout(id)
+    }
+    wasLowTime.current = lowTime
+  }, [lowTime])
+
+  // Only changes at an actual state transition (running starts/stops, crosses
+  // into its last 10 seconds, or hits zero) rather than every tick, so a
+  // screen reader announces it once instead of flooding the user every second.
+  const status = expired
+    ? "Time's up"
+    : lowTime
+      ? "10 seconds or less remaining"
+      : running
+        ? "Timer running"
+        : "Timer paused"
 
   const playPauseLabel = running
     ? "Pause timer"
@@ -123,9 +152,11 @@ export default function Timer({
         aria-label="Activity timer"
         className={cn(
           "inline-flex items-center gap-2 rounded-full border bg-white px-2.5 py-2 shadow-sm transition-colors sm:gap-3 sm:px-3",
-          running && "border-pop/70 ring-1 ring-pop/30",
-          expired && "border-warn ring-1 ring-warn/60",
-          !running && !expired && "border-brand/15"
+          expired && "border-red-500 bg-red-50 ring-2 ring-red-200",
+          lowTime && "border-accent bg-accent/10 ring-2 ring-accent/30",
+          !expired && !lowTime && running && "border-pop/70 ring-1 ring-pop/30",
+          !expired && !lowTime && !running && "border-brand/15",
+          justEnteredLowTime && "motion-safe:animate-[pulse_0.7s_ease-in-out_1]"
         )}
       >
         {isTeacher && (
@@ -160,7 +191,10 @@ export default function Timer({
               disabled={running}
               aria-describedby={triggerDescriptionId}
               aria-live="off"
-              className="rounded-md px-1.5 font-mono text-2xl font-bold tabular-nums text-brand outline-none transition-colors hover:bg-brand/5 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-default disabled:hover:bg-transparent sm:text-3xl"
+              className={cn(
+                "rounded-md px-1.5 font-mono text-2xl font-bold tabular-nums outline-none transition-colors hover:bg-brand/5 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-default disabled:hover:bg-transparent sm:text-3xl",
+                expired ? "text-red-600" : "text-brand"
+              )}
             >
               {formatTime(remaining)}
             </PopoverTrigger>
@@ -206,7 +240,10 @@ export default function Timer({
         ) : (
           <span
             aria-live="off"
-            className="rounded-md px-1.5 font-mono text-2xl font-bold tabular-nums text-brand sm:text-3xl"
+            className={cn(
+              "rounded-md px-1.5 font-mono text-2xl font-bold tabular-nums sm:text-3xl",
+              expired ? "text-red-600" : "text-brand"
+            )}
           >
             {formatTime(remaining)}
           </span>

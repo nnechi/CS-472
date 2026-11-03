@@ -7,6 +7,7 @@ import UserAvatar from "../UserAvatar"
 import useAuth from "../../hooks/useAuth"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
 import { socket } from "../../socket"
+import { cn } from "@/lib/utils"
 import type { RoomSocket } from "../../hooks/useRoomSocket"
 import {
     Tooltip,
@@ -22,6 +23,12 @@ import {
     PaginationNext,
     PaginationPrevious,
 } from "@/components/ui/pagination"
+
+// Previous/Next render as the shared Pagination's "ghost" variant by default,
+// which is nearly invisible against the brand-light header -- give them the
+// same visible, bordered pill look as the header's other icon buttons.
+const QUESTION_NAV_CLASS =
+    "rounded-full border border-brand/40 bg-white text-brand shadow-sm hover:bg-brand/10 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
 
 interface TeacherHeaderProps {
     session: Session
@@ -100,7 +107,7 @@ export default function TeacherHeader({ session, room, progress, onLeave }: Teac
                                 <PaginationPrevious
                                     aria-label="Go to previous question"
                                     aria-disabled={onFirstQuestion}
-                                    className={onFirstQuestion ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                    className={cn(QUESTION_NAV_CLASS, onFirstQuestion ? "pointer-events-none opacity-50" : "cursor-pointer")}
                                     onClick={() => !onFirstQuestion && room.selectQuestion(index - 1)}
                                 />
                             </PaginationItem>
@@ -123,7 +130,7 @@ export default function TeacherHeader({ session, room, progress, onLeave }: Teac
                                 <PaginationNext
                                     aria-label="Go to next question"
                                     aria-disabled={onLastQuestion}
-                                    className={onLastQuestion ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                    className={cn(QUESTION_NAV_CLASS, onLastQuestion ? "pointer-events-none opacity-50" : "cursor-pointer")}
                                     onClick={() => !onLastQuestion && room.selectQuestion(index + 1)}
                                 />
                             </PaginationItem>

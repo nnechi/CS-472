@@ -254,9 +254,10 @@ export function registerSocketHandlers(
     io.to(id).emit("hand status", false);
   };
 
-  // Send the room's timer to that room's teachers only.
+  // Send the room's timer to everyone in the room. Teachers get the controls
+  // for it; students only ever see the read-only display.
   const broadcastTimer = (room: string) => {
-    io.to(teacherChannel(room)).emit("timer state", timerSnapshot(room));
+    io.to(room).emit("timer state", timerSnapshot(room));
   };
 
   // Tell both the student and the room's teachers that a private chat exists.
@@ -428,8 +429,8 @@ export function registerSocketHandlers(
           console.error("[socket] failed to load history:", err);
         }
 
-        // Late joining teachers see the timer as it is right now.
-        if (role === "teacher") socket.emit("timer state", timerSnapshot(roomCode));
+        // Late joiners (either role) see the timer as it is right now.
+        socket.emit("timer state", timerSnapshot(roomCode));
       });
 
       // Mesages limited by room
