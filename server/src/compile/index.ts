@@ -33,3 +33,6 @@ export { runJava } from "./java";
 export type { JavaRunOptions } from "./java";
 export { runC } from "./c";
 export type { CRunOptions } from "./c";
+
+export { runCpp } from "./cpp";
+export type { CppRunOptions } from "./cpp";

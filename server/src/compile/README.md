@@ -91,14 +91,15 @@ function. Compiler diagnostics go to stderr; a failed compile never runs the
 program. C output uses normal stdio buffering; use `fflush(stdout)` when
 prompt output must arrive before the program exits.
 
-C++ still has a command definition only; its runner has not been implemented. Future work should:
+`runCpp(request, options)` compiles a single `main.cpp` as C++17 with `g++`,
+then executes it when compilation succeeds. It uses the same cancellation,
+timeout, streaming, and output limits as C. Teachers select `c++` for activities;
+the editor and execution API use `cpp`.
 
-1. Add a runner for C++.
-2. Add a global concurrency limit and isolated execution with memory limits.
-3. Wire the callback and cancellation signal to the WebSocket layer.
+Future work includes isolated execution with memory limits.
 
 The current server image includes Node, Python, a Java 21 JDK, GCC, and libc headers,
-but does not install G++. `tsc` is supplied by the server's TypeScript dependency. These runners are
+and G++. `tsc` is supplied by the server's TypeScript dependency. These runners are
 suitable for local development; the temporary directory,
 timeout, and output cap do not isolate untrusted code from the server's files
 or network.

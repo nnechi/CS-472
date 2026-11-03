@@ -8,6 +8,7 @@ import { createExecutionPlan } from "./plan";
 import {
   CommandSpec,
   CompilePhase,
+  CompileLanguage,
   CompileResult,
   OnCompileUpdate,
   OutputStream,
@@ -28,12 +29,12 @@ export interface RunOptions {
 /** Shared process and output handling for supported submission runners. */
 export async function runSubmission(
   input: unknown,
-  expectedLanguage: "javascript" | "typescript" | "python" | "java" | "c",
+  expectedLanguage: CompileLanguage,
   options: RunOptions = {}
 ): Promise<CompileResult> {
   const plan = createExecutionPlan(input);
   if (plan.request.language !== expectedLanguage) {
-    const name = { javascript: "JavaScript", typescript: "TypeScript", python: "Python", java: "Java", c: "C" }[expectedLanguage];
+    const name = { javascript: "JavaScript", typescript: "TypeScript", python: "Python", java: "Java", c: "C", cpp: "C++" }[expectedLanguage];
     throw new Error(`run${name} only supports ${name}`);
   }
 
@@ -108,7 +109,7 @@ export async function runSubmission(
         shell: false,
         stdio: ["pipe", "pipe", "pipe"],
         // Do not pass server secrets or NODE_OPTIONS into submitted programs.
-        env: expectedLanguage === "c"
+        env: expectedLanguage === "c" || expectedLanguage === "cpp"
           ? { PATH: process.env.PATH, TMPDIR: workDir }
           : expectedLanguage === "java" ? { PATH: process.env.PATH } : {},
       });
