@@ -1,6 +1,6 @@
 import { AnswerProgress, Session } from "../../types";
 import Timer from "../Timer"
-import { HandQueue } from "../HandQueue"
+import { HandRaiseAlert } from "../HandQueue"
 import { RoomCodeBadge } from "./RoomCodeBadge"
 import { socket } from "../../socket"
 import type { RoomSocket } from "../../hooks/useRoomSocket"
@@ -30,8 +30,9 @@ export default function TeacherHeader({ session, room, progress } : TeacherHeade
 
     return (
         <div className="bg-white text-black">
-            <div className="flex flex-wrap items-center border-b border-gray-200 px-4 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-2">
                 <RoomCodeBadge code={session.room} hint="Share this with your students" />
+                <HandRaiseAlert count={room.handQueue.length} />
             </div>
 
             <div>
@@ -44,11 +45,6 @@ export default function TeacherHeader({ session, room, progress } : TeacherHeade
                     onPause={() => socket.emit("timer pause")}
                     onRestart={() => socket.emit("timer restart")}
                     onSetMinutes={(minutes) => socket.emit("timer set", { minutes })}
-                />
-                <HandQueue
-                    queue={room.handQueue}
-                    onLowerHand={room.lowerHand}
-                    onOpenPrivateChat={room.openPrivateChat}
                 />
 
                 {questions.length > 0 && (
