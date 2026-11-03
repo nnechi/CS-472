@@ -1,4 +1,13 @@
 import { RaisedHand } from "../types";
+import { Hand } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 const buttonClass =
   "rounded-lg border border-indigo-600 px-3 py-1.5 text-sm text-indigo-600 cursor-pointer hover:bg-indigo-50";
@@ -55,16 +64,30 @@ interface RaiseHandButtonProps {
 // Students: click once to ask for help, again to cancel.
 export function RaiseHandButton({ raised, onToggle }: RaiseHandButtonProps) {
   return (
-    <div className="px-6 py-3">
-      <button
-        type="button"
-        className={
-          raised ? `${buttonClass} border-accent bg-accent text-white hover:bg-accent/90` : buttonClass
-        }
-        onClick={onToggle}
-      >
-        {raised ? "Lower hand" : "Raise hand"}
-      </button>
-    </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label={raised ? "Lower Hand" : "Raise Hand"}
+              aria-pressed={raised}
+              className={cn(
+                "size-11 rounded-full border-2 shadow-sm transition-colors",
+                raised
+                  ? "border-green-600 bg-green-600 text-white hover:bg-green-700 hover:text-white"
+                  : "border-brand/40 bg-white text-brand hover:bg-brand/10 hover:text-brand"
+              )}
+              onClick={onToggle}
+            >
+              <Hand className="size-5" />
+            </Button>
+          }
+        />
+        <TooltipContent>{raised ? "Lower Hand" : "Raise Hand"}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

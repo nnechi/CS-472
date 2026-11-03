@@ -1,9 +1,9 @@
 import { ReactNode } from "react";
 
 interface RoomLayoutProps {
-  // The activity, on the left on wide screens.
+  // The activity, which fills the page.
   activity: ReactNode;
-  // The chat, on the right on wide screens.
+  // The chat, which floats on top of the activity and takes up no space.
   chat: ReactNode;
 }
 
@@ -14,9 +14,9 @@ export default function RoomLayout({
   chat,
 }: RoomLayoutProps) {
   return (
-    <div className="mx-auto flex min-h-0 flex-1 w-full flex-col bg-paper text-brand">
-      <div className="flex min-h-0 flex-1 flex-col">{activity}</div>
+    <div className="mx-auto flex min-h-0 flex-1 w-full flex-col bg-white text-black">
+      {activity}
       {chat}
     </div>
-  );
+  )
 }
