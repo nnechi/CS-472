@@ -104,3 +104,13 @@ export async function checkRoomExists(roomCode : string) : Promise<Boolean> {
 
     return res.ok; 
 }
+
+// mark the room open for students to join
+export async function markRoomOpen(roomCode : string, hostID : string, activityId : string) : Promise<void>{ 
+     const res = await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent(roomCode)}/open`, { 
+        method: "PUT", 
+        headers: {"Content-Type":"application/json"},
+        body : JSON.stringify({hostID, activityId}), 
+    })
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not open room.")); 
+}

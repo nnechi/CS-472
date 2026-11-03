@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { createRoom, deleteRoom, saveActivity } from '../../api.ts'
+import { createRoom, deleteRoom, saveActivity, markRoomOpen} from '../../api.ts'
 import useAuth from "../../hooks/useAuth.tsx"
 
 // Later this can POST /api/rooms so codes are unique and persisted.
@@ -96,6 +96,8 @@ export default function RoomCreation() {
         if (!auth || !startingActivityId || saving) return;
         setSaving(true);
         try {
+            await saveActivity(code, auth.user.id, startingActivityId); 
+            await markRoomOpen(code, auth.user.id, startingActivityId); 
             navigate(`/rooms/${code}`);
         } catch (e) {
             window.alert(`Could not open the room. ${e instanceof Error ? e.message : ""}`.trim());
