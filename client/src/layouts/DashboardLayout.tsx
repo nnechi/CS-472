@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet } from "react-router-dom"
 import useAuth from "../hooks/useAuth"
 import DashboardSearch from "../components/DashboardSearch"
 import UserAvatar from "../components/UserAvatar"
-import { FolderIcon, HomeIcon, LogoutIcon, PencilIcon, SettingsIcon } from "../components/MenuIcons"
+import { ChatIcon, FolderIcon, HomeIcon, LogoutIcon, PencilIcon, SettingsIcon } from "../components/MenuIcons"
 import shortLogo from "../assets/LittlePointers Logo/Short Logo.png"
 
 // Menu items stack the icon above the text on small screens and sit side by side on laptop and larger.
@@ -86,6 +86,11 @@ export default function DashboardLayout() {
                             <span className={labelClass}>Notes</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Notes</span>
                         </NavLink>
+                        <NavLink to="/dashboard/chat" aria-label="Chats" onClick={() => setMenuOpen(false)} className={linkClass}>
+                            <ChatIcon/>
+                            <span className={labelClass}>Chats</span>
+                            <span className={tooltipClass(menuOpen)} aria-hidden="true">Chats</span>
+                        </NavLink>
                         <NavLink to="/dashboard/settings" aria-label="Settings" onClick={() => setMenuOpen(false)} className={linkClass}>
                             <SettingsIcon/>
                             <span className={labelClass}>Settings</span>
@@ -93,7 +98,7 @@ export default function DashboardLayout() {
                         </NavLink>
                         <button
                             type="button"
-                            className={`${itemClass} cursor-pointer`}
+                            className={`${itemClass} mt-auto cursor-pointer`}
                             aria-label="Logout"
                             onClick={logout}
                         >

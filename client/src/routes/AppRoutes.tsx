@@ -13,6 +13,7 @@ import SignIn from "../pages/SignIn"
 import TeacherDashboard from "../pages/teacher/TeacherDashboard"
 import Activities from "../pages/teacher/Activities"
 import Notes from "../pages/teacher/Notes"
+import Chat from "../pages/teacher/Chat"
 import Settings from "../pages/teacher/Settings"
 import TeacherRoom from "../pages/teacher/TeacherRoom"
 import CreateActivity from "../pages/teacher/CreateActivity"
@@ -51,6 +52,7 @@ export default function AppRoutes() {
                     <Route index element={<TeacherDashboard />} />
                     <Route path="activities" element={<Activities />} />
                     <Route path="notes" element={<Notes />} />
+                    <Route path="chat" element={<Chat />} />
                     <Route path="settings" element={<Settings />} />
                     <Route path="create-activity" element={<CreateActivity />} />
                     <Route path="search" element={<SearchResults />} />
