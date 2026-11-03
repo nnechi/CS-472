@@ -32,7 +32,7 @@ function StudentRoomScreen({ session }: { session: Session }) {
             navigate("/")
         },
         onJoinError: () => {
-            window.alert("This room doesn't exist or it's expired.")
+            window.alert("This room isn't available. Your teacher may not have opened it or it has expired."); 
             navigate("/")
         },
     })

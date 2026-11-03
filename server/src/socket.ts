@@ -355,12 +355,27 @@ export function registerSocketHandlers(
         if (!cleanUser || !roomCode) return;
 
         let activityId: unknown = null;
+        let verifiedRole : Role  = "student"; 
+
+        const sessionUser = (socket.request as SessionRequest).session?.user;
         try{
         const success = await Room.findOne( {code : roomCode });
+        
           if (success === null || success.expiresAt === null || success.expiresAt.getTime() <= Date.now()){
             socket.emit("join error");
             socket.disconnect();
             return;
+        }
+
+
+        if (role === "teacher" && sessionUser?.id === success.hostID){ 
+          verifiedRole = "teacher"; 
+        }
+
+        if (!success.isOpen && verifiedRole !== "teacher"){ 
+          socket.emit("join error"); 
+          socket.disconnect(); 
+          return; 
         }
           activityId = success.activityId;
 
@@ -369,7 +384,6 @@ export function registerSocketHandlers(
           socket.emit("join error"); 
           socket.disconnect(); 
           return; 
-          
         }
         
       
@@ -378,16 +392,16 @@ export function registerSocketHandlers(
         // A teacher's picture comes from their login session, not from what the
         // browser sends, so nobody can show someone else's picture. Students
         // have no account, so they get none (the chat shows their initials).
-        const sessionUser = (socket.request as SessionRequest).session?.user;
-        socket.data.avatarUrl = role === "teacher" ? sessionUser?.picture ?? null : null;
-        socket.data.role = role;
+      
+        socket.data.avatarUrl = verifiedRole === "teacher" ? sessionUser?.picture ?? null : null;
+        socket.data.role = verifiedRole;
         socket.data.room = roomCode;
 
         //  subscribe this socket to a channel (room).
         socket.join(roomCode);
 
         // Only teachers get the list of who needs help.
-        if (role === "teacher") {
+        if (verifiedRole === "teacher") {
           socket.join(teacherChannel(roomCode));
           socket.emit("hand queue", getQueue(roomCode));
           // Put back any private chats still open in this room.
@@ -401,7 +415,7 @@ export function registerSocketHandlers(
         }
 
         // Everyone gets the room's activity, shaped for their role.
-        socket.emit("room activity", await loadRoomActivity(activityId, role));
+        socket.emit("room activity", await loadRoomActivity(activityId, verifiedRole));
         // Late joiners land on the question the teacher has picked.
         socket.emit("current question", currentQuestions.get(roomCode) ?? 0);
 
@@ -429,7 +443,7 @@ export function registerSocketHandlers(
         }
 
         // Late joining teachers see the timer as it is right now.
-        if (role === "teacher") socket.emit("timer state", timerSnapshot(roomCode));
+        if (verifiedRole === "teacher") socket.emit("timer state", timerSnapshot(roomCode));
       });
 
       // Mesages limited by room

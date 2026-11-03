@@ -258,7 +258,7 @@ export function createApp(io : AppServer) {
     }
   });
 
-// toggle open flags on the room to prevent early student joins. 
+// toggle open flags on the room to prevent early student joins. teacher clicks open room, students can join afterwards. 
   app.put("/api/rooms/:roomCode/open", async (req, res) => { 
     const c : string = req.params.roomCode.trim().toUpperCase();
     const hostID = typeof req.body?.hostID === "string" ? req.body.hostID.trim() : "";
