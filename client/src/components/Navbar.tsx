@@ -3,7 +3,7 @@ import { useState } from 'react'
 import useNavbarResize from "../hooks/useNavbarResize"
 import NavLinks from "./NavLinks"
 import SignInLinks from "./SignInLinks"
-import fullLogo from "../assets/LittlePointers Logo/Full Logo.png"
+import shortLogo from "../assets/LittlePointers Logo/Short Logo.png"
 
 interface NavbarProps {
     className?: string
@@ -16,7 +16,7 @@ export default function Navbar( {className}: NavbarProps) {
     function getLogo() {
         return (
             <NavLink to="/" aria-label="LittlePointers home">
-                <img src={fullLogo} alt="" className="h-14 w-14 rounded-full object-cover"/>
+                <img src={shortLogo} alt="" className="h-14 w-14"/>
             </NavLink>
         )
     }
@@ -24,7 +24,7 @@ export default function Navbar( {className}: NavbarProps) {
     return(
         <nav className={`relative w-full border-b border-brand bg-brand-light text-brand ${className}`}>
             
-            <div className="mx-auto flex h-16 w-full items-center justify-between px-5 flex-nowrap sm:h-20 sm:px-8">
+            <div className="mx-auto flex h-16 w-full items-center justify-between px-5 flex-nowrap sm:h-18 sm:px-8">
                 
                 {/* LEFT GROUP: Logo and Main Nav Links */}
                 <div className="flex flex-nowrap items-center gap-12 whitespace-nowrap">
