@@ -9,6 +9,7 @@ import {
   ParsonsLine,
   PrivateChat,
   RaisedHand,
+  RosterStudent,
   RoomActivity,
   RoomQuestion,
   Session,
@@ -59,6 +60,8 @@ export function useRoomSocket(
   // Teachers get the room's queue; students only learn their own status.
   const [handQueue, setHandQueue] = useState<RaisedHand[]>([]);
   const [handRaised, setHandRaised] = useState(false);
+  // Teachers only: everyone currently connected to the room.
+  const [roster, setRoster] = useState<RosterStudent[]>([]);
   // Shared countdown. The server sends it on join and on every play/pause.
   const [timer, setTimer] = useState<TimerState>({
     durationMs: DEFAULT_TIMER_MS,
@@ -208,6 +211,7 @@ export function useRoomSocket(
     socket.on("room activity", onRoomActivity);
     socket.on("current question", setCurrentQuestion);
     socket.on("hand queue", onHandQueue);
+    socket.on("room roster", setRoster);
     socket.on("hand status", setHandRaised);
     socket.on("timer state", setTimer);
     socket.on("room closed", onClosed);
@@ -235,6 +239,7 @@ export function useRoomSocket(
       socket.off("room activity", onRoomActivity);
       socket.off("current question", setCurrentQuestion);
       socket.off("hand queue", onHandQueue);
+      socket.off("room roster", setRoster);
       socket.off("hand status", setHandRaised);
       socket.off("timer state", setTimer);
       socket.off("room closed", onClosed);
@@ -247,6 +252,7 @@ export function useRoomSocket(
       setChatOpen(false);
       setHandQueue([]);
       setHandRaised(false);
+      setRoster([]);
       setTimer({ durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, running: false });
       setActivity(null);
       setCurrentQuestion(0);
@@ -317,6 +323,7 @@ export function useRoomSocket(
     setChatOpen,
     handQueue,
     handRaised,
+    roster,
     timer,
     activity,
     currentQuestion,

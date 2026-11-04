@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react"
 import { AnswerProgress, Session } from "../../types"
 import Timer from "../Timer"
 import { HandRaiseAlert } from "../HandQueue"
 import { RoomCodeBadge } from "./RoomCodeBadge"
 import { LeaveRoomButton } from "./LeaveRoomButton"
+import StudentSelector from "./StudentSelector"
 import UserAvatar from "../UserAvatar"
 import useAuth from "../../hooks/useAuth"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
@@ -55,12 +57,29 @@ export default function TeacherHeader({ session, room, progress, onLeave }: Teac
     const onFirstQuestion = index === 0
     const onLastQuestion = index === questions.length - 1
 
+    // Which student is picked in the roster dropdown. Kept here (rather than
+    // inside StudentSelector) so a future live-screen-viewing feature can read
+    // it as a sibling of the selector without restructuring this component.
+    const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+
+    // If the selected student leaves the room, drop the stale selection.
+    useEffect(() => {
+        if (selectedStudentId && !room.roster.some((s) => s.id === selectedStudentId)) {
+            setSelectedStudentId(null)
+        }
+    }, [room.roster, selectedStudentId])
+
     return (
         <div className="border-b border-brand bg-brand-light text-brand">
             <div className="flex flex-col gap-3 px-4 py-3 sm:px-8 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
                 <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
                     <img src={shortLogo} alt="LittlePointers" className="h-8 w-auto shrink-0" />
                     <RoomCodeBadge code={session.room} hint="Share this with your students" size="lg" />
+                    <StudentSelector
+                        students={room.roster}
+                        selectedId={selectedStudentId}
+                        onSelect={setSelectedStudentId}
+                    />
                 </div>
 
                 <div className="flex items-center justify-center">

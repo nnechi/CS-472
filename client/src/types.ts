@@ -141,6 +141,14 @@ export interface RaisedHand {
   raisedAt: string; // ISO timestamp
 }
 
+// A student currently connected to the room. `id` is their socket id, same
+// as RaisedHand -- a student can appear here whether or not they've raised
+// their hand.
+export interface RosterStudent {
+  id: string;
+  username: string;
+}
+
 // The room's countdown timer. remainingMs is the time left right now, and
 // running means it is counting down.
 export interface TimerState {
@@ -178,6 +186,9 @@ export interface ServerToClientEvents {
   }) => void;
   // Raised hands in the room, oldest first.
   "hand queue": (queue: RaisedHand[]) => void;
+  // Teachers only: everyone currently connected to the room, sent on join
+  // and whenever a student joins or leaves.
+  "room roster": (roster: RosterStudent[]) => void;
   // Sent to a student when their own hand goes up or down.
   "hand status": (raised: boolean) => void;
   // The room's timer, sent to teachers on join and on every play/pause.
