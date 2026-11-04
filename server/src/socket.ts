@@ -475,8 +475,8 @@ export function registerSocketHandlers(
 
       // Mesages limited by room
       socket.on("chat message", async ({ text }) => {
-        const { username, role, room } = socket.data;
-        if (!username || !room) return; // hasn't joined yet
+        const { username, role, room } = socket.data; 
+        if (!username || !room || socket.data.waiting) return; // hasn't joined yet
 
         const cleanText = String(text || "").trim().slice(0, 1000);
         if (!cleanText) return;
@@ -509,7 +509,10 @@ export function registerSocketHandlers(
 
       //Raise hand feature
       // Students can ask for help or signal they no longer need it.
+
       socket.on("raise hand", () => {
+        
+        if (socket.data.waiting) return; 
         const { username, role, room } = socket.data;
         if (!username || !room || role !== "student") return;
 
@@ -525,6 +528,7 @@ export function registerSocketHandlers(
         ]);
         socket.emit("hand status", true);
       });
+    
 
       // Teacher signals the student is helped.
       socket.on("lower hand", ({ id }) => {
@@ -593,7 +597,10 @@ export function registerSocketHandlers(
 
       // Students can only write in their own private chat. Teachers can write
       // in any private chat in their room.
+
       socket.on("private message", ({ chatId, text }) => {
+        
+        if (socket.data.waiting) return; 
         const { username, role, room } = socket.data;
         if (!username || !room) return;
 
@@ -622,7 +629,11 @@ export function registerSocketHandlers(
       // A student's work only reaches the teacher while their private chat is
       // open. Changing an answer clears its result, since the old result no
       // longer applies.
+
+     
+
       socket.on("activity update", ({ answers }) => {
+        if (socket.data.waiting) return; 
         const { role, room } = socket.data;
         if (!room || role !== "student") return;
 
@@ -647,7 +658,11 @@ export function registerSocketHandlers(
       // A student checks one Parsons question. The grading runs here, so the
       // solution never leaves the server. The feedback is sent only when the
       // teacher turned it on; otherwise the student learns right or wrong.
+
+ 
+      
       socket.on("check answer", async ({ questionIndex, lines }) => {
+        if (socket.data.waiting) return; 
         const { role, room } = socket.data;
         if (!room || role !== "student") return;
 
@@ -691,6 +706,7 @@ export function registerSocketHandlers(
         if (socket.data.room) removeHand(socket.data.room, socket.id);
         if (socket.data.room && socket.data.role === "student") {
           closePrivateChat(socket.data.room, socket.id);
+          broadcastParticipants(io, socket.data.room).catch(console.error); 
         }
       });
     }
