@@ -1,3 +1,4 @@
+import { CodeXml, Ticket, Users } from "lucide-react"
 
 export default function Home() {
     return (
@@ -6,15 +7,16 @@ export default function Home() {
                 <h1 className="text-5xl font-bold leading-tight sm:text-7xl">
                     Programming Practice Made Fun
                 </h1>
-                <p className="mt-4 text-brand/70">
+                <p className="mt-4 text-xl text-brand/70 sm:text-2xl">
                     A new way for students to practice programming in class with real-time feedback.
                 </p>
             </section>
 
             <section className="mx-auto mt-24 max-w-6xl">
-                <h2 className="text-4xl">Ready in three steps</h2>
+                <h2 className="text-4xl font-bold">Ready in three steps</h2>
                 <ol className="mt-10 grid list-none gap-10 p-0 md:grid-cols-3">
                     <li>
+                        <Users className="mx-auto mb-6 block h-16 w-16 text-brand" aria-hidden="true" />
                         <div className="flex items-center gap-6">
                             <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-brand text-5xl text-white">
                                 1
@@ -26,6 +28,7 @@ export default function Home() {
                         </p>
                     </li>
                     <li>
+                        <Ticket className="mx-auto mb-6 block h-16 w-16 text-brand" aria-hidden="true" />
                         <div className="flex items-center gap-6">
                             <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-brand text-5xl text-white">
                                 2
@@ -33,10 +36,11 @@ export default function Home() {
                             <h3 className="text-3xl">Join with the code</h3>
                         </div>
                         <p className="mt-8 text-2xl">
-                            Students type the code and land straight in the coding screen.
+                            Students type the code and join the room.
                         </p>
                     </li>
                     <li>
+                        <CodeXml className="mx-auto mb-6 block h-16 w-16 text-brand" aria-hidden="true" />
                         <div className="flex items-center gap-6">
                             <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-brand text-5xl text-white">
                                 3
@@ -44,7 +48,7 @@ export default function Home() {
                             <h3 className="text-3xl">Code, run, get help</h3>
                         </div>
                         <p className="mt-8 text-2xl">
-                            Run the code, compare the output, and the teacher jump in when you are stuck.
+                            Students write their code, test it, and can get feedback from the teacher when they are stuck.
                         </p>
                     </li>
                 </ol>
