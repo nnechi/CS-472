@@ -87,6 +87,7 @@ function FeatureCard({ title, description, icon }: Feature) {
   export default function Features() {
   return (
     <div className="features-page">
+        <h1 className="mb-8 text-4xl font-bold text-brand sm:text-5xl">LittlePointers Tools for Live Coding</h1>
         <div className="features-grid">
           {FEATURES.map((f) => (
             <FeatureCard key={f.id} {...f} />
