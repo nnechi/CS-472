@@ -16,9 +16,9 @@ export default function StudentRoom() {
     const location = useLocation()
     const { roomCode } = useParams()
     const room = normalizeRoomCode(roomCode ?? "")
-    const username = (location.state as { username?: string } | null)?.username?.trim()
-    const state = location.state as { username? : string, waiting? : boolean} | null; 
-    const waiting = state?.waiting ?? false; 
+    const state = location.state as { username?: string; waiting?: boolean } | null
+    const username = state?.username?.trim()
+    const waiting = state?.waiting ?? false
 
     if (!room || !username) return <Navigate to="/" replace />
 
@@ -35,35 +35,35 @@ function StudentRoomScreen({ session, waiting }: { session: Session; waiting: bo
             navigate("/")
         },
         onJoinError: () => {
-            window.alert("This room isn't available. Your teacher may not have opened it or it has expired."); 
+            window.alert("This room isn't available. Your teacher may not have opened it or it has expired.")
             navigate("/")
         },
     })
 
-         if (room.waiting) {
-          return (
-              <div className="flex h-screen items-center justify-center bg-white px-4">
-                  <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border border-brand bg-white p-9 text-center text-brand shadow-[0_4px_14px_rgba(34,21,116,0.15)]">
-                      <div
-                          className="h-10 w-10 animate-spin rounded-full border-4 border-brand/20 border-t-brand"
-                          aria-hidden="true"
-                      />
-                      <h1 className="text-2xl font-bold">Waiting for your teacher…</h1>
-                      <p className="text-brand/70">You'll join automatically when the room opens.</p>
-                      <p className="text-sm text-brand/70">Room code</p>
-                      <p className="-mt-3 text-2xl font-bold tracking-widest">{session.room}</p>
-                      <button
-                          type="button"
-                          className="mt-2 rounded-lg border border-brand/30 px-4 py-2 text-brand cursor-pointer hover:bg-brand-light"
-                          onClick={() => navigate("/")}
-                      >
-                          Leave
-                      </button>
-                  </div>
-              </div>
-          )
-      }
-
+    // Joined before the teacher opened the room: hold here until "room opened".
+    if (room.waiting) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-white px-4">
+                <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border border-brand bg-white p-9 text-center text-brand shadow-[0_4px_14px_rgba(34,21,116,0.15)]">
+                    <div
+                        className="h-10 w-10 animate-spin rounded-full border-4 border-brand/20 border-t-brand"
+                        aria-hidden="true"
+                    />
+                    <h1 className="text-2xl font-bold">Waiting for your teacher…</h1>
+                    <p className="text-brand/70">You'll join automatically when the room opens.</p>
+                    <p className="text-sm text-brand/70">Room code</p>
+                    <p className="-mt-3 text-2xl font-bold tracking-widest">{session.room}</p>
+                    <button
+                        type="button"
+                        className="mt-2 rounded-lg border border-brand/30 px-4 py-2 text-brand cursor-pointer hover:bg-brand-light"
+                        onClick={() => navigate("/")}
+                    >
+                        Leave
+                    </button>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="flex h-screen flex-col bg-white text-black">

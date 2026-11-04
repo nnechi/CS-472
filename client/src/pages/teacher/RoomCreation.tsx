@@ -193,7 +193,6 @@ export default function RoomCreation() {
             </div>
             </section>
 
-            {/* Placeholder for the students who join. */}
             <div className="mx-auto mb-8 min-h-96 w-[85%] rounded-lg bg-brand-light p-6" aria-label="Students who have joined">
                 <h2 className="text-center text-3xl font-bold text-brand">Participants</h2>
                 {participants.length === 0 ? (
