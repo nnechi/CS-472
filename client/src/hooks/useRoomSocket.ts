@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_TIMER_MS } from "../components/Timer";
 import { socket } from "../socket";
+import { PupId, loadPupId, savePupId } from "../components/chat/PupAvatar";
 import {
   AnswerFeedback,
   AnswerProgress,
@@ -58,6 +59,8 @@ export function useRoomSocket(
   const [unread, setUnread] = useState<Record<string, number>>({});
   // Teachers get the room's queue; students only learn their own status.
   const [handQueue, setHandQueue] = useState<RaisedHand[]>([]);
+  // Teachers only: how many students are in the room right now.
+  const [studentCount, setStudentCount] = useState(0);
   const [handRaised, setHandRaised] = useState(false);
   // Shared countdown. The server sends it on join and on every play/pause.
   const [timer, setTimer] = useState<TimerState>({
@@ -79,6 +82,8 @@ export function useRoomSocket(
 
   // Whether the floating chat window is open. Closed, every new message is unread.
   const [chatOpen, setChatOpenState] = useState(false);
+  // A student's pup avatar: saved on this browser, random on a first visit.
+  const [pup, setPupState] = useState<PupId>(() => loadPupId());
 
   // Socket listeners run outside render, so they read the latest values here.
   const activeChatRef = useRef(GROUP_CHAT_ID);
@@ -208,6 +213,7 @@ export function useRoomSocket(
     socket.on("room activity", onRoomActivity);
     socket.on("current question", setCurrentQuestion);
     socket.on("hand queue", onHandQueue);
+    socket.on("student count", setStudentCount);
     socket.on("hand status", setHandRaised);
     socket.on("timer state", setTimer);
     socket.on("room closed", onClosed);
@@ -222,6 +228,7 @@ export function useRoomSocket(
       username: session.username,
       role: session.role,
       room: session.room,
+      pup: session.role === "student" ? pup : undefined,
     });
 
     return () => {
@@ -235,6 +242,7 @@ export function useRoomSocket(
       socket.off("room activity", onRoomActivity);
       socket.off("current question", setCurrentQuestion);
       socket.off("hand queue", onHandQueue);
+      socket.off("student count", setStudentCount);
       socket.off("hand status", setHandRaised);
       socket.off("timer state", setTimer);
       socket.off("room closed", onClosed);
@@ -246,6 +254,7 @@ export function useRoomSocket(
       selectChat(GROUP_CHAT_ID);
       setChatOpen(false);
       setHandQueue([]);
+      setStudentCount(0);
       setHandRaised(false);
       setTimer({ durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, running: false });
       setActivity(null);
@@ -315,7 +324,17 @@ export function useRoomSocket(
     unread,
     chatOpen,
     setChatOpen,
+    role: session.role,
+    roomCode: session.room,
+    pup,
+    // Students: save a new pup here and tell the server, so later messages use it.
+    setPup: (next: PupId) => {
+      setPupState(next);
+      savePupId(next);
+      socket.emit("set pup", { pup: next });
+    },
     handQueue,
+    studentCount,
     handRaised,
     timer,
     activity,
