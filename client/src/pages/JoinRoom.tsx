@@ -28,10 +28,9 @@ export default function JoinRoom() {
 
         try { 
             const status = await getRoomStatus(roomCode);
-            if (status === "ok") {
-                navigate(`/rooms/join/${roomCode}`, { state: { username } })
-            } else if (status === "not-open") {
-                setError("Your teacher hasn't opened this room yet. Try again in a moment.");
+            if (status === "ok" || status === "not-open") {
+                navigate(`/rooms/join/${roomCode}`, { state: { username, waiting : status ==="not-open"} })
+                
             } else {
                 setError("That room doesn't exist or it has expired.");
             }

@@ -4,7 +4,7 @@ import { Server } from "socket.io";
 import cors from "cors";
 
 import { connectToDatabase } from "./db";
-import {AppServer, closeRoom,  registerSocketHandlers } from "./socket";
+import {AppServer, closeRoom,  registerSocketHandlers, lobbyChannel } from "./socket";
 
 
 import { generateRoomCode } from "./utils/roomCode"; 
@@ -289,6 +289,7 @@ export function createApp(io : AppServer) {
 
       } else { 
         res.status(200).json({ message : "Opened room."}); 
+        io.to(lobbyChannel(c)).emit("room opened"); 
       }
     } catch (e){ 
       console.error(e); 
