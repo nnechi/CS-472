@@ -1,18 +1,20 @@
 import { Link } from 'react-router-dom'
 
-export default function getSignInLinks() {
+// menuItem: true inside the side menu, where the links look like the dashboard menu items.
+export default function getSignInLinks({ menuItem = false }: { menuItem?: boolean } = {}) {
+        const menuClass = "flex items-center rounded-lg px-3 py-2 text-lg text-brand hover:bg-white/60"
         return (
             <>
                 <Link
                     to="/login"
-                    className="text-brand/70 hover:text-brand transition-colors md:rounded-lg md:border md:border-brand md:bg-white md:px-4 md:py-2 md:text-sm md:font-medium md:text-brand md:hover:bg-white/70"
+                    className={menuItem ? menuClass : "text-brand/70 hover:text-brand transition-colors md:rounded-lg md:border md:border-brand md:bg-white md:px-4 md:py-2 text-base md:text-lg font-normal md:text-brand md:hover:bg-white/70"}
                 >
                     Sign In
                 </Link>
 
                 <Link
                     to="/signup"
-                    className="text-brand/70 hover:text-brand transition-colors md:rounded-lg md:bg-brand md:px-4 md:py-2 md:text-sm md:font-medium md:text-white md:hover:bg-brand/90"
+                    className={menuItem ? menuClass : "text-brand/70 hover:text-brand transition-colors md:rounded-lg md:border md:border-brand md:bg-brand md:px-4 md:py-2 text-base md:text-lg font-normal md:text-white md:hover:bg-white/70 md:hover:text-brand"}
                 >
                     Sign Up
                 </Link>

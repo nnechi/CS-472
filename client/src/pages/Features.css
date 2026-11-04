@@ -39,19 +39,20 @@ font-weight: 400;
 .features-card__icon {
   display: inline-flex;
   flex-shrink: 0;
-  color: #002e69;
+  color: #D1003F;
 }
  
 .features-card__title {
   font-size: 1.60rem;
   font-weight: 900;
   line-height: 1.50;
-  color: #352828;
+  color: #7A2E0E;
 }
 
 .features-card__text {
   font-size: 1.20rem;   
   font-weight: 500;   
+  color: #221574;
 }
  
 @media (max-width: 600px) {
