@@ -71,27 +71,27 @@ export default function DashboardLayout() {
             <div className="flex flex-1">
                 {/* Menu. The ☰ button opens and closes it at every screen size. */}
                 <nav id="dashboard-menu" className={`${menuOpen ? "flex w-28 md:w-56" : "hidden md:flex md:w-16"} relative z-10 shrink-0 flex-col gap-2 border-r border-brand bg-brand-light p-2 shadow-[2px_0_8px_rgba(34,21,116,0.18)]`}>
-                        <NavLink to="/dashboard" end aria-label="Home" onClick={() => setMenuOpen(false)} className={linkClass}>
+                        <NavLink to="/dashboard" end aria-label="Home" className={linkClass}>
                             <HomeIcon />
                             <span className={labelClass}>Home</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Home</span>
                         </NavLink>
-                        <NavLink to="/dashboard/activities" aria-label="Activities" onClick={() => setMenuOpen(false)} className={linkClass}>
+                        <NavLink to="/dashboard/activities" aria-label="Activities" className={linkClass}>
                             <PencilIcon/>
                             <span className={labelClass}>Activities</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Activities</span>
                         </NavLink>
-                        <NavLink to="/dashboard/notes" aria-label="Notes" onClick={() => setMenuOpen(false)} className={linkClass}>
+                        <NavLink to="/dashboard/notes" aria-label="Notes" className={linkClass}>
                             <FolderIcon/>
                             <span className={labelClass}>Notes</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Notes</span>
                         </NavLink>
-                        <NavLink to="/dashboard/chat" aria-label="Chats" onClick={() => setMenuOpen(false)} className={linkClass}>
+                        <NavLink to="/dashboard/chat" aria-label="Chats" className={linkClass}>
                             <ChatIcon/>
                             <span className={labelClass}>Chats</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Chats</span>
                         </NavLink>
-                        <NavLink to="/dashboard/settings" aria-label="Settings" onClick={() => setMenuOpen(false)} className={linkClass}>
+                        <NavLink to="/dashboard/settings" aria-label="Settings" className={linkClass}>
                             <SettingsIcon/>
                             <span className={labelClass}>Settings</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Settings</span>
