@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
 import { createRoom, deleteRoom, saveActivity, markRoomOpen} from '../../api.ts'
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
-import { createRoom, deleteRoom, saveActivity } from '../../api.ts'
+
 
 import useAuth from "../../hooks/useAuth.tsx"
 

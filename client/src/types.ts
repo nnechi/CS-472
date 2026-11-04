@@ -151,6 +151,10 @@ export interface TimerState {
   running: boolean;
 }
 
+export interface Participant { 
+  id : string; 
+  username : string; 
+}
 export interface ServerToClientEvents {
   "chat message": (message: ChatMessage) => void;
   "chat history": (messages: ChatMessage[]) => void;
@@ -186,6 +190,9 @@ export interface ServerToClientEvents {
   "timer state": (timer: TimerState) => void;
   "room closed" : () => void;
   "join error" : () =>  void;
+  "participants" : (participants : Participant[]) => void; 
+  "room waiting" : () => void; 
+  "room opened" : () => void; 
 }
 
 export interface ClientToServerEvents {
