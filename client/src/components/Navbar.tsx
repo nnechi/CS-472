@@ -16,7 +16,7 @@ export default function Navbar( {className, menuOpen, onToggleMenu, onCloseMenu}
     function getLogo() {
         return (
             <NavLink to="/" aria-label="LittlePointers home" onClick={onCloseMenu}>
-                <img src={shortLogo} alt="" className="h-10"/>
+                <img src={shortLogo} alt="" className="h-14 w-14"/>
             </NavLink>
         )
     }
@@ -24,7 +24,7 @@ export default function Navbar( {className, menuOpen, onToggleMenu, onCloseMenu}
     return(
         <nav className={`relative w-full border-b border-brand bg-brand-light text-brand ${className}`}>
             
-            <div className="mx-auto flex h-16 w-full items-center justify-between px-5 flex-nowrap sm:h-20 sm:px-8">
+            <div className="mx-auto flex h-16 w-full items-center justify-between px-5 flex-nowrap sm:h-18 sm:px-8">
                 
                 {/* LEFT GROUP: Logo and Main Nav Links */}
                 <div className="flex flex-nowrap items-center gap-8 whitespace-nowrap">
