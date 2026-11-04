@@ -131,6 +131,10 @@ export interface ClientToServerEvents {
   "check answer": (payload: { questionIndex: number; lines: ParsonsLine[] }) => void;
 }
 
+export interface Participant  { 
+  id : string; 
+  username : string; 
+}
 // What the server sends back to clients.
 export interface ServerToClientEvents {
   "chat message": (message: ChatMessage) => void;
@@ -169,6 +173,12 @@ export interface ServerToClientEvents {
   "timer state": (timer: TimerState) => void;
   "room closed" : () => void;
   "join error" : () => void;
+
+
+  "participants" : (participants : Participant[]) => void; 
+  "room waiting" : () => void; 
+  "room opened" : () => void;
+
 }
 
 //Incase we set up server-to-server events
@@ -181,4 +191,5 @@ export interface SocketData {
   room: string;
   // A signed-in teacher's Google picture, from their login session.
   avatarUrl: string | null;
+  waiting : boolean; 
 }

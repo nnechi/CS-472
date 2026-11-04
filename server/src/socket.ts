@@ -19,6 +19,7 @@ import {
   InterServerEvents,
   ParsonsDisplayOptions,
   ParsonsLine,
+  Participant, 
   PrivateChat,
   RaisedHand,
   RoomActivity,
@@ -41,17 +42,34 @@ export type AppServer = Server<
   SocketData
 >; 
 
+  //separate room, a "channel" for teachers of a room to get the raise hand broadcasts.
+  //students don't see other students waiting
+export function teacherChannel(room: string) {
+return `${room}:teachers`; 
+}
+
+// students wait until teacher opens a room. 
+export function lobbyChannel(room : string){ 
+  return `${room}:lobby`; 
+}
+
 
 
 // need helper function to disconnect all of the things from the room. 
 export function closeRoom(io : AppServer, room : string): void {
-  io.to(room).emit("room closed");
+  io.to([room, lobbyChannel(room)]).emit("room closed");
   handQueues.delete(room);
   privateChats.delete(room);
   currentQuestions.delete(room);
   clearTimer(room);
-  io.in(room).disconnectSockets();
+  io.in([room, lobbyChannel(room)]).disconnectSockets();
 }
+
+export async function broadcastParticipants(io : AppServer, room : string){ 
+  const sockets = await io.in([room, lobbyChannel(room)]).fetchSockets(); 
+  const list : Participant[] = sockets.filter((s) => s.data.role === "student").map((s) => ({id : s.id, username : s.data.username})); 
+  io.to(teacherChannel(room)).emit("participants",list); 
+} 
 
 //raise hands are not stored in database,
 const handQueues = new Map<string, RaisedHand[]>();
@@ -234,9 +252,7 @@ export function registerSocketHandlers(
   const getQueue = (room: string) => handQueues.get(room) ?? [];
 
   
-  //separate room, a "channel" for teachers of a room to get the raise hand broadcasts.
-  //students don't see other students waiting
-  const teacherChannel = (room: string) => `${room}:teachers`;
+
 
   // Store a room's queue and send it to that room's teachers.
   const setQueue = (room: string, queue: RaisedHand[]) => {
@@ -356,6 +372,7 @@ export function registerSocketHandlers(
 
         let activityId: unknown = null;
         let verifiedRole : Role  = "student"; 
+        let waiting = false; 
 
         const sessionUser = (socket.request as SessionRequest).session?.user;
         try{
@@ -373,9 +390,7 @@ export function registerSocketHandlers(
         }
 
         if (!success.isOpen && verifiedRole !== "teacher"){ 
-          socket.emit("join error"); 
-          socket.disconnect(); 
-          return; 
+          waiting = true;  
         }
           activityId = success.activityId;
 
@@ -396,9 +411,19 @@ export function registerSocketHandlers(
         socket.data.avatarUrl = verifiedRole === "teacher" ? sessionUser?.picture ?? null : null;
         socket.data.role = verifiedRole;
         socket.data.room = roomCode;
+        socket.data.waiting = waiting; 
+
+        if (waiting){ 
+          socket.join(lobbyChannel(roomCode)); 
+          socket.emit("room waiting"); 
+          broadcastParticipants(io,roomCode).catch(console.error); 
+          return; 
+        }
 
         //  subscribe this socket to a channel (room).
         socket.join(roomCode);
+        socket.leave(lobbyChannel(roomCode)); 
+
 
         // Only teachers get the list of who needs help.
         if (verifiedRole === "teacher") {
@@ -413,6 +438,8 @@ export function registerSocketHandlers(
             });
           }
         }
+
+        broadcastParticipants(io, roomCode).catch(console.error); 
 
         // Everyone gets the room's activity, shaped for their role.
         socket.emit("room activity", await loadRoomActivity(activityId, verifiedRole));
