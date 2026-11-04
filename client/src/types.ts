@@ -126,6 +126,8 @@ export interface ChatMessage {
   chatId: string; // GROUP_CHAT_ID, or the id of a private chat
   // The sender's profile picture URL. Only signed-in teachers have one.
   avatarUrl?: string | null;
+  // A student's pup avatar id (for example "corgi"). Teachers have none.
+  pup?: string | null;
 }
 
 // A private chat between the room's teacher and one student. `id` is the
@@ -180,6 +182,8 @@ export interface ServerToClientEvents {
   }) => void;
   // Raised hands in the room, oldest first.
   "hand queue": (queue: RaisedHand[]) => void;
+  // Teachers only: how many students are in the room right now.
+  "student count": (count: number) => void;
   // Sent to a student when their own hand goes up or down.
   "hand status": (raised: boolean) => void;
   // The room's timer, sent to teachers on join and on every play/pause.
@@ -189,7 +193,9 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  join: (payload: { username: string; role: Role; room: string }) => void;
+  join: (payload: { username: string; role: Role; room: string; pup?: string }) => void;
+  // Students only: change their pup avatar. Later messages use the new pup.
+  "set pup": (payload: { pup: string }) => void;
   "chat message": (payload: { text: string }) => void;
   // Students only: toggles their own hand up/down.
   "raise hand": () => void;

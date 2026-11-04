@@ -12,6 +12,8 @@ const messageSchema = new Schema(
     room: { type: String, required: true, trim: true, index: true },
     // The sender's profile picture URL, if they have one (signed-in teachers).
     avatarUrl: { type: String, default: null },
+    // A student's pup avatar id (for example "corgi"), so chat history shows it too.
+    pup: { type: String, default: null },
   },
   {
     // Automatically adds createdAt and updatedAt Date fields.
