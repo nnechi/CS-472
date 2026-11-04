@@ -49,7 +49,7 @@ export default function DashboardLayout() {
 
                     {/* Short logo at every screen size. It goes back to the dashboard. */}
                     <Link to="/dashboard" aria-label="LittlePointers dashboard">
-                        <img src={shortLogo} alt="" className="h-10" />
+                        <img src={shortLogo} alt="" className="h-14 w-14" />
                     </Link>
                 </div>
 

@@ -1,7 +1,7 @@
 function AlertIcon() {
     return (
         <svg
-            className="h-8 w-8 shrink-0 text-[#161616]"
+            className="h-8 w-8 shrink-0 text-[#D1003F]"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -19,48 +19,48 @@ function AlertIcon() {
 export default function AboutUs() {
     return (
         <main>
-            <section className="w-full px-6 pb-20 pt-10 sm:px-12"> 
+            <section className="w-full px-6 pb-20 pt-4 sm:px-12"> 
                  <div className="mx-auto max-w-6xl">
-                     <h1 className="text-4xl font-bold text-black sm:text-5xl">
+                     <h1 className="text-4xl font-bold text-brand sm:text-5xl">
                         Why CS Education Needs a Better Tool
                      </h1>
 
                      <div className="mt-12 grid gap-8 md:grid-cols-3">
-                        <article className = "rounded-xl bg-[#ccc9f7] p-8">
+                        <article className = "rounded-xl bg-[#ccc9f7] p-8 shadow-[0_4px_12px_rgba(0,0,0,0.18)]">
                           <div className="flex items-center gap-3">
                              <AlertIcon />
                              <h2 className="text-xl font-bold text-[#7A2E0E]">
                                  Lack of engagement in content
                              </h2>
                            </div>
-                         <p className = "mt-6 text-black">
+                         <p className = "mt-6 text-[1.2rem] text-brand">
                               Programming individually and quietly in class can
                               cause students to become disinterested.
                          </p>
                        </article>
 
-                        <article className = "rounded-xl bg-[#ccc9f7] p-8">
+                        <article className = "rounded-xl bg-[#ccc9f7] p-8 shadow-[0_4px_12px_rgba(0,0,0,0.18)]">
                           <div className="flex items-center gap-3">
                              <AlertIcon />
                              <h2 className="text-xl font-bold text-[#7A2E0E]">
                                  Slow Feedback Loop
                              </h2>
                            </div>
-                         <p className = "mt-6 text-black">
+                         <p className = "mt-6 text-[1.2rem] text-brand">
                               The process of students modifying code and showing
                               it again is slow and inefficient.
                          </p>
                        </article>
                        
 
-                        <article className = "rounded-xl bg-[#ccc9f7] p-8">
+                        <article className = "rounded-xl bg-[#ccc9f7] p-8 shadow-[0_4px_12px_rgba(0,0,0,0.18)]">
                           <div className="flex items-center gap-3">
                              <AlertIcon />
                              <h2 className="text-xl font-bold text-[#7A2E0E]">
                                  Limited Interaction in Lectures
                              </h2>
                            </div>
-                         <p className = "mt-6 text-black">
+                         <p className = "mt-6 text-[1.2rem] text-brand">
                               Providing real-time coding feedback is difficult
                               in large lecture environments.
                          </p>

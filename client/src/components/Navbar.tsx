@@ -22,7 +22,7 @@ export default function Navbar( {className, menuOpen, onToggleMenu, onCloseMenu}
     }
 
     return(
-        <nav className={`relative w-full border-b border-brand bg-brand-light text-brand ${className}`}>
+        <nav className={`relative w-full border-b border-brand bg-brand-light text-brand shadow-[0_2px_8px_rgba(34,21,116,0.18)] ${className}`}>
             
             <div className="mx-auto flex h-16 w-full items-center justify-between px-5 flex-nowrap sm:h-18 sm:px-8">
                 
