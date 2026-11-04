@@ -19,7 +19,7 @@ function AlertIcon() {
 export default function AboutUs() {
     return (
         <main>
-            <section className="w-full px-6 py-20 sm:px-12"> 
+            <section className="w-full px-6 pb-20 pt-10 sm:px-12"> 
                  <div className="mx-auto max-w-6xl">
                      <h1 className="text-4xl font-bold text-black sm:text-5xl">
                         Why CS Education Needs a Better Tool

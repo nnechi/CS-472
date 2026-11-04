@@ -1,8 +1,11 @@
+import wideLogo from "../assets/LittlePointers Logo/Full Logo Wide.png"
+
 
 export default function Home() {
     return (
       <div>
             <section className="mx-auto max-w-5xl text-center">
+                <img src={wideLogo} alt="LittlePointers" className="mx-auto -mt-8 mb-6 h-40 w-full max-w-[30rem] sm:h-56 sm:max-w-[40rem]" />
                 <h1 className="text-5xl font-bold leading-tight sm:text-7xl">
                     Programming Practice Made Fun
                 </h1>
@@ -11,7 +14,7 @@ export default function Home() {
                 </p>
             </section>
 
-            <section className="mx-auto mt-24 max-w-6xl">
+            <section className="mx-auto mt-10 max-w-6xl">
                 <h2 className="text-4xl">Ready in three steps</h2>
                 <ol className="mt-10 grid list-none gap-10 p-0 md:grid-cols-3">
                     <li>
