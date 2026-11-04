@@ -5,6 +5,8 @@ import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
 
 
 import useAuth from "../../hooks/useAuth.tsx"
+import { socket } from "../../socket"
+import { Participant } from "../../types"
 
 // Later this can POST /api/rooms so codes are unique and persisted.
 export default function RoomCreation() {
@@ -22,6 +24,7 @@ export default function RoomCreation() {
     const [busy, setBusy] = useState(true);
 
     const [saving, setSaving] = useState(false);
+    const [participants, setParticipants] = useState<Participant[]>([]);
     // False once the panel unmounts, so a late response can clean up after itself.
     const mounted = useRef(false);
 
@@ -75,6 +78,22 @@ export default function RoomCreation() {
         // API call to saveActivity to bind the room to the activity using the activity Id
         saveActivity(code, auth.user.id, startingActivityId).catch(console.error);
     }, [auth?.user.id, code, startingActivityId]);
+
+    useEffect(() => {
+        if (!auth || !code) return;
+
+        const onParticipants = (list: Participant[]) => setParticipants(list);
+
+        socket.on("participants", onParticipants);
+        socket.connect();
+        socket.emit("join", { username: auth.user.name, role: "teacher", room: code });
+
+        return () => {
+            socket.off("participants", onParticipants);
+            socket.disconnect();
+            setParticipants([]);
+        };
+    }, [code, auth?.user.id]);
 
     useEffect(() => {
         mounted.current = true;
@@ -177,6 +196,17 @@ export default function RoomCreation() {
             {/* Placeholder for the students who join. */}
             <div className="mx-auto mb-8 min-h-96 w-[85%] rounded-lg bg-brand-light p-6" aria-label="Students who have joined">
                 <h2 className="text-center text-3xl font-bold text-brand">Participants</h2>
+                {participants.length === 0 ? (
+                    <p className="mt-6 text-center text-brand/70">No one has joined yet.</p>
+                ) : (
+                    <ul className="mt-6 flex flex-wrap justify-center gap-3">
+                        {participants.map((p) => (
+                            <li key={p.id} className="rounded-lg bg-white px-4 py-2 text-lg text-brand shadow-sm">
+                                {p.username}
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
         </div>
     )

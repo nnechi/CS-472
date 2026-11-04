@@ -18,6 +18,7 @@ import {
 interface RoomSocketOptions {
   onRoomClosed?: () => void;
   onJoinError?: () => void;
+  startWaiting?: boolean;
 }
 
 // How long a student's arrangement waits before it is sent to the teacher.
@@ -48,7 +49,7 @@ function startingAnswer(question: RoomQuestion): ParsonsLine[] {
 // this and call the actions it returns.
 export function useRoomSocket(
   session: Session,
-  { onRoomClosed, onJoinError }: RoomSocketOptions
+  { startWaiting = false, onRoomClosed, onJoinError }: RoomSocketOptions
 ) {
   // Messages for each chat, keyed by chat id (GROUP_CHAT_ID or a student's id).
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
@@ -59,6 +60,8 @@ export function useRoomSocket(
   // Teachers get the room's queue; students only learn their own status.
   const [handQueue, setHandQueue] = useState<RaisedHand[]>([]);
   const [handRaised, setHandRaised] = useState(false);
+  const [waiting, setWaiting] = useState(startWaiting);
+
   // Shared countdown. The server sends it on join and on every play/pause.
   const [timer, setTimer] = useState<TimerState>({
     durationMs: DEFAULT_TIMER_MS,
@@ -169,6 +172,7 @@ export function useRoomSocket(
 
     // The room's activity, sent on join. Students start with nothing arranged.
     const onRoomActivity = (next: RoomActivity | null) => {
+      setWaiting(false);
       setActivity(next);
       const questions = next?.questions ?? [];
       setStudentAnswers(questions.map(startingAnswer));
@@ -197,6 +201,15 @@ export function useRoomSocket(
     const onHandQueue = (queue: RaisedHand[]) => setHandQueue(queue);
     const onClosed = () => onRoomClosedRef.current?.();
     const onJoinErrorEvent = () => onJoinErrorRef.current?.();
+    const onWaiting = () => setWaiting(true); 
+    const onRoomOpened = () => { 
+      setWaiting(false); 
+      socket.emit("join", { 
+        username : session.username, 
+        role : session.role, 
+        room : session.room, 
+      }); 
+    }; 
 
     socket.on("chat history", onHistory);
     socket.on("chat message", onMessage);
@@ -212,6 +225,8 @@ export function useRoomSocket(
     socket.on("timer state", setTimer);
     socket.on("room closed", onClosed);
     socket.on("join error", onJoinErrorEvent);
+    socket.on("room waiting", onWaiting); 
+    socket.on("room opened", onRoomOpened); 
 
     // The socket is opened only while a room is on screen. Socket.IO buffers
     // the "join" below until the connection is up, so emitting right away is
@@ -239,6 +254,8 @@ export function useRoomSocket(
       socket.off("timer state", setTimer);
       socket.off("room closed", onClosed);
       socket.off("join error", onJoinErrorEvent);
+      socket.off("room waiting", onWaiting); 
+      socket.off("room opened", onRoomOpened); 
       socket.disconnect();
       setMessages({});
       setPrivateChats([]);
@@ -317,6 +334,7 @@ export function useRoomSocket(
     setChatOpen,
     handQueue,
     handRaised,
+    waiting, 
     timer,
     activity,
     currentQuestion,
