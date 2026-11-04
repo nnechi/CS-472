@@ -61,6 +61,8 @@ export interface ActivitySummary {
   id: string;
   name: string;
   type: ActivityType;
+  questionCount: number;
+  createdAt: string; // ISO timestamp
 }
 
 // One line of a Parsons problem: its text (trimmed) and indentation level.

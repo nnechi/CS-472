@@ -3,6 +3,7 @@ import RequiredAuth from "../routes/RequireAuth"
 import HomeLayout from "../layouts/HomeLayout"
 import SignXLayout from "../layouts/SignXLayout"
 import DashboardLayout from "../layouts/DashboardLayout"
+import RoomLayout from "../layouts/RoomLayout"
 import Home from "../pages/Home"
 import AboutUs from "../pages/AboutUs"
 import Features from "../pages/Features"
@@ -12,6 +13,7 @@ import SignIn from "../pages/SignIn"
 import TeacherDashboard from "../pages/teacher/TeacherDashboard"
 import Activities from "../pages/teacher/Activities"
 import Notes from "../pages/teacher/Notes"
+import Chat from "../pages/teacher/Chat"
 import Settings from "../pages/teacher/Settings"
 import TeacherRoom from "../pages/teacher/TeacherRoom"
 import CreateActivity from "../pages/teacher/CreateActivity"
@@ -50,12 +52,17 @@ export default function AppRoutes() {
                     <Route index element={<TeacherDashboard />} />
                     <Route path="activities" element={<Activities />} />
                     <Route path="notes" element={<Notes />} />
+                    <Route path="chat" element={<Chat />} />
                     <Route path="settings" element={<Settings />} />
                     <Route path="create-activity" element={<CreateActivity />} />
-                    <Route path="room-creation" element={<RoomCreation />} />
                     <Route path="search" element={<SearchResults />} />
                     {/* Any other /dashboard/... URL. Rendered inside the dashboard layout. */}
                     <Route path="*" element={<DashboardNotFound />} />
+                </Route>
+
+                {/* Create a room: its own page, without the dashboard header and menu. */}
+                <Route element={<RoomLayout />}>
+                    <Route path="/room-creation" element={<RoomCreation />} />
                 </Route>
 
                 {/* Teacher view of the Socket.IO chat, with the raised-hand queue. */}

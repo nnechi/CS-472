@@ -8,10 +8,10 @@ interface CodingQuestionProps {
 // The fields for a coding question: students write code that prints this output.
 export default function CodingQuestion({ item, onChange } : CodingQuestionProps){
     return (
-        <label className="flex flex-col gap-1 text-sm text-gray-600">
+        <label className="flex flex-col gap-1 text-base text-brand/70">
             Correct output
             <textarea
-                className="min-h-32 rounded-lg border border-gray-300 p-3 text-base text-black focus:border-indigo-600 focus:outline-none"
+                className="min-h-32 rounded-lg border border-brand/30 p-3 text-base text-brand focus:border-brand focus:outline-none"
                 value={item.output}
                 onChange={(e) => onChange({ output: e.target.value })}
                 placeholder="Enter the correct output for the question..."

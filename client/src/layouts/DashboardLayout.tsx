@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet } from "react-router-dom"
 import useAuth from "../hooks/useAuth"
 import DashboardSearch from "../components/DashboardSearch"
 import UserAvatar from "../components/UserAvatar"
-import { FolderIcon, HomeIcon, LogoutIcon, PencilIcon, SettingsIcon } from "../components/MenuIcons"
+import { ChatIcon, FolderIcon, HomeIcon, LogoutIcon, PencilIcon, SettingsIcon } from "../components/MenuIcons"
 import shortLogo from "../assets/LittlePointers Logo/Short Logo.png"
 
 // Menu items stack the icon above the text on small screens and sit side by side on laptop and larger.
@@ -31,9 +31,9 @@ export default function DashboardLayout() {
     const labelClass = menuOpen ? "" : "md:hidden"
 
     return(
-        <div className="min-h-screen flex flex-col bg-paper text-brand">
+        <div className="min-h-screen flex flex-col bg-white text-brand">
             {/* The header has no left padding at any size, so the ☰ button and logo stay in the same place. The button lines up with the closed menu's edge. */}
-            <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-b border-brand bg-brand-light py-3 pr-4 sm:h-20 sm:py-0 sm:pr-8">
+            <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 bg-brand-light py-3 pr-4 sm:h-20 sm:py-0 sm:pr-8">
                 <div className="flex h-14 items-center gap-0">
                     <button
                         type="button"
@@ -71,29 +71,34 @@ export default function DashboardLayout() {
             <div className="flex flex-1">
                 {/* Menu. The ☰ button opens and closes it at every screen size. */}
                 <nav id="dashboard-menu" className={`${menuOpen ? "flex w-28 md:w-56" : "hidden md:flex md:w-16"} relative z-10 shrink-0 flex-col gap-2 border-r border-brand bg-brand-light p-2 shadow-[2px_0_8px_rgba(34,21,116,0.18)]`}>
-                        <NavLink to="/dashboard" end aria-label="Home" onClick={() => setMenuOpen(false)} className={linkClass}>
+                        <NavLink to="/dashboard" end aria-label="Home" className={linkClass}>
                             <HomeIcon />
                             <span className={labelClass}>Home</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Home</span>
                         </NavLink>
-                        <NavLink to="/dashboard/activities" aria-label="Activities" onClick={() => setMenuOpen(false)} className={linkClass}>
+                        <NavLink to="/dashboard/activities" aria-label="Activities" className={linkClass}>
                             <PencilIcon/>
                             <span className={labelClass}>Activities</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Activities</span>
                         </NavLink>
-                        <NavLink to="/dashboard/notes" aria-label="Notes" onClick={() => setMenuOpen(false)} className={linkClass}>
+                        <NavLink to="/dashboard/notes" aria-label="Notes" className={linkClass}>
                             <FolderIcon/>
                             <span className={labelClass}>Notes</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Notes</span>
                         </NavLink>
-                        <NavLink to="/dashboard/settings" aria-label="Settings" onClick={() => setMenuOpen(false)} className={linkClass}>
+                        <NavLink to="/dashboard/chat" aria-label="Chats" className={linkClass}>
+                            <ChatIcon/>
+                            <span className={labelClass}>Chats</span>
+                            <span className={tooltipClass(menuOpen)} aria-hidden="true">Chats</span>
+                        </NavLink>
+                        <NavLink to="/dashboard/settings" aria-label="Settings" className={linkClass}>
                             <SettingsIcon/>
                             <span className={labelClass}>Settings</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Settings</span>
                         </NavLink>
                         <button
                             type="button"
-                            className={`${itemClass} cursor-pointer`}
+                            className={`${itemClass} mt-auto cursor-pointer`}
                             aria-label="Logout"
                             onClick={logout}
                         >
@@ -103,7 +108,7 @@ export default function DashboardLayout() {
                         </button>
                     </nav>
 
-                <main className="flex-1 p-6">
+                <main className="flex-1 border-t border-brand p-6">
                     <Outlet />
                 </main>
             </div>
