@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { DEFAULT_TIMER_MS } from "../components/Timer";
 import { socket } from "../socket";
 import { PupId, loadPupId, savePupId } from "../components/chat/PupAvatar";
+import type { RoomView } from "./roomView";
 import {
   AnswerFeedback,
-  AnswerProgress,
   ChatMessage,
   GROUP_CHAT_ID,
   ParsonsLine,
@@ -14,6 +14,7 @@ import {
   RoomActivity,
   RoomQuestion,
   Session,
+  StudentProgress,
   TimerState,
 } from "../types";
 
@@ -22,10 +23,8 @@ interface RoomSocketOptions {
   onJoinError?: () => void;
 }
 
-// How long a student's arrangement waits before it is sent to the teacher.
+// How long a student's arrangement or code waits before it is sent to the teacher.
 const PROGRESS_SYNC_DELAY_MS = 300;
-
-const EMPTY_PROGRESS: AnswerProgress = { answers: [], results: [], marks: [] };
 
 // Fisher-Yates shuffle, for reshuffling a Parsons problem's lines.
 function shuffle<T>(items: T[]): T[] {
@@ -51,7 +50,7 @@ function startingAnswer(question: RoomQuestion): ParsonsLine[] {
 export function useRoomSocket(
   session: Session,
   { onRoomClosed, onJoinError }: RoomSocketOptions
-) {
+): RoomView {
   // Messages for each chat, keyed by chat id (GROUP_CHAT_ID or a student's id).
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
   const [privateChats, setPrivateChats] = useState<PrivateChat[]>([]);
@@ -80,8 +79,24 @@ export function useRoomSocket(
   const [studentAnswers, setStudentAnswers] = useState<ParsonsLine[][]>([]);
   const [studentResults, setStudentResults] = useState<(boolean | null)[]>([]);
   const [studentFeedback, setStudentFeedback] = useState<(AnswerFeedback | null)[]>([]);
-  // Teachers only: each student's progress, keyed by that student's chat id.
-  const [studentProgress, setStudentProgress] = useState<Record<string, AnswerProgress>>({});
+  // A student's own code and last Run output for each coding question. Kept per
+  // question, so changing question does not wipe it. Reset when the activity changes.
+  const [studentCodes, setStudentCodes] = useState<string[]>([]);
+  const [studentOutputs, setStudentOutputs] = useState<(string | null)[]>([]);
+  // Teachers only: each student's progress, keyed by that student's id.
+  const [studentProgress, setStudentProgress] = useState<Record<string, StudentProgress>>({});
+  // Students: whether they changed their work since the activity loaded. Until
+  // then nothing is sent, so the teacher sees "no work yet".
+  const touchedRef = useRef(false);
+  // Students: work waiting out the sync delay, not sent yet. Sent right away if
+  // the student leaves or the socket disconnects first. Edits made in the last
+  // 300 ms before the teacher ends the room cannot be saved, because the server
+  // has already closed the room by the time they are sent.
+  const pendingAnswersRef = useRef<{ answers: ParsonsLine[][] } | null>(null);
+  const pendingCodesRef = useRef<{ codes: string[]; outputs: (string | null)[] } | null>(null);
+  // The JSON of the last activity received. After a reconnect the server sends
+  // the activity again; if it is the same one, the student's work is kept.
+  const lastActivityJsonRef = useRef<string | null>(null);
 
   // Whether the floating chat window is open. Closed, every new message is unread.
   const [chatOpen, setChatOpenState] = useState(false);
@@ -130,11 +145,9 @@ export function useRoomSocket(
     const onPrivateOpened = ({
       chat,
       messages: history,
-      progress,
     }: {
       chat: PrivateChat;
       messages: ChatMessage[];
-      progress: AnswerProgress;
     }) => {
       setPrivateChats((prev) =>
         prev.some((c) => c.id === chat.id)
@@ -142,7 +155,6 @@ export function useRoomSocket(
           : [...prev, chat]
       );
       setMessages((prev) => ({ ...prev, [chat.id]: history }));
-      setStudentProgress((prev) => ({ ...prev, [chat.id]: progress }));
       // A student is taken straight to a chat the teacher just opened with them,
       // and the chat window opens so they see it.
       if (session.role === "student") {
@@ -151,7 +163,7 @@ export function useRoomSocket(
       }
     };
 
-    // The student left, so their chat is gone.
+    // The student left, so their chat is gone. Their progress stays.
     const onPrivateClosed = (chatId: string) => {
       setPrivateChats((prev) => prev.filter((c) => c.id !== chatId));
       setMessages((prev) => {
@@ -164,24 +176,31 @@ export function useRoomSocket(
         delete next[chatId];
         return next;
       });
-      setStudentProgress((prev) => {
-        const next = { ...prev };
-        delete next[chatId];
-        return next;
-      });
       if (activeChatRef.current === chatId) selectChat(GROUP_CHAT_ID);
     };
 
-    const onStudentProgress = ({ chatId, progress }: { chatId: string; progress: AnswerProgress }) =>
-      setStudentProgress((prev) => ({ ...prev, [chatId]: progress }));
+    // Teachers only: a student's work changed (or was sent on join).
+    const onStudentProgress = ({ studentId, progress }: { studentId: string; progress: StudentProgress }) =>
+      setStudentProgress((prev) => ({ ...prev, [studentId]: progress }));
 
-    // The room's activity, sent on join. Students start with nothing arranged.
+    // The room's activity, sent on join (and again on every rejoin after a
+    // reconnect). Students start with nothing arranged, but a rejoin with the
+    // same activity keeps the work they already did.
     const onRoomActivity = (next: RoomActivity | null) => {
       setActivity(next);
+      const json = JSON.stringify(next);
+      if (lastActivityJsonRef.current === json) return;
+      lastActivityJsonRef.current = json;
       const questions = next?.questions ?? [];
       setStudentAnswers(questions.map(startingAnswer));
       setStudentResults(questions.map(() => null));
       setStudentFeedback(questions.map(() => null));
+      setStudentCodes(questions.map(() => ""));
+      setStudentOutputs(questions.map(() => null));
+      touchedRef.current = false;
+      // Unsent work belonged to the previous activity.
+      pendingAnswersRef.current = null;
+      pendingCodesRef.current = null;
     };
 
     const onAnswerResult = ({
@@ -223,17 +242,22 @@ export function useRoomSocket(
     socket.on("room closed", onClosed);
     socket.on("join error", onJoinErrorEvent);
 
-    // The socket is opened only while a room is on screen. Socket.IO buffers
-    // the "join" below until the connection is up, so emitting right away is
-    // fine. Disconnecting on unmount leaves the room server-side and drops a
-    // student from the teacher's hand queue.
+    // Sent on every connect. Socket.IO reconnects by itself after a network
+    // drop, and the new connection is in no room, so "join" must go again.
+    const sendJoin = () => {
+      socket.emit("join", {
+        username: session.username,
+        role: session.role,
+        room: session.room,
+        pup: session.role === "student" ? pup : undefined,
+      });
+    };
+    socket.on("connect", sendJoin);
+
+    // The socket is opened only while a room is on screen. Disconnecting on
+    // unmount leaves the room server-side and drops a student from the
+    // teacher's hand queue.
     socket.connect();
-    socket.emit("join", {
-      username: session.username,
-      role: session.role,
-      room: session.room,
-      pup: session.role === "student" ? pup : undefined,
-    });
 
     return () => {
       socket.off("chat history", onHistory);
@@ -252,6 +276,15 @@ export function useRoomSocket(
       socket.off("timer state", setTimer);
       socket.off("room closed", onClosed);
       socket.off("join error", onJoinErrorEvent);
+      socket.off("connect", sendJoin);
+      lastActivityJsonRef.current = null;
+      // Send any work still waiting out the sync delay before leaving the room
+      // or disconnecting. Edits made in the last 300 ms before the room ends
+      // cannot be saved: the server has already closed the room.
+      if (pendingAnswersRef.current) socket.emit("activity update", pendingAnswersRef.current);
+      if (pendingCodesRef.current) socket.emit("code update", pendingCodesRef.current);
+      pendingAnswersRef.current = null;
+      pendingCodesRef.current = null;
       socket.disconnect();
       setMessages({});
       setPrivateChats([]);
@@ -268,28 +301,60 @@ export function useRoomSocket(
       setStudentAnswers([]);
       setStudentResults([]);
       setStudentFeedback([]);
+      setStudentCodes([]);
+      setStudentOutputs([]);
       setStudentProgress({});
+      touchedRef.current = false;
     };
   }, [session.username, session.role, session.room]);
 
-  // A student's arrangement goes to the teacher only while their private chat
-  // is open. The effect runs again when the chat opens, so the teacher gets the
-  // current arrangement right away.
-  const hasPrivateChat = session.role === "student" && privateChats.length > 0;
+  // A student's work goes to the teacher whenever it changes, with or without a
+  // private chat. The server sends it to the teacher only.
+  const isStudent = session.role === "student";
+  const activityType = activity?.type ?? null;
   useEffect(() => {
-    if (!hasPrivateChat) return;
-    const id = setTimeout(
-      () => socket.emit("activity update", { answers: studentAnswers }),
-      PROGRESS_SYNC_DELAY_MS
-    );
+    if (!isStudent || activityType !== "parsons" || !touchedRef.current) return;
+    // Kept in a ref until sent. The cleanup below only cancels the timer, so the
+    // socket effect's cleanup can still send it if the student leaves now.
+    const payload = { answers: studentAnswers };
+    pendingAnswersRef.current = payload;
+    const id = setTimeout(() => {
+      socket.emit("activity update", payload);
+      if (pendingAnswersRef.current === payload) pendingAnswersRef.current = null;
+    }, PROGRESS_SYNC_DELAY_MS);
     return () => clearTimeout(id);
-  }, [studentAnswers, hasPrivateChat]);
+  }, [studentAnswers, isStudent, activityType]);
+
+  useEffect(() => {
+    if (!isStudent || activityType !== "coding" || !touchedRef.current) return;
+    const payload = { codes: studentCodes, outputs: studentOutputs };
+    pendingCodesRef.current = payload;
+    const id = setTimeout(() => {
+      socket.emit("code update", payload);
+      if (pendingCodesRef.current === payload) pendingCodesRef.current = null;
+    }, PROGRESS_SYNC_DELAY_MS);
+    return () => clearTimeout(id);
+  }, [studentCodes, studentOutputs, isStudent, activityType]);
 
   // Student: change the lines in one question. A changed answer has no result or feedback yet.
   const setStudentAnswer = (questionIndex: number, lines: ParsonsLine[]) => {
+    touchedRef.current = true;
     setStudentAnswers((prev) => prev.map((answer, i) => (i === questionIndex ? lines : answer)));
     setStudentResults((prev) => prev.map((result, i) => (i === questionIndex ? null : result)));
     setStudentFeedback((prev) => prev.map((feedback, i) => (i === questionIndex ? null : feedback)));
+  };
+
+  // Student: change the code of one question. Its last output no longer matches, so it is cleared.
+  const setStudentCode = (questionIndex: number, code: string) => {
+    touchedRef.current = true;
+    setStudentCodes((prev) => prev.map((c, i) => (i === questionIndex ? code : c)));
+    setStudentOutputs((prev) => prev.map((o, i) => (i === questionIndex ? null : o)));
+  };
+
+  // Student: the output of running one question's code.
+  const setStudentOutput = (questionIndex: number, output: string | null) => {
+    touchedRef.current = true;
+    setStudentOutputs((prev) => prev.map((o, i) => (i === questionIndex ? output : o)));
   };
 
   // Student: ask the server whether this question's arrangement is right.
@@ -353,14 +418,19 @@ export function useRoomSocket(
     setStudentAnswer,
     checkAnswer,
     resetProblem,
-    studentProgress: (chatId: string) => studentProgress[chatId] ?? EMPTY_PROGRESS,
+    studentCodes,
+    studentOutputs,
+    setStudentCode,
+    setStudentOutput,
+    studentProgress: (studentId: string) => studentProgress[studentId] ?? null,
     selectChat,
     sendMessage,
     openPrivateChat,
     raiseHand: () => socket.emit("raise hand"),
     lowerHand: (id: string) => socket.emit("lower hand", { id }),
+    ended: false,
   };
 }
 
 // The state and actions the room screen gets from useRoomSocket.
-export type RoomSocket = ReturnType<typeof useRoomSocket>;
+export type { RoomSocket, RoomView } from "./roomView";

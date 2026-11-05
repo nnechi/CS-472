@@ -1,11 +1,11 @@
-import { RoomSocket } from "../../hooks/useRoomSocket";
+import type { RoomView } from "../../hooks/roomView";
 import { PrivateChat } from "../../types";
 import { useState } from "react";
 import ChatPanel from "./ChatPanel";
 import PupAvatar, { PUPS, PupPicker } from "./PupAvatar";
 
 interface ChatWidgetProps {
-  room: RoomSocket;
+  room: RoomView;
   username: string;
   // The tab label for a private chat. Each role names the other person.
   privateLabel: (chat: PrivateChat) => string;
@@ -56,7 +56,8 @@ export default function ChatWidget({ room, username, privateLabel }: ChatWidgetP
           {/* Room code for everyone; teachers also see how many students joined. */}
           <span className="flex flex-wrap items-center gap-x-2 text-xs font-semibold">
             <span className="text-white/80">Room {room.roomCode}</span>
-          {isTeacher && (
+          {room.ended && <span>Ended</span>}
+          {isTeacher && !room.ended && (
             <span className="flex items-center gap-1" aria-live="polite">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />

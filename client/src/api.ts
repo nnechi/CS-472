@@ -1,11 +1,11 @@
-import type { ActivitySummary, ActivityType, ParsonsSettings, ProgrammingLanguage } from "./types"
+import type { ActivitySummary, ActivityType, ParsonsSettings, PastRoomDetail, PastRoomSummary, ProgrammingLanguage } from "./types"
 
 export const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
 // api middleware to communicate to room service. 
 export async function createRoom(hostID : string) : Promise<string>{ 
     const res = await fetch( `${SERVER_URL}/api/rooms`,  { 
-        method:"POST", 
+        method:"POST", credentials: "include", 
         headers: {"Content-Type":"application/json"}, 
         body: JSON.stringify({hostID})
     }); 
@@ -26,13 +26,14 @@ export async function createRoom(hostID : string) : Promise<string>{
 
 export async function deleteRoom(roomCode : string, hostID : string) : Promise<Boolean> { 
     const res = await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent(roomCode)}`, { 
-        method: "DELETE", 
-        headers: {"Content-Type":"application/json"}, 
+        method: "DELETE", credentials: "include",
+        headers: {"Content-Type":"application/json"},
         body: JSON.stringify({hostID})
     })
 
-
-    return res.ok; 
+    // The sign-in expired: the caller signs the teacher out.
+    if (res.status === 401) throw new SessionEndedError();
+    return res.ok;
 
 }
 
@@ -94,6 +95,33 @@ export async function saveActivity(roomCode : string, hostID : string, activityI
     })
 
     if (!res.ok) throw new Error(await failureMessage(res, "Could not save the activity."));
+}
+
+// Thrown when the server says nobody is signed in (401), for example after the
+// server restarted and lost its sessions. The page should send the user to sign in again.
+export class SessionEndedError extends Error {
+    constructor(message = "Your session has ended. Please sign in again.") {
+        super(message);
+        this.name = "SessionEndedError";
+    }
+}
+
+// The rooms this teacher ended, newest first. Needs a signed-in teacher. Throws with the server's reason if it fails.
+export async function listPastRooms() : Promise<PastRoomSummary[]> {
+    const res = await fetch(`${SERVER_URL}/api/past-rooms`, { credentials: "include" })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not load your previous activities."));
+    return res.json();
+}
+
+// Everything saved about one ended room this teacher ran. Throws with the server's reason if it fails.
+export async function getPastRoom(roomCode : string) : Promise<PastRoomDetail> {
+    const res = await fetch(`${SERVER_URL}/api/past-rooms/${encodeURIComponent(roomCode)}`, { credentials: "include" })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not load that room."));
+    return res.json();
 }
 
 export async function checkRoomExists(roomCode : string) : Promise<Boolean> {

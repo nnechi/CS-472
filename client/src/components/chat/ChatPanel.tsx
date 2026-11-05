@@ -1,10 +1,10 @@
-import { RoomSocket } from "../../hooks/useRoomSocket";
+import type { RoomView } from "../../hooks/roomView";
 import { GROUP_CHAT_ID, PrivateChat } from "../../types";
 import ChatTabs, { ChatTab } from "./ChatTabs";
 import ChatWindow from "./ChatWindow";
 
 interface ChatPanelProps {
-  room: RoomSocket;
+  room: RoomView;
   username: string;
   // The tab label for a private chat. Each role names the other person.
   privateLabel: (chat: PrivateChat) => string;
@@ -25,6 +25,7 @@ export default function ChatPanel({ room, username, privateLabel }: ChatPanelPro
       username={username}
       placeholder={room.activeChatId === GROUP_CHAT_ID ? "Type a message..." : "Type a private message..."}
       onSend={(text) => room.sendMessage(room.activeChatId, text)}
+      readOnly={room.ended}
       aboveInput={
         <ChatTabs
           tabs={tabs}

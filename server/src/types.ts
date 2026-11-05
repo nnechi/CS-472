@@ -78,9 +78,8 @@ export interface RoomActivity {
   questions: RoomQuestion[];
 }
 
-// A student's work on each Parsons question in their private chat. The
-// teacher sees it. results is null until the student checks an answer, and
-// is reset when the answer changes.
+// A student's work on each Parsons question. The teacher sees it. results is
+// null until the student checks an answer, and is reset when the answer changes.
 export interface AnswerProgress {
   answers: ParsonsLine[][];
   results: (boolean | null)[];
@@ -88,6 +87,18 @@ export interface AnswerProgress {
   // null until checked, and reset with the result when the answer changes.
   marks: (LineMark[] | null)[];
 }
+
+// A student's work on a coding activity: the code they wrote for each question,
+// and the output of their last Run of it (null if not run, or the code changed since).
+export interface CodingProgress {
+  codes: string[];
+  outputs: (string | null)[];
+}
+
+// What the teacher sees of one student's work. The type says which kind of activity it is for.
+export type StudentProgress =
+  | ({ type: "parsons" } & AnswerProgress)
+  | ({ type: "coding" } & CodingProgress);
 
 //raise hand uses id not username incase multiple people pick the same username.
 export interface RaisedHand {
@@ -109,6 +120,38 @@ export interface TimerState {
   durationMs: number; // the length the teacher chose, what Restart returns to
   remainingMs: number;
   running: boolean;
+}
+
+// A student who joined a room, as saved when the room ended.
+export interface PastStudent {
+  id: string; // the student's socket id during the room
+  username: string;
+  pup: string | null;
+  joinedAt: string; // ISO timestamp
+  hasPrivateChat: boolean; // the teacher opened a private chat with them
+  progress: StudentProgress | null; // null if they never worked on the activity
+  privateMessages: ChatMessage[];
+}
+
+// A room the teacher ran that has ended. Listed under Previous activities.
+export interface PastRoomSummary {
+  code: string;
+  activityName: string | null;
+  activityType: ActivityType | null;
+  startedAt: string; // ISO timestamp, when the teacher opened the room
+  endedAt: string; // ISO timestamp
+  studentCount: number;
+}
+
+// Everything saved about one ended room, for the teacher's read-only view.
+export interface PastRoomDetail {
+  code: string;
+  activityName: string | null;
+  activity: RoomActivity | null; // the teacher's view of the activity, answers included
+  startedAt: string;
+  endedAt: string;
+  students: PastStudent[];
+  messages: ChatMessage[]; // the group chat, oldest first
 }
 
 // What the client is allowed to send to the server.
@@ -136,10 +179,12 @@ export interface ClientToServerEvents {
   "open private chat": (payload: { studentId: string }) => void;
   // Teachers send to any private chat in the room. Students only to their own.
   "private message": (payload: { chatId: string; text: string }) => void;
-  // Students only, while their private chat is open: their arrangement of each Parsons question.
+  // Students only: their arrangement of each Parsons question. Sent as it changes.
   "activity update": (payload: { answers: ParsonsLine[][] }) => void;
   // Students only: check one Parsons question's arrangement against the solution.
   "check answer": (payload: { questionIndex: number; lines: ParsonsLine[] }) => void;
+  // Students only: their code and last Run output for each coding question. Sent as it changes.
+  "code update": (payload: { codes: string[]; outputs: (string | null)[] }) => void;
 }
 
 // What the server sends back to clients.
@@ -150,18 +195,15 @@ export interface ServerToClientEvents {
   "room activity": (activity: RoomActivity | null) => void;
   // The question the teacher picked, sent on join and on every change.
   "current question": (questionIndex: number) => void;
-  // A private chat was opened (or sent again on join). Includes its history
-  // and the student's progress on the activity.
-  "private chat opened": (payload: {
-    chat: PrivateChat;
-    messages: ChatMessage[];
-    progress: AnswerProgress;
-  }) => void;
+  // A private chat was opened (or sent again on join). Includes its history.
+  // A student's progress comes in "student activity", not here.
+  "private chat opened": (payload: { chat: PrivateChat; messages: ChatMessage[] }) => void;
   // A student left, so their private chat is gone. Sent with the chat id.
   "private chat closed": (chatId: string) => void;
   "private message": (message: ChatMessage) => void;
-  // Teachers only: a student's progress changed in their private chat.
-  "student activity": (payload: { chatId: string; progress: AnswerProgress }) => void;
+  // Teachers only: a student's work changed. Sent for every student who has
+  // progress when a teacher joins, and again on each change.
+  "student activity": (payload: { studentId: string; progress: StudentProgress }) => void;
   // Students only: whether their checked answer is right, and the feedback
   // (messages and marked lines) when the teacher turned feedback on.
   "answer result": (payload: {

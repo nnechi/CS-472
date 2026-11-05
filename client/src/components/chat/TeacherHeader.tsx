@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { ArrowLeft } from "lucide-react"
 import { AnswerProgress, Session } from "../../types"
 import Timer from "../Timer"
 import { HandRaiseAlert } from "../HandQueue"
@@ -10,7 +10,8 @@ import useAuth from "../../hooks/useAuth"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
 import { socket } from "../../socket"
 import { cn } from "@/lib/utils"
-import type { RoomSocket } from "../../hooks/useRoomSocket"
+import type { RoomView } from "../../hooks/roomView"
+import { Button } from "@/components/ui/button"
 import {
     Tooltip,
     TooltipContent,
@@ -34,11 +35,19 @@ const QUESTION_NAV_CLASS =
 
 interface TeacherHeaderProps {
     session: Session
-    room: RoomSocket
+    room: RoomView
+    // The selected student's Parsons work, to mark their correct questions in the pager.
     progress?: AnswerProgress
 
-    // Leaving unmounts the chat, which disconnects the socket and ends the room.
+    // The student picked in the dropdown, or null for the class activity.
+    selectedStudentId: string | null
+    onSelectStudent: (id: string | null) => void
+
+    // Live: ends the room. Saved room: goes back to the previous activities list.
     onLeave: () => void
+
+    // Saved room: a short label shown next to the room code, e.g. when it ended.
+    statusLabel?: string
 }
 
 // The teacher's room header: one consolidated bar (this replaced two separate
@@ -49,41 +58,43 @@ interface TeacherHeaderProps {
 // three groups stack instead of competing for one row. The question picker
 // sits in a lighter secondary row beneath, since it controls the activity
 // panel below rather than being header-level room info.
-export default function TeacherHeader({ session, room, progress, onLeave }: TeacherHeaderProps) {
+export default function TeacherHeader({
+    session,
+    room,
+    progress,
+    selectedStudentId,
+    onSelectStudent,
+    onLeave,
+    statusLabel,
+}: TeacherHeaderProps) {
     const { auth } = useAuth()
-    // Picking a question moves every student in the room to it.
+    // Picking a question moves every student in the room to it (in a saved
+    // room it only changes this screen).
     const questions = room.activity?.questions ?? []
     const index = Math.min(room.currentQuestion, questions.length - 1)
     const onFirstQuestion = index === 0
     const onLastQuestion = index === questions.length - 1
-
-    // Which student is picked in the roster dropdown. Kept here (rather than
-    // inside StudentSelector) so a future live-screen-viewing feature can read
-    // it as a sibling of the selector without restructuring this component.
-    const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
-
-    // If the selected student leaves the room, drop the stale selection.
-    useEffect(() => {
-        if (selectedStudentId && !room.roster.some((s) => s.id === selectedStudentId)) {
-            setSelectedStudentId(null)
-        }
-    }, [room.roster, selectedStudentId])
 
     return (
         <div className="border-b border-brand bg-brand-light text-brand">
             <div className="flex flex-col gap-3 px-4 py-3 sm:px-8 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
                 <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
                     <img src={shortLogo} alt="LittlePointers" className="h-8 w-auto shrink-0" />
-                    <RoomCodeBadge code={session.room} hint="Share this with your students" size="lg" />
+                    <RoomCodeBadge
+                        code={session.room}
+                        hint={room.ended ? undefined : "Share this with your students"}
+                        size="lg"
+                    />
+                    {statusLabel && <span className="text-sm font-semibold text-brand/80">{statusLabel}</span>}
                     <StudentSelector
                         students={room.roster}
                         selectedId={selectedStudentId}
-                        onSelect={setSelectedStudentId}
+                        onSelect={onSelectStudent}
                     />
                 </div>
 
                 <div className="flex items-center justify-center">
-                    <Timer
+                    {!room.ended && <Timer
                         durationMs={room.timer.durationMs}
                         remainingMs={room.timer.remainingMs}
                         running={room.timer.running}
@@ -92,11 +103,11 @@ export default function TeacherHeader({ session, room, progress, onLeave }: Teac
                         onPause={() => socket.emit("timer pause")}
                         onRestart={() => socket.emit("timer restart")}
                         onSetMinutes={(minutes) => socket.emit("timer set", { minutes })}
-                    />
+                    />}
                 </div>
 
                 <div className="flex min-w-0 flex-wrap items-center justify-end gap-3 sm:gap-4">
-                    <HandRaiseAlert count={room.handQueue.length} />
+                    {!room.ended && <HandRaiseAlert count={room.handQueue.length} />}
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger
@@ -114,7 +125,19 @@ export default function TeacherHeader({ session, room, progress, onLeave }: Teac
                         </Tooltip>
                     </TooltipProvider>
                     <span className="h-6 w-px shrink-0 bg-brand/20" aria-hidden="true" />
-                    <LeaveRoomButton onLeave={onLeave} />
+                    {room.ended ? (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onLeave}
+                            className="rounded-full border-brand/40 bg-white text-brand shadow-sm hover:bg-brand/10"
+                        >
+                            <ArrowLeft />
+                            Back to previous activities
+                        </Button>
+                    ) : (
+                        <LeaveRoomButton onLeave={onLeave} />
+                    )}
                 </div>
             </div>
 
