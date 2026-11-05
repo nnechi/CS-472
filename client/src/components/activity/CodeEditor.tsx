@@ -84,7 +84,7 @@ export default function CodeEditor({ activity, currentQuestion, role } : CodeEdi
                     <Editor
                         defaultLanguage="cpp"
                         defaultValue={"// Begin writing your solution below\n"}
-                        options={{ fontSize: 18 }}
+                        options={{ fontSize: 18, minimap: {enabled: false} }}
                         onMount={handleMount}
                     />
                 </ResizablePanel>
