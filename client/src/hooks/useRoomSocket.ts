@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { DEFAULT_TIMER_MS } from "../components/Timer";
 import { socket } from "../socket";
 import { PupId, loadPupId, savePupId } from "../components/chat/PupAvatar";
+import { loadStudentKey, saveStudentKey } from "../utils/studentKey";
 import {
   AnswerFeedback,
   AnswerProgress,
@@ -13,6 +14,7 @@ import {
   RosterStudent,
   RoomActivity,
   RoomQuestion,
+  RunOutcome,
   Session,
   TimerState,
 } from "../types";
@@ -27,6 +29,28 @@ interface RoomSocketOptions {
 const PROGRESS_SYNC_DELAY_MS = 300;
 
 const EMPTY_PROGRESS: AnswerProgress = { answers: [], results: [], marks: [] };
+
+// The student's current run. Events for any other job are ignored, so a
+// replaced or stale run can't overwrite the newest one.
+export interface RunState {
+  jobId: string | null;
+  questionIndex: number | null;
+  status: "idle" | "queued" | "running";
+  position: number | null; // place in line while queued, 1 = next
+  output: string; // streamed while running, then the final output
+  outcome: RunOutcome | null; // how the last run ended
+  error: string | null; // why a run was rejected
+}
+
+const IDLE_RUN: RunState = {
+  jobId: null,
+  questionIndex: null,
+  status: "idle",
+  position: null,
+  output: "",
+  outcome: null,
+  error: null,
+};
 
 // Fisher-Yates shuffle, for reshuffling a Parsons problem's lines.
 function shuffle<T>(items: T[]): T[] {
@@ -84,6 +108,10 @@ export function useRoomSocket(
   const [studentFeedback, setStudentFeedback] = useState<(AnswerFeedback | null)[]>([]);
   // Teachers only: each student's progress, keyed by that student's chat id.
   const [studentProgress, setStudentProgress] = useState<Record<string, AnswerProgress>>({});
+  // This person's code for each coding question, kept when the question
+  // changes, and their latest run from the server's execution queue.
+  const [code, setCode] = useState<string[]>([]);
+  const [run, setRun] = useState<RunState>(IDLE_RUN);
 
   // Whether the floating chat window is open. Closed, every new message is unread.
   const [chatOpen, setChatOpenState] = useState(false);
@@ -184,6 +212,7 @@ export function useRoomSocket(
       setActivity(next);
       const questions = next?.questions ?? [];
       setStudentAnswers(questions.map(startingAnswer));
+      setCode(questions.map(() => ""));
       setStudentResults(questions.map(() => null));
       setStudentFeedback(questions.map(() => null));
     };
@@ -218,9 +247,38 @@ export function useRoomSocket(
         role: session.role,
         room: session.room,
         pup: session.role === "student" ? pupRef.current : undefined,
+        // Read at each join, so a key saved since the last join is sent.
+        studentKey: session.role === "student" ? loadStudentKey(session.room) : undefined,
       });
     };
+    // The server's key for this student's environment, to send back next time.
+    const onStudentKey = (key: string) => saveStudentKey(session.room, key);
     const onRoomOpened = () => joinRoom();
+
+    // A run waiting in line. A new jobId means a new run, so start fresh;
+    // the same jobId is just its place in line moving up.
+    const onRunQueued = ({ jobId, questionIndex, position }: { jobId: string; questionIndex: number; position: number }) =>
+      setRun((prev) =>
+        prev.jobId === jobId
+          ? { ...prev, position }
+          : { ...IDLE_RUN, jobId, questionIndex, status: "queued", position }
+      );
+    const onRunStarted = ({ jobId }: { jobId: string }) =>
+      setRun((prev) => (prev.jobId === jobId ? { ...prev, status: "running", position: null } : prev));
+    const onRunOutput = ({ jobId, chunk }: { jobId: string; chunk: string }) =>
+      setRun((prev) => (prev.jobId === jobId ? { ...prev, output: prev.output + chunk } : prev));
+    const onRunFinished = ({ jobId, outcome }: { jobId: string; outcome: RunOutcome }) =>
+      setRun((prev) => {
+        // A replaced run is already superseded by the newer one being tracked.
+        if (prev.jobId !== jobId || outcome.type === "replaced") return prev;
+        const output =
+          outcome.type === "finished"
+            ? `${outcome.result.stdout}${outcome.result.stderr ? "\n[stderr]\n" + outcome.result.stderr : ""}`
+            : prev.output;
+        return { ...prev, status: "idle", position: null, output, outcome };
+      });
+    const onRunRejected = ({ questionIndex, reason }: { questionIndex: number; reason: string }) =>
+      setRun((prev) => ({ ...prev, questionIndex, status: "idle", position: null, error: reason }));
 
     socket.on("chat history", onHistory);
     socket.on("chat message", onMessage);
@@ -240,6 +298,12 @@ export function useRoomSocket(
     socket.on("join error", onJoinErrorEvent);
     socket.on("room waiting", onWaiting); 
     socket.on("room opened", onRoomOpened); 
+    socket.on("student key", onStudentKey);
+    socket.on("run queued", onRunQueued);
+    socket.on("run started", onRunStarted);
+    socket.on("run output", onRunOutput);
+    socket.on("run finished", onRunFinished);
+    socket.on("run rejected", onRunRejected);
 
     // The socket is opened only while a room is on screen. Socket.IO buffers
     // the "join" below until the connection is up, so emitting right away is
@@ -267,6 +331,12 @@ export function useRoomSocket(
       socket.off("join error", onJoinErrorEvent);
       socket.off("room waiting", onWaiting); 
       socket.off("room opened", onRoomOpened); 
+      socket.off("student key", onStudentKey);
+      socket.off("run queued", onRunQueued);
+      socket.off("run started", onRunStarted);
+      socket.off("run output", onRunOutput);
+      socket.off("run finished", onRunFinished);
+      socket.off("run rejected", onRunRejected);
       socket.disconnect();
       setMessages({});
       setPrivateChats([]);
@@ -284,6 +354,8 @@ export function useRoomSocket(
       setStudentResults([]);
       setStudentFeedback([]);
       setStudentProgress({});
+      setRun(IDLE_RUN);
+      setCode([]);
     };
   }, [session.username, session.role, session.room]);
 
@@ -306,6 +378,10 @@ export function useRoomSocket(
     setStudentResults((prev) => prev.map((result, i) => (i === questionIndex ? null : result)));
     setStudentFeedback((prev) => prev.map((feedback, i) => (i === questionIndex ? null : feedback)));
   };
+
+  // Change this person's code for one question.
+  const setCodeAt = (questionIndex: number, next: string) =>
+    setCode((prev) => prev.map((c, i) => (i === questionIndex ? next : c)));
 
   // Student: ask the server whether this question's arrangement is right.
   const checkAnswer = (questionIndex: number) => {
@@ -376,6 +452,13 @@ export function useRoomSocket(
     openPrivateChat,
     raiseHand: () => socket.emit("raise hand"),
     lowerHand: (id: string) => socket.emit("lower hand", { id }),
+    // This person's code for each question, their latest run, and the
+    // actions to edit, start, or stop it. Students and teachers alike.
+    code,
+    setCode: setCodeAt,
+    run,
+    runCode: (questionIndex: number, code: string) => socket.emit("run code", { questionIndex, code }),
+    cancelRun: () => socket.emit("cancel run"),
   };
 }
 

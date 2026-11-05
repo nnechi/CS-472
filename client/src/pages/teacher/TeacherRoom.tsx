@@ -84,6 +84,11 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
                             activity={room.activity}
                             currentQuestion={room.currentQuestion}
                             role="teacher"
+                            codes={room.code}
+                            run={room.run}
+                            onCodeChange={room.setCode}
+                            onRun={room.runCode}
+                            onCancel={room.cancelRun}
                         />
                     )
                 }

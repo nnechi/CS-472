@@ -91,6 +91,11 @@ function StudentRoomScreen({ session, waiting }: { session: Session; waiting: bo
                             activity={room.activity}
                             currentQuestion={room.currentQuestion}
                             role="student"
+                            codes={room.code}
+                            run={room.run}
+                            onCodeChange={room.setCode}
+                            onRun={room.runCode}
+                            onCancel={room.cancelRun}
                         />
                     )
                 }
