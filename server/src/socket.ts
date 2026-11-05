@@ -27,8 +27,14 @@ import {
   RoomQuestion,
   Role,
   SocketData,
+  STUDENT_CODE_MAX_LENGTH,
+  StudentEnvironment,
   TimerState,
+  emptyStudentEnvironment,
 } from "./types";
+import { randomUUID } from "node:crypto";
+import { CodeRunJob, InvalidRunJobError, JobHooks, executionQueue, runnableLanguage } from "./compile";
+import { InvalidCompileRequestError } from "./compile/plan";
 
 import { Room } from "./models/Room"; 
 
@@ -68,6 +74,8 @@ export function closeRoom(io : AppServer, room : string): void {
   handQueues.delete(room);
   rosters.delete(room);
   privateChats.delete(room);
+  clearEnvironments(room);
+  roomActivities.delete(room);
   currentQuestions.delete(room);
   clearTimer(room);
   io.in([room, lobbyChannel(room)]).disconnectSockets();
@@ -111,6 +119,102 @@ const roomPrivateChats = (room: string): Map<string, PrivateChatState> => {
   }
   return chats;
 };
+
+// Each student's workspace, by room and then by studentKey. Not stored in the
+// database, like raised hands. A student who disconnects keeps theirs for a
+// while, so a refresh or a dropped connection doesn't lose their work.
+interface StoredEnvironment {
+  env: StudentEnvironment;
+  // The socket using it right now, or null while the student is away.
+  socketId: string | null;
+  // Set while the student is away: removes the environment when it fires.
+  expiry?: ReturnType<typeof setTimeout>;
+}
+const environments = new Map<string, Map<string, StoredEnvironment>>();
+
+// What a run needs to know about the room's activity, saved when someone
+// joins so a run doesn't need a database lookup. Deleted when the room closes.
+const roomActivities = new Map<string, { language: string | null; questionCount: number }>();
+
+// Whose job a run is in the execution queue. Students use their studentKey.
+// Teachers have no environment, so each teacher connection gets its own key.
+function runOwner(data: { role: Role; studentKey: string | null }, socketId: string): string | null {
+  if (data.role === "teacher") return `teacher:${socketId}`;
+  return data.studentKey ?? null;
+}
+// How long a disconnected student's environment is kept.
+const ENVIRONMENT_GRACE_MS = 5 * 60 * 1000;
+
+// The room's environments, created on first use.
+const roomEnvironments = (room: string): Map<string, StoredEnvironment> => {
+  let envs = environments.get(room);
+  if (!envs) {
+    envs = new Map();
+    environments.set(room, envs);
+  }
+  return envs;
+};
+
+// Forget every environment in a room (used when the room closes).
+function clearEnvironments(room: string): void {
+  for (const stored of environments.get(room)?.values() ?? []) {
+    if (stored.expiry) clearTimeout(stored.expiry);
+  }
+  environments.delete(room);
+}
+
+// A studentKey is what the server handed out: a UUID. Anything else is ignored.
+function cleanStudentKey(value: unknown): string | null {
+  return typeof value === "string" && /^[A-Za-z0-9-]{8,64}$/.test(value) ? value : null;
+}
+
+// Give a joining student their environment and return its key: the one under
+// the key they sent if it's free, or a new one. A key another connected
+// socket is using is never shared -- that happens when a browser duplicates a
+// tab, storage and all -- so the second tab gets a fresh environment.
+function claimEnvironment(
+  room: string,
+  socketId: string,
+  username: string,
+  requestedKey: string | null,
+  activity: RoomActivity | null
+): string {
+  const envs = roomEnvironments(room);
+  const existing = requestedKey ? envs.get(requestedKey) : undefined;
+
+  if (existing && (existing.socketId === null || existing.socketId === socketId)) {
+    if (existing.expiry) clearTimeout(existing.expiry);
+    existing.expiry = undefined;
+    existing.socketId = socketId;
+    existing.env.username = username;
+    return existing.env.studentKey;
+  }
+
+  // A key nobody holds (e.g. the server restarted) is kept, so the client's
+  // saved key stays valid. A key in use gets a new one.
+  const key = requestedKey && !existing ? requestedKey : randomUUID();
+  envs.set(key, {
+    env: emptyStudentEnvironment(key, username, activity?.type ?? null, activity?.questions.length ?? 0),
+    socketId,
+  });
+  return key;
+}
+
+// A student's socket left. Their environment stays for ENVIRONMENT_GRACE_MS
+// in case they come back, then it's removed. Does nothing if a newer
+// connection has already claimed it (a refresh can rejoin before the old
+// socket's disconnect arrives).
+function releaseEnvironment(room: string, key: string, socketId: string): void {
+  const stored = environments.get(room)?.get(key);
+  if (!stored || stored.socketId !== socketId) return;
+  stored.socketId = null;
+  stored.expiry = setTimeout(() => {
+    const envs = environments.get(room);
+    if (envs?.get(key) !== stored) return;
+    envs.delete(key);
+    if (envs.size === 0) environments.delete(room);
+  }, ENVIRONMENT_GRACE_MS);
+}
 
 // The display settings a student's widget needs, from a question's options.
 function displaySettings(options: Partial<ParsonsOptions> | undefined): ParsonsDisplayOptions {
@@ -410,7 +514,7 @@ export function registerSocketHandlers(
 
       // Teachers create a room
       // Students join one.
-      socket.on("join", async ({ username, role, room, pup }) => {
+      socket.on("join", async ({ username, role, room, pup, studentKey }) => {
         const cleanUser = String(username || "").trim().slice(0, 32);
         const roomCode = String(room || "").trim().toUpperCase();
 
@@ -448,6 +552,10 @@ export function registerSocketHandlers(
         }
         
       
+        // A socket that already has an environment in this room (it joined
+        // twice, e.g. a waiting student let in) keeps it, whatever it sends.
+        const previousKey = socket.data.room === roomCode ? socket.data.studentKey ?? null : null;
+
         // Remember who this socket is so later events don't resend it.
         socket.data.username = cleanUser;
         // A teacher's picture comes from their login session, not from what the
@@ -461,6 +569,7 @@ export function registerSocketHandlers(
         socket.data.pup = role === "student" ? cleanPup(pup) : null;
         socket.data.room = roomCode;
         socket.data.waiting = waiting; 
+        socket.data.studentKey = verifiedRole === "student" ? previousKey : null;
 
         if (waiting){ 
           socket.join(lobbyChannel(roomCode)); 
@@ -499,7 +608,28 @@ export function registerSocketHandlers(
         broadcastParticipants(io, roomCode).catch(console.error); 
 
         // Everyone gets the room's activity, shaped for their role.
-        socket.emit("room activity", await loadRoomActivity(activityId, verifiedRole));
+        const roomActivity = await loadRoomActivity(activityId, verifiedRole);
+        roomActivities.set(roomCode, {
+          language: roomActivity?.language ?? null,
+          questionCount: roomActivity?.questions.length ?? 0,
+        });
+
+        // A student gets their environment back, or a new one, plus the key to
+        // ask for it next time. Skipped if they left while the activity loaded,
+        // since their disconnect has already run and nothing would release it.
+        if (verifiedRole === "student" && socket.connected) {
+          const key = claimEnvironment(
+            roomCode,
+            socket.id,
+            cleanUser,
+            previousKey ?? cleanStudentKey(studentKey),
+            roomActivity
+          );
+          socket.data.studentKey = key;
+          socket.emit("student key", key);
+        }
+
+        socket.emit("room activity", roomActivity);
         // Late joiners land on the question the teacher has picked.
         socket.emit("current question", currentQuestions.get(roomCode) ?? 0);
 
@@ -767,8 +897,86 @@ export function registerSocketHandlers(
         }
       });
 
+      // Someone runs one question's code; the run waits its turn in the shared
+      // queue. A student's code is saved to their environment and the job is
+      // built from it. A teacher has no environment, so their code runs as sent.
+      socket.on("run code", ({ questionIndex, code }) => {
+        if (socket.data.waiting) return;
+        const { role, room, studentKey } = socket.data;
+        if (!room || !role) return;
+        const owner = runOwner(socket.data, socket.id);
+        if (!owner) return;
+
+        const index = Number(questionIndex);
+        const reject = (reason: string) => socket.emit("run rejected", { questionIndex: index, reason });
+        if (typeof code !== "string") return reject("There's no code to run.");
+        if (code.length > STUDENT_CODE_MAX_LENGTH) return reject("Your code is too long to run.");
+
+        const activity = roomActivities.get(room);
+        const language = activity?.language ?? null;
+
+        // A student's environment, or undefined for a teacher.
+        const stored = role === "student" && studentKey ? environments.get(room)?.get(studentKey) : undefined;
+        if (role === "student" && (!stored || stored.socketId !== socket.id)) return;
+
+        let started = false;
+        let job: CodeRunJob;
+        const hooks: JobHooks = {
+          onQueued: (position) => socket.emit("run queued", { jobId: job.id, questionIndex: index, position }),
+          onStart: () => {
+            started = true;
+            if (stored) stored.env.running = true;
+            socket.emit("run started", { jobId: job.id, questionIndex: index });
+          },
+          onOutput: (stream, chunk) => socket.emit("run output", { jobId: job.id, stream, chunk }),
+          onDone: (outcome) => {
+            if (stored && started) stored.env.running = false;
+            if (stored && outcome.type === "finished") stored.env.questions[index].lastRun = outcome.result;
+            socket.emit("run finished", { jobId: job.id, questionIndex: index, outcome });
+          },
+        };
+
+        try {
+          if (stored) {
+            const question = Number.isInteger(index) ? stored.env.questions[index] : undefined;
+            if (!question) return reject("That question doesn't exist.");
+            question.code = code;
+            job = CodeRunJob.fromEnvironment(stored.env, index, language, hooks);
+          } else {
+            if (!Number.isInteger(index) || index < 0 || index >= (activity?.questionCount ?? 0)) {
+              return reject("That question doesn't exist.");
+            }
+            const compileLanguage = runnableLanguage(language);
+            if (!compileLanguage) return reject("This activity's language can't be run.");
+            if (!code.trim()) return reject("Write some code before running it.");
+            job = new CodeRunJob(owner, index, { language: compileLanguage, code }, hooks);
+          }
+        } catch (error) {
+          if (error instanceof InvalidRunJobError || error instanceof InvalidCompileRequestError) {
+            return reject(error.message);
+          }
+          throw error;
+        }
+
+        const result = executionQueue.enqueue(job);
+        if (result.status === "queue-full") reject("Lots of people are running code. Try again in a moment.");
+        if (result.status === "already-running") reject("Your code is already running.");
+      });
+
+      // Someone stops their own queued or running code.
+      socket.on("cancel run", () => {
+        if (!socket.data.role) return;
+        const owner = runOwner(socket.data, socket.id);
+        if (owner) executionQueue.cancelOwner(owner);
+      });
+
       socket.on("disconnect", () => {
         console.log("[socket] user disconnected:", socket.id);
+        // Their output has nowhere to go, so free the runner for someone else.
+        if (socket.data.role) {
+          const owner = runOwner(socket.data, socket.id);
+          if (owner) executionQueue.cancelOwner(owner);
+        }
         // This socket has already left its rooms, so the count no longer includes it.
         if (socket.data.room && socket.data.role === "student") void sendStudentCount(socket.data.room);
         // A student who leaves shouldn't stay in the teacher's list.
@@ -776,6 +984,8 @@ export function registerSocketHandlers(
         if (socket.data.room && socket.data.role === "student") {
           closePrivateChat(socket.data.room, socket.id);
           removeFromRoster(socket.data.room, socket.id);
+          // Their work is kept for a while in case they come back.
+          if (socket.data.studentKey) releaseEnvironment(socket.data.room, socket.data.studentKey, socket.id);
           broadcastParticipants(io, socket.data.room).catch(console.error);
         }
       });
