@@ -1,3 +1,4 @@
+import { compileRouter } from "./compile/routes";
 import express, { ErrorRequestHandler, RequestHandler } from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -50,7 +51,8 @@ export function createApp(io : AppServer) {
   });
 
   app.use(cors({ origin: CLIENT_ORIGIN }));
-  app.use(express.json());
+  app.use(express.json({ limit: "1mb" }));
+  app.use("/api/compile", compileRouter);
 
   // A tiny health-check route so you can confirm the server is up in a browser.
   app.get("/health", (_req, res) => {

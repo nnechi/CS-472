@@ -1,0 +1,105 @@
+# Compile module
+
+`createExecutionPlan(rawRequest)` validates an incoming request and returns the
+fixed source filename and command specs for JavaScript, TypeScript, C, C++, Java,
+or Python. It throws `InvalidCompileRequestError` for rejected input. Import the
+public API from `./compile` in whichever transport handles compile requests.
+
+Example request:
+
+```ts
+{ language: "python", code: "print('hello')", stdin: "" }
+```
+
+`runJavaScript(request, options)` runs JavaScript in a temporary working
+directory. `runTypeScript(request, options)` type-checks and compiles a
+TypeScript file there, then runs the emitted JavaScript if compilation succeeds.
+`runPython(request, options)` executes a single Python file using `python3`
+with unbuffered output. `runJava(request, options)` compiles `Main.java` with
+`javac`, then runs `Main` if compilation succeeds. `runC(request, options)` compiles `main.c` as C17 with `gcc`, then runs the
+resulting program if compilation succeeds. All five runners return collected `stdout` and `stderr` and call `onUpdate` as text arrives,
+which can later forward each update to the requesting WebSocket client:
+
+```ts
+import { runJavaScript, runTypeScript, runPython, runJava, runC } from "./compile";
+
+const result = await runJavaScript(
+  { language: "javascript", code: "console.log('hello')" },
+  { onUpdate: (update) => console.log(update) }
+);
+console.log(result.stdout); // "hello\n"
+
+const tsResult = await runTypeScript(
+  { language: "typescript", code: "const n: number = 42; console.log(n)" },
+  { onUpdate: (update) => console.log(update) }
+);
+console.log(tsResult.stdout); // "42\n"
+
+const pyResult = await runPython({ language: "python", code: "print(input())", stdin: "hello\n" });
+console.log(pyResult.stdout); // "hello\n"
+
+const javaResult = await runJava({
+  language: "java",
+  code: 'public class Main { public static void main(String[] args) { System.out.println("hello"); } }',
+});
+console.log(javaResult.stdout); // "hello\n"
+
+const cResult = await runC({
+  language: "c",
+  code: '#include <stdio.h>\nint main(void) { puts("hello"); return 0; }',
+});
+console.log(cResult.stdout); // "hello\n"
+```
+
+`CompileUpdate` includes status, stdout/stderr chunks, completion, and errors.
+Use `executionId` to associate updates with their request. To cancel a running
+job, pass an `AbortController` signal and call `abort()` on disconnect or on a
+client cancellation request. The default run timeout is 5 seconds, the
+TypeScript, Java, and C compile timeout is 10 seconds, and the combined output limit is
+256 KiB. These can be adjusted in the run options. TypeScript diagnostics are
+streamed as output; a failed compile never starts the program. The TypeScript
+runner currently accepts a single source file named `main.ts`.
+
+Install server dependencies once from the `server` directory:
+
+```sh
+cd server
+npm install
+npm run test:compile
+```
+
+After installation, from the repository root you can run
+`npm --prefix server run test:compile`.
+
+`tsx` is a server development dependency. Running `node --import tsx` from the
+repository root looks for `tsx` at the root and fails with
+`ERR_MODULE_NOT_FOUND`; use the npm script above instead.
+
+Python requires `python3` on the system executable search path. Python syntax
+and runtime errors are streamed on stderr and return a nonzero exit code.
+
+Java requires a JDK (Java 21 is installed in the Docker image), with `javac`
+and `java` available on PATH. Submit a single source file declaring `Main`
+with `public static void main(String[] args)` and no package declaration.
+Source and output use UTF-8. Compile diagnostics and runtime exceptions
+are streamed on stderr; compilation failure prevents the run stage.
+Both stages support cancellation, timeouts, and the shared output cap.
+
+C requires `gcc` and standard C headers on the host (Apple Clang through the
+`gcc` command also works on macOS). Submit a single source file with a `main`
+function. Compiler diagnostics go to stderr; a failed compile never runs the
+program. C output uses normal stdio buffering; use `fflush(stdout)` when
+prompt output must arrive before the program exits.
+
+`runCpp(request, options)` compiles a single `main.cpp` as C++17 with `g++`,
+then executes it when compilation succeeds. It uses the same cancellation,
+timeout, streaming, and output limits as C. Teachers select `c++` for activities;
+the editor and execution API use `cpp`.
+
+Future work includes isolated execution with memory limits.
+
+The current server image includes Node, Python, a Java 21 JDK, GCC, and libc headers,
+and G++. `tsc` is supplied by the server's TypeScript dependency. These runners are
+suitable for local development; the temporary directory,
+timeout, and output cap do not isolate untrusted code from the server's files
+or network.
