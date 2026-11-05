@@ -8,7 +8,7 @@ export const ACTIVITY_MAX_LENGTH = 5000;
 // The longest name a teacher can give an activity.
 export const ACTIVITY_NAME_MAX_LENGTH = 100;
 // The languages a teacher can pick for a coding activity.
-export const PROGRAMMING_LANGUAGES = ["python", "c++", "javascript", "other"] as const;
+export const PROGRAMMING_LANGUAGES = ["python", "c++", "javascript", "typescript", "java", "c", "other"] as const;
 // Coding: students write code to match an output. Parsons: students put lines in order.
 export const ACTIVITY_TYPES = ["coding", "parsons"] as const;
 export type ActivityType = typeof ACTIVITY_TYPES[number];
@@ -74,6 +74,7 @@ export interface RoomQuestion {
 // The room's activity, with the questions shaped for the person receiving it.
 export interface RoomActivity {
   type: ActivityType;
+  language: string | null;
   questions: RoomQuestion[];
 }
 

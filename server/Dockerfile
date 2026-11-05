@@ -4,6 +4,9 @@ FROM node:20-alpine
 # All following commands run inside /app in the container.
 WORKDIR /app
 
+# Submission runtimes: Python, Java, and the C and C++ compilers with libc headers.
+RUN apk add --no-cache python3 openjdk21-jdk gcc g++ musl-dev
+
 # Copy ONLY the manifest files first. Docker caches this layer, so
 # "npm install" re-runs only when your dependencies actually change.
 COPY package*.json ./
