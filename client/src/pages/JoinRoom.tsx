@@ -1,7 +1,9 @@
 import { FormEvent, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { ROOM_CODE_MAX_LENGTH, normalizeRoomCode } from "../utils/roomCode"
 import { getRoomStatus } from "../api.ts";
+
+import wideLogo from "../assets/LittlePointers Logo/Full Logo Wide.png"
 
 // Students land here, enter the room code their teacher shared, and go straight
 // into the room. No account is needed. The name is only shown in the chat and
@@ -43,15 +45,16 @@ export default function JoinRoom() {
     }
 
     return(
-        <div className="flex item-center justify-center py-12">
-            <div className="flex w-full max-w-sm flex-col gap-3 rounded-2xl border border-brand bg-white p-9 text-brand shadow-[0_4px_14px_rgba(34,21,116,0.15)]">
-            <h1 className="text-2xl font-bold">Join a Room</h1>
+        <div className="flex flex-col items-center justify-center gap-10 pb-12 pt-4 md:flex-row md:gap-16 md:-translate-x-32">
+            <img src={wideLogo} alt="LittlePointers" className="h-auto w-96 md:w-[44rem] md:shrink-0 -translate-y-6 md:translate-x-12" />
+            <div className="flex w-full max-w-md shrink-0 md:w-[28rem] md:-translate-x-12 flex-col gap-3 rounded-2xl bg-[#ccc9f7] px-9 py-11 text-brand shadow-[0_4px_14px_rgba(34,21,116,0.15)]">
+            <h1 className="text-center text-4xl font-bold">Join a Room</h1>
 
-            <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-3" noValidate>
-                <label htmlFor="roomCode" className="font-bold">Code</label>
+            <form onSubmit={handleSubmit} className="-mt-2 flex flex-col gap-3" noValidate>
+                <label htmlFor="roomCode" className="relative top-2 text-center text-xl font-bold text-[#7A2E0E]">Code</label>
                 <input
                     id="roomCode"
-                    className="rounded-lg border border-brand/30 px-3 py-2 uppercase tracking-widest placeholder:normal-case placeholder:tracking-normal placeholder:text-brand/40 focus:border-brand focus:outline-none"
+                    className="mx-auto w-[70%] rounded-lg border-2 border-[#D1003F] text-[#7A2E0E] px-3 py-5 text-center text-xl uppercase tracking-widest placeholder:normal-case placeholder:tracking-normal placeholder:text-lg placeholder:text-[#7A2E0E]/85 focus:border-[#800026] focus:outline-none"
                     value={code}
                     onChange={(e) => {
                         setCode(e.target.value)
@@ -60,13 +63,12 @@ export default function JoinRoom() {
                     placeholder="Enter code"
                     maxLength={ROOM_CODE_MAX_LENGTH}
                     autoComplete="off"
-                    autoFocus
                 />
 
-                <label htmlFor="displayName" className="font-bold">Your name</label>
+                <label htmlFor="displayName" className="relative top-2 text-center text-xl font-bold text-[#7A2E0E]">Your name</label>
                 <input
                     id="displayName"
-                    className="rounded-lg border border-brand/30 px-3 py-2 placeholder:text-brand/40 focus:border-brand focus:outline-none"
+                    className="mx-auto w-[70%] rounded-lg border-2 border-[#D1003F] text-[#7A2E0E] px-3 py-5 text-center text-xl placeholder:text-lg placeholder:text-[#7A2E0E]/85 focus:border-[#800026] focus:outline-none"
                     value={name}
                     onChange={(e) => {
                         setName(e.target.value)
@@ -82,17 +84,11 @@ export default function JoinRoom() {
                 )}
                 <button
                     type="submit"
-                    className="rounded-lg bg-brand px-4 py-2 text-white cursor-pointer hover:bg-brand/90"
+                    className="mx-auto w-1/2 rounded-lg bg-brand px-4 py-4 text-xl text-white cursor-pointer hover:bg-brand/90"
                 >
                     Join 
                 </button>
             </form>
-
-            <p className="mt-4 text-sm text-gray-500">
-                Are you a teacher?{" "}
-                <Link to="/login" className="underline hover:text-black">Sign in</Link>
-                {" "}to create a room.
-            </p>
         </div>
         </div>
     )

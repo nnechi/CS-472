@@ -1,4 +1,3 @@
-// Two kinds of users.
 export type Role = "student" | "teacher";
 
 // The group chat's id. Private chats use the student's socket id instead.
@@ -28,6 +27,8 @@ export interface ChatMessage {
   chatId: string; // GROUP_CHAT_ID, or the id of a private chat
   // The sender's profile picture URL. Only signed-in teachers have one.
   avatarUrl?: string | null;
+  // A student's pup avatar id (for example "corgi"). Teachers have none.
+  pup?: string | null;
 }
 
 // A private chat between the room's teacher and one student. `id` is the
@@ -94,6 +95,13 @@ export interface RaisedHand {
   raisedAt: string; // ISO timestamp
 }
 
+// A student currently connected to the room. id is their socket id, same as
+// RaisedHand -- a student can appear here whether or not they've raised a hand.
+export interface RosterStudent {
+  id: string;
+  username: string;
+}
+
 // The room's countdown timer. remainingMs is the time left right now, and
 // running means it is counting down.
 export interface TimerState {
@@ -105,7 +113,9 @@ export interface TimerState {
 // What the client is allowed to send to the server.
 export interface ClientToServerEvents {
   // Sent once, right after connecting.
-  join: (payload: { username: string; role: Role; room: string }) => void;
+  join: (payload: { username: string; role: Role; room: string; pup?: string }) => void;
+  // Students only: change their pup avatar. Later messages use the new pup.
+  "set pup": (payload: { pup: string }) => void;
   // Username, role, and room are remembered server-side, so we only send text.
   "chat message": (payload: { text: string }) => void;
   // Students toggles their own hand up/down.
@@ -167,6 +177,11 @@ export interface ServerToClientEvents {
   "system message": (text: string) => void;
   // Raised hands in the room, oldest first.
   "hand queue": (queue: RaisedHand[]) => void;
+  // Teachers only: how many students are in the room right now.
+  "student count": (count: number) => void;
+  // Teachers only: everyone currently connected to the room, sent on join
+  // and whenever a student joins or leaves.
+  "room roster": (roster: RosterStudent[]) => void;
   // Sent to a student when their own hand goes up or down.
   "hand status": (raised: boolean) => void;
   // The room's timer, sent on join and on every play/pause.
@@ -192,4 +207,5 @@ export interface SocketData {
   // A signed-in teacher's Google picture, from their login session.
   avatarUrl: string | null;
   waiting : boolean; 
+  pup: string | null;
 }

@@ -7,9 +7,9 @@ import useAuth from "../../hooks/useAuth"
 import { Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
 import { deleteRoom } from "../../api"
-import RoomNavbar from "../../components/chat/RoomNavbar"
 import TeacherHeader from "../../components/chat/TeacherHeader"
 import CodeEditor from "../../components/activity/CodeEditor"
+import { HandQueue } from "../../components/HandQueue"
 
 // /rooms/:roomId -- the teacher's view of a room: the activity, the chat, the
 // timer, and the raised-hand queue. Students who land here are sent to their
@@ -61,8 +61,14 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
 
     return (
         <div className="flex h-screen flex-col bg-white text-black">
-            <RoomNavbar session={session} onLeave={endRoom} />
-            <TeacherHeader session={session} room={room} progress={progress} />
+            <TeacherHeader session={session} room={room} progress={progress} onLeave={endRoom} />
+            <div className="px-4 py-3 sm:px-8">
+                <HandQueue
+                    queue={room.handQueue}
+                    onLowerHand={room.lowerHand}
+                    onOpenPrivateChat={room.openPrivateChat}
+                />
+            </div>
             <RoomLayout
                 activity={room.activity?.type === "parsons" ?
                     (

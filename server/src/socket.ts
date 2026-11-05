@@ -22,6 +22,7 @@ import {
   Participant, 
   PrivateChat,
   RaisedHand,
+  RosterStudent,
   RoomActivity,
   RoomQuestion,
   Role,
@@ -34,6 +35,12 @@ import { Room } from "./models/Room";
 // The socket's first HTTP request, with the login session attached
 // (see io.engine.use(sessionMiddleware) in index.ts).
 type SessionRequest = IncomingMessage & { session?: Session & Partial<SessionData> };
+
+// A pup avatar id is a short lowercase word like "corgi". The client keeps the
+// list of breeds; anything else is ignored so nobody can send odd values.
+function cleanPup(value: unknown): string | null {
+  return typeof value === "string" && /^[a-z]{2,20}$/.test(value) ? value : null;
+}
 
 export type AppServer = Server< 
   ClientToServerEvents, 
@@ -59,6 +66,7 @@ export function lobbyChannel(room : string){
 export function closeRoom(io : AppServer, room : string): void {
   io.to([room, lobbyChannel(room)]).emit("room closed");
   handQueues.delete(room);
+  rosters.delete(room);
   privateChats.delete(room);
   currentQuestions.delete(room);
   clearTimer(room);
@@ -73,6 +81,10 @@ export async function broadcastParticipants(io : AppServer, room : string){
 
 //raise hands are not stored in database,
 const handQueues = new Map<string, RaisedHand[]>();
+
+// Students currently connected to the room, teachers only. Not stored in the
+// database, like raised hands -- it only ever reflects who's connected right now.
+const rosters = new Map<string, RosterStudent[]>();
 
 // The question the teacher picked, by room. Rooms start on the first question.
 // Not stored in database, like raised hands.
@@ -254,6 +266,13 @@ export function registerSocketHandlers(
   
 
 
+  // Tell the room's teachers how many students are in it right now.
+  const sendStudentCount = async (room: string) => {
+    const sockets = await io.in(room).fetchSockets();
+    const count = sockets.filter((s) => s.data.role === "student").length;
+    io.to(teacherChannel(room)).emit("student count", count);
+  };
+
   // Store a room's queue and send it to that room's teachers.
   const setQueue = (room: string, queue: RaisedHand[]) => {
     if (queue.length) handQueues.set(room, queue);
@@ -270,9 +289,36 @@ export function registerSocketHandlers(
     io.to(id).emit("hand status", false);
   };
 
-  // Send the room's timer to that room's teachers only.
+  const getRoster = (room: string) => rosters.get(room) ?? [];
+
+  // Store a room's connected-student list and send it to that room's teachers.
+  const setRoster = (room: string, roster: RosterStudent[]) => {
+    if (roster.length) rosters.set(room, roster);
+    else rosters.delete(room);
+    io.to(teacherChannel(room)).emit("room roster", roster);
+  };
+
+  // A student joined the room.
+  const addToRoster = (room: string, student: RosterStudent) => {
+    const roster = getRoster(room);
+    // Already there (e.g. "join" fired twice for the same connection, which
+    // React's StrictMode does once in development) -- nothing to add.
+    if (roster.some((s) => s.id === student.id)) return;
+    setRoster(room, [...roster, student]);
+  };
+
+  // A student left the room (disconnected).
+  const removeFromRoster = (room: string, id: string) => {
+    const roster = getRoster(room);
+    const next = roster.filter((s) => s.id !== id);
+    if (next.length === roster.length) return; // wasn't in the roster
+    setRoster(room, next);
+  };
+
+  // Send the room's timer to everyone in the room. Teachers get the controls
+  // for it; students only ever see the read-only display.
   const broadcastTimer = (room: string) => {
-    io.to(teacherChannel(room)).emit("timer state", timerSnapshot(room));
+    io.to(room).emit("timer state", timerSnapshot(room));
   };
 
   // Tell both the student and the room's teachers that a private chat exists.
@@ -364,7 +410,7 @@ export function registerSocketHandlers(
 
       // Teachers create a room
       // Students join one.
-      socket.on("join", async ({ username, role, room }) => {
+      socket.on("join", async ({ username, role, room, pup }) => {
         const cleanUser = String(username || "").trim().slice(0, 32);
         const roomCode = String(room || "").trim().toUpperCase();
 
@@ -407,9 +453,12 @@ export function registerSocketHandlers(
         // A teacher's picture comes from their login session, not from what the
         // browser sends, so nobody can show someone else's picture. Students
         // have no account, so they get none (the chat shows their initials).
+
       
         socket.data.avatarUrl = verifiedRole === "teacher" ? sessionUser?.picture ?? null : null;
         socket.data.role = verifiedRole;
+        // Students pick a pup avatar. Teachers show their picture instead.
+        socket.data.pup = role === "student" ? cleanPup(pup) : null;
         socket.data.room = roomCode;
         socket.data.waiting = waiting; 
 
@@ -422,13 +471,18 @@ export function registerSocketHandlers(
 
         //  subscribe this socket to a channel (room).
         socket.join(roomCode);
+
         socket.leave(lobbyChannel(roomCode)); 
 
-
+         void sendStudentCount(roomCode);
         // Only teachers get the list of who needs help.
         if (verifiedRole === "teacher") {
+        // A student arrived, or a teacher needs the current number.
+       
+
           socket.join(teacherChannel(roomCode));
           socket.emit("hand queue", getQueue(roomCode));
+          socket.emit("room roster", getRoster(roomCode));
           // Put back any private chats still open in this room.
           for (const state of roomPrivateChats(roomCode).values()) {
             socket.emit("private chat opened", {
@@ -437,6 +491,9 @@ export function registerSocketHandlers(
               progress: state.progress,
             });
           }
+        } else {
+          // A student joined -- add them to the roster teachers see.
+          addToRoster(roomCode, { id: socket.id, username: cleanUser });
         }
 
         broadcastParticipants(io, roomCode).catch(console.error); 
@@ -462,6 +519,7 @@ export function registerSocketHandlers(
             createdAt: (m.createdAt as Date).toISOString(),
             chatId: GROUP_CHAT_ID,
             avatarUrl: m.avatarUrl ?? null,
+            pup: m.pup ?? null,
           }));
 
           socket.emit("chat history", history);
@@ -469,8 +527,14 @@ export function registerSocketHandlers(
           console.error("[socket] failed to load history:", err);
         }
 
-        // Late joining teachers see the timer as it is right now.
-        if (verifiedRole === "teacher") socket.emit("timer state", timerSnapshot(roomCode));
+        // Late joiners (either role) see the timer as it is right now.
+        socket.emit("timer state", timerSnapshot(roomCode));
+      });
+
+      // A student changes their pup avatar. Their later messages use it.
+      socket.on("set pup", ({ pup }) => {
+        if (socket.data.role !== "student") return;
+        socket.data.pup = cleanPup(pup);
       });
 
       // Mesages limited by room
@@ -488,6 +552,7 @@ export function registerSocketHandlers(
             text: cleanText,
             room,
             avatarUrl: socket.data.avatarUrl ?? null,
+            pup: socket.data.pup ?? null,
           });
 
           const message: ChatMessage = {
@@ -498,6 +563,7 @@ export function registerSocketHandlers(
             createdAt: (saved.createdAt as Date).toISOString(),
             chatId: GROUP_CHAT_ID,
             avatarUrl: saved.avatarUrl ?? null,
+            pup: saved.pup ?? null,
           };
 
           // broadcast to everyone in this room only.
@@ -619,6 +685,7 @@ export function registerSocketHandlers(
           createdAt: new Date().toISOString(),
           chatId: state.chat.id,
           avatarUrl: socket.data.avatarUrl ?? null,
+          pup: socket.data.pup ?? null,
         };
         state.messages = [...state.messages, message].slice(-PRIVATE_HISTORY_LIMIT);
 
@@ -702,11 +769,14 @@ export function registerSocketHandlers(
 
       socket.on("disconnect", () => {
         console.log("[socket] user disconnected:", socket.id);
+        // This socket has already left its rooms, so the count no longer includes it.
+        if (socket.data.room && socket.data.role === "student") void sendStudentCount(socket.data.room);
         // A student who leaves shouldn't stay in the teacher's list.
         if (socket.data.room) removeHand(socket.data.room, socket.id);
         if (socket.data.room && socket.data.role === "student") {
           closePrivateChat(socket.data.room, socket.id);
-          broadcastParticipants(io, socket.data.room).catch(console.error); 
+          removeFromRoster(socket.data.room, socket.id);
+          broadcastParticipants(io, socket.data.room).catch(console.error);
         }
       });
     }
