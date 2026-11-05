@@ -169,7 +169,7 @@ export function createApp(io : AppServer) {
 
     try {
       const created = await Activity.create(parsed.value);
-      res.status(201).json({ id: String(created._id), name: created.name, type: created.type });
+      res.status(201).json({ id: String(created._id), name: created.name, type: created.type, questionCount: created.questions.length, createdAt: created.createdAt });
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to save the activity." });
@@ -186,8 +186,13 @@ export function createApp(io : AppServer) {
     }
 
     try {
-      const found = await Activity.find({ teacherId }).sort({ name: 1 }).select("name type").lean();
-      res.status(200).json(found.map((a) => ({ id: String(a._id), name: a.name, type: a.type })));
+      // Counts the questions on the server so the whole question list isn't sent just to show a number.
+      const found = await Activity.aggregate([
+        { $match: { teacherId } },
+        { $sort: { name: 1 } },
+        { $project: { name: 1, type: 1, createdAt: 1, questionCount: { $size: "$questions" } } },
+      ]);
+      res.status(200).json(found.map((a) => ({ id: String(a._id), name: a.name, type: a.type, questionCount: a.questionCount, createdAt: a.createdAt })));
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to load activities." });

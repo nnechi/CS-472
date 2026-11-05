@@ -56,3 +56,11 @@ export function LogoutIcon({ className = "h-6 w-6" }: IconProps) {
         </svg>
     )
 }
+
+export function ChatIcon({ className = "h-6 w-6" }: IconProps) {
+    return (
+        <svg {...base} className={className}>
+            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+        </svg>
+    )
+}

@@ -28,7 +28,7 @@ export default function TeacherDashboard() {
     // Opens the room creation page with this activity already chosen, the same way Activity's "Start Room" does.
     function startRoom(activityId: string) {
         setMenuOpen(false)
-        navigate("/dashboard/room-creation", { state: { activityId } })
+        navigate("/room-creation", { state: { activityId } })
     }
 
     function displayChoices() {

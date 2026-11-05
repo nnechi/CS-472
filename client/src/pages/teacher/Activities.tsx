@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import useAuth from "../../hooks/useAuth"
 import Activity from "../../components/Activity"
+import { NoteIcon } from "../../components/ActivitySVGs"
 import { deleteActivity, listActivities } from "../../api"
 import type { ActivitySummary } from "../../types"
 
@@ -22,6 +23,9 @@ export default function Activities() {
     
     // Set an error string for when the list fails to load. Defaults to blank, as an error has not occurred yet
     const [listError, setListError] = useState("")
+
+    // The id of the activity whose ... menu is open. Only one menu can be open at a time.
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
     // This loads the teacher's activities from the server, runs when the dashboard is first rendered
     // This also runs when the auth changes
@@ -79,7 +83,16 @@ export default function Activities() {
                 id={`activity-${a.id}`}
                 className={a.id === highlightId ? "rounded-lg ring-2 ring-indigo-600" : undefined}
             >
-                <Activity id={a.id} name={a.name} onDelete={() => handleDelete(a.id)} />
+                <Activity
+                    id={a.id}
+                    name={a.name}
+                    questionCount={a.questionCount}
+                    createdAt={a.createdAt}
+                    onDelete={() => handleDelete(a.id)}
+                    menuOpen={openMenuId === a.id}
+                    onMenuToggle={() => setOpenMenuId((current) => current === a.id ? null : a.id)}
+                    onMenuClose={() => setOpenMenuId(null)}
+                />
             </div>
         ))
     }
@@ -94,19 +107,21 @@ export default function Activities() {
 
     return (
         <>
-            <section>
-                <div className="mt-8 flex items-center justify-between">
+            <section className="flex h-full flex-col">
+                <div className="mt-8 flex items-center justify-between gap-4">
                     <h1 className="text-4xl font-bold">Your Activities</h1>
+                    {/* Clicking the icon and the text opens the create page. */}
                     <button
                         type="button"
-                        className="rounded-lg border border-gray-300 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100"
+                        className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-300 px-4 py-2 text-gray-900 hover:bg-neutral-100"
                         onClick={() => navigate("/dashboard/create-activity")}
                     >
-                        Create New Activity
+                        <NoteIcon />
+                        <span>Create a new activity</span>
                     </button>
                 </div>
 
-                <div className="mt-4 rounded-lg bg-gray-100 p-4 h-150 overflow-y-auto space-y-4">
+                <div className="mt-4 min-h-60 flex-1 overflow-y-auto rounded-lg p-4 space-y-4">
                     {displayActivities()}
                 </div>
             </section>

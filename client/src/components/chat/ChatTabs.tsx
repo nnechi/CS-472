@@ -34,7 +34,7 @@ export default function ChatTabs({ tabs, activeId, unread, onSelect }: ChatTabsP
           >
             <span className="max-w-[12rem] truncate">{tab.label}</span>
             {count > 0 && (
-              <span className="rounded-full bg-accent px-1.5 text-xs font-bold leading-5 text-white tabular-nums">
+              <span className="rounded-full bg-[#b45309] px-1.5 text-xs font-bold leading-5 text-white tabular-nums">
                 {count > 99 ? "99+" : count}
               </span>
             )}

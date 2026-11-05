@@ -1,33 +1,33 @@
 import { NavLink } from 'react-router-dom'
-import { useState } from 'react'
-import useNavbarResize from "../hooks/useNavbarResize"
 import NavLinks from "./NavLinks"
 import SignInLinks from "./SignInLinks"
-import fullLogo from "../assets/LittlePointers Logo/Full Logo.png"
+import shortLogo from "../assets/LittlePointers Logo/Short Logo.png"
 
 interface NavbarProps {
     className?: string
+    menuOpen: boolean
+    onToggleMenu: () => void
+    onCloseMenu: () => void
 }
 
-export default function Navbar( {className}: NavbarProps) {
-    const [dropdown, setDropdown] = useState(false)
-    useNavbarResize(() => setDropdown(false))
+// The menu itself is rendered by the layout beside the page, so it pushes the content over.
+export default function Navbar( {className, menuOpen, onToggleMenu, onCloseMenu}: NavbarProps) {
 
     function getLogo() {
         return (
-            <NavLink to="/" aria-label="LittlePointers home">
-                <img src={fullLogo} alt="" className="h-14 w-14 rounded-full object-cover"/>
+            <NavLink to="/" aria-label="LittlePointers home" onClick={onCloseMenu}>
+                <img src={shortLogo} alt="" className="h-14 w-14"/>
             </NavLink>
         )
     }
 
     return(
-        <nav className={`relative w-full border-b border-brand bg-brand-light text-brand ${className}`}>
+        <nav className={`relative w-full border-b border-brand bg-brand-light text-brand shadow-[0_2px_8px_rgba(34,21,116,0.18)] ${className}`}>
             
-            <div className="mx-auto flex h-16 w-full items-center justify-between px-5 flex-nowrap sm:h-20 sm:px-8">
+            <div className="mx-auto flex h-16 w-full items-center justify-between px-5 flex-nowrap sm:h-18 sm:px-8">
                 
                 {/* LEFT GROUP: Logo and Main Nav Links */}
-                <div className="flex flex-nowrap items-center gap-12 whitespace-nowrap">
+                <div className="flex flex-nowrap items-center gap-8 whitespace-nowrap">
                     {getLogo()}
                     <div className="hidden items-center gap-6 md:flex">
                         <NavLinks />
@@ -41,20 +41,14 @@ export default function Navbar( {className}: NavbarProps) {
 
                 {/* Only shows when desktop elements hide */}
                 <button 
-                    className="rounded-lg p-2 text-[clamp(1.2rem,2vw,1.5rem)] text-brand cursor-pointer hover:bg-white/60 md:hidden"
-                    onClick={() => setDropdown(!dropdown)}
+                    className="flex h-14 w-16 items-center justify-center rounded-lg px-0 text-4xl leading-none text-brand cursor-pointer hover:bg-white/60 md:hidden"
+                    onClick={onToggleMenu}
+                    title="Menu"
                     aria-label="Toggle dropdown menu"
+                    aria-expanded={menuOpen}
                 >
                     ☰
                 </button>
-
-                {/* Mobile Dropdown Menu */}
-                {dropdown && 
-                    <div className="absolute top-full right-0 flex flex-col gap-3 w-max rounded-bl-lg border-b border-l border-brand bg-brand-light p-6 shadow-md md:hidden">
-                        <NavLinks onLinkClick={() => setDropdown(false)} />
-                        <SignInLinks />
-                    </div>
-                }
             
             </div>
         </nav>
