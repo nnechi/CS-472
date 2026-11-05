@@ -26,20 +26,20 @@ export default function ParsonsQuestion({ item, onChange, onSettingsChange, onUp
 
     return (
         <>
-            <div className="flex flex-col gap-2 text-sm text-gray-600">
+            <div className="flex flex-col gap-2 text-sm text-brand/70">
                 <label className="flex flex-col gap-1">
                     Upload code (optional, or paste it below)
                     <input
                         type="file"
                         accept=".py,.js,.ts,.java,.c,.cpp,.h,.txt,text/plain"
                         onChange={onUploadCode}
-                        className="text-sm"
+                        className="text-sm file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-brand/30 file:bg-white file:px-3 file:py-2 file:font-medium file:text-brand hover:file:bg-brand-light"
                     />
                 </label>
                 <label className="flex flex-col gap-1">
                     Code, one line per row (start a line with spaces to indent it)
                     <textarea
-                        className="min-h-40 whitespace-pre rounded-lg border border-gray-300 p-3 font-mono text-sm text-black focus:border-indigo-600 focus:outline-none"
+                        className="min-h-40 whitespace-pre rounded-lg border border-brand/30 p-3 font-mono text-sm text-brand focus:border-brand focus:outline-none"
                         value={item.code}
                         onChange={(e) => onChange({ code: e.target.value })}
                         placeholder={"print(\"Hello\")\nprint(\"World\")"}
@@ -51,7 +51,7 @@ export default function ParsonsQuestion({ item, onChange, onSettingsChange, onUp
                 <label className="flex flex-col gap-1">
                     Extra lines that aren't part of the answer (optional, one per row)
                     <textarea
-                        className="min-h-20 whitespace-pre rounded-lg border border-gray-300 p-3 font-mono text-sm text-black focus:border-indigo-600 focus:outline-none"
+                        className="min-h-20 whitespace-pre rounded-lg border border-brand/30 p-3 font-mono text-sm text-brand focus:border-brand focus:outline-none"
                         value={item.distractors}
                         onChange={(e) => onChange({ distractors: e.target.value })}
                         placeholder="Lines that look right but don't belong"
@@ -61,7 +61,7 @@ export default function ParsonsQuestion({ item, onChange, onSettingsChange, onUp
                 </label>
             </div>
 
-            <fieldset className="grid gap-3 rounded-lg border border-gray-300 p-3 text-sm text-gray-700 sm:grid-cols-2">
+            <fieldset className="grid gap-3 rounded-lg border border-brand/30 p-3 text-sm text-brand/70 sm:grid-cols-2">
                 <legend className="px-1 font-semibold">Parsons settings</legend>
 
                 <label className="flex flex-col gap-1">
@@ -70,7 +70,7 @@ export default function ParsonsQuestion({ item, onChange, onSettingsChange, onUp
                         type="number"
                         min={0}
                         max={60}
-                        className="rounded-md border border-gray-300 px-2 py-1 text-black"
+                        className="rounded-md border border-brand/30 px-2 py-1 text-brand"
                         value={item.settings.maxWrongLines}
                         onChange={(e) => onSettingsChange({ maxWrongLines: Number(e.target.value) })}
                     />
@@ -79,7 +79,7 @@ export default function ParsonsQuestion({ item, onChange, onSettingsChange, onUp
                 <label className="flex flex-col gap-1">
                     Grader
                     <select
-                        className="rounded-md border border-gray-300 px-2 py-1 text-black"
+                        className="rounded-md border border-brand/30 px-2 py-1 text-brand"
                         value="line-based"
                         onChange={() => undefined}
                     >
@@ -117,7 +117,7 @@ export default function ParsonsQuestion({ item, onChange, onSettingsChange, onUp
                         min={1}
                         max={500}
                         disabled={!item.settings.canIndent}
-                        className="rounded-md border border-gray-300 px-2 py-1 text-black disabled:bg-gray-100"
+                        className="rounded-md border border-brand/30 px-2 py-1 text-brand disabled:bg-brand-light/30"
                         value={item.settings.xIndent}
                         onChange={(e) => onSettingsChange({ xIndent: Number(e.target.value) })}
                     />
@@ -138,14 +138,14 @@ export default function ParsonsQuestion({ item, onChange, onSettingsChange, onUp
                         type="number"
                         min={100}
                         max={60000}
-                        className="rounded-md border border-gray-300 px-2 py-1 text-black sm:w-40"
+                        className="rounded-md border border-brand/30 px-2 py-1 text-brand sm:w-40"
                         value={item.settings.execLimit}
                         onChange={(e) => onSettingsChange({ execLimit: Number(e.target.value) })}
                     />
                 </label>
             </fieldset>
 
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-brand/50">
                 {lines === 0
                     ? "Add code to see what students will get."
                     : `Students get ${lines} line${lines === 1 ? "" : "s"} of code, plus up to ${Math.min(item.settings.maxWrongLines, extras)} of ${extras} extra line${extras === 1 ? "" : "s"}, in a random order.`}

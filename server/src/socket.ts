@@ -35,6 +35,12 @@ import { Room } from "./models/Room";
 // (see io.engine.use(sessionMiddleware) in index.ts).
 type SessionRequest = IncomingMessage & { session?: Session & Partial<SessionData> };
 
+// A pup avatar id is a short lowercase word like "corgi". The client keeps the
+// list of breeds; anything else is ignored so nobody can send odd values.
+function cleanPup(value: unknown): string | null {
+  return typeof value === "string" && /^[a-z]{2,20}$/.test(value) ? value : null;
+}
+
 export type AppServer = Server< 
   ClientToServerEvents, 
   ServerToClientEvents, 
@@ -244,6 +250,13 @@ export function registerSocketHandlers(
   //students don't see other students waiting
   const teacherChannel = (room: string) => `${room}:teachers`;
 
+  // Tell the room's teachers how many students are in it right now.
+  const sendStudentCount = async (room: string) => {
+    const sockets = await io.in(room).fetchSockets();
+    const count = sockets.filter((s) => s.data.role === "student").length;
+    io.to(teacherChannel(room)).emit("student count", count);
+  };
+
   // Store a room's queue and send it to that room's teachers.
   const setQueue = (room: string, queue: RaisedHand[]) => {
     if (queue.length) handQueues.set(room, queue);
@@ -381,7 +394,7 @@ export function registerSocketHandlers(
 
       // Teachers create a room
       // Students join one.
-      socket.on("join", async ({ username, role, room }) => {
+      socket.on("join", async ({ username, role, room, pup }) => {
         const cleanUser = String(username || "").trim().slice(0, 32);
         const roomCode = String(room || "").trim().toUpperCase();
 
@@ -413,11 +426,15 @@ export function registerSocketHandlers(
         // have no account, so they get none (the chat shows their initials).
         const sessionUser = (socket.request as SessionRequest).session?.user;
         socket.data.avatarUrl = role === "teacher" ? sessionUser?.picture ?? null : null;
+        // Students pick a pup avatar. Teachers show their picture instead.
+        socket.data.pup = role === "student" ? cleanPup(pup) : null;
         socket.data.role = role;
         socket.data.room = roomCode;
 
         //  subscribe this socket to a channel (room).
         socket.join(roomCode);
+        // A student arrived, or a teacher needs the current number.
+        void sendStudentCount(roomCode);
 
         // Only teachers get the list of who needs help and who's connected.
         if (role === "teacher") {
@@ -458,6 +475,7 @@ export function registerSocketHandlers(
             createdAt: (m.createdAt as Date).toISOString(),
             chatId: GROUP_CHAT_ID,
             avatarUrl: m.avatarUrl ?? null,
+            pup: m.pup ?? null,
           }));
 
           socket.emit("chat history", history);
@@ -467,6 +485,12 @@ export function registerSocketHandlers(
 
         // Late joiners (either role) see the timer as it is right now.
         socket.emit("timer state", timerSnapshot(roomCode));
+      });
+
+      // A student changes their pup avatar. Their later messages use it.
+      socket.on("set pup", ({ pup }) => {
+        if (socket.data.role !== "student") return;
+        socket.data.pup = cleanPup(pup);
       });
 
       // Mesages limited by room
@@ -484,6 +508,7 @@ export function registerSocketHandlers(
             text: cleanText,
             room,
             avatarUrl: socket.data.avatarUrl ?? null,
+            pup: socket.data.pup ?? null,
           });
 
           const message: ChatMessage = {
@@ -494,6 +519,7 @@ export function registerSocketHandlers(
             createdAt: (saved.createdAt as Date).toISOString(),
             chatId: GROUP_CHAT_ID,
             avatarUrl: saved.avatarUrl ?? null,
+            pup: saved.pup ?? null,
           };
 
           // broadcast to everyone in this room only.
@@ -608,6 +634,7 @@ export function registerSocketHandlers(
           createdAt: new Date().toISOString(),
           chatId: state.chat.id,
           avatarUrl: socket.data.avatarUrl ?? null,
+          pup: socket.data.pup ?? null,
         };
         state.messages = [...state.messages, message].slice(-PRIVATE_HISTORY_LIMIT);
 
@@ -683,6 +710,8 @@ export function registerSocketHandlers(
 
       socket.on("disconnect", () => {
         console.log("[socket] user disconnected:", socket.id);
+        // This socket has already left its rooms, so the count no longer includes it.
+        if (socket.data.room && socket.data.role === "student") void sendStudentCount(socket.data.room);
         // A student who leaves shouldn't stay in the teacher's list.
         if (socket.data.room) removeHand(socket.data.room, socket.id);
         if (socket.data.room && socket.data.role === "student") {
