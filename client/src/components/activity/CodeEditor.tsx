@@ -23,6 +23,12 @@ interface CodeEditorProps {
     // The code for each question, and the latest run.
     codes?: string[];
     run?: RunState;
+    // The output of each question's last finished run. Shown when the run on
+    // screen isn't from this question, e.g. when showing a student's saved work.
+    outputs?: (string | null)[];
+    // Shown instead of the output placeholder when read-only, e.g. a student
+    // who hasn't started yet.
+    emptyMessage?: string;
 
     // Left out to make the editor read-only, e.g. when showing someone else's work.
     onCodeChange?: (questionIndex: number, code: string) => void;
@@ -63,6 +69,8 @@ export default function CodeEditor({
     role,
     codes = [],
     run,
+    outputs = [],
+    emptyMessage,
     onCodeChange,
     onRun,
     onCancel,
@@ -95,7 +103,7 @@ export default function CodeEditor({
     // Waiting in line or running: Run is off until it's done, Stop is on.
     const busy = runHere?.status === "queued" || runHere?.status === "running";
     const status = runHere ? runStatus(runHere) : null;
-    const output = runHere?.output ?? "";
+    const output = runHere ? runHere.output : outputs[index] ?? "";
 
     // Function for Monaco editor to set editor options on mount
     const handleMount: OnMount = (editor, _monaco) => {
@@ -121,7 +129,7 @@ export default function CodeEditor({
                     {busy && onCancel && <button type="button" onClick={onCancel}>Stop</button>}
                 </div>
             )}
-            {!canRun && <p className="text-sm text-gray-600">{activity.language ? `Execution is not available for this activity’s language (${activity.language}).` : "The teacher needs to set a programming language for this activity."}</p>}
+            {!canRun && !readOnly && <p className="text-sm text-gray-600">{activity.language ? `Execution is not available for this activity’s language (${activity.language}).` : "The teacher needs to set a programming language for this activity."}</p>}
             {/* 4 quadrants */}
             <ResizablePanelGroup
             orientation="horizontal"
@@ -172,7 +180,7 @@ export default function CodeEditor({
                             {/* Output, then the status under it. The placeholder only shows when there's neither. */}
                             {output}
                             {status && `${output ? "\n" : ""}${status}`}
-                            {!output && !status && (onRun ? "Run your code to see output here." : role === "teacher" ? "Student output will appear here." : "")}
+                            {!output && !status && (onRun ? "Run your code to see output here." : emptyMessage ?? (role === "teacher" ? "Student output will appear here." : ""))}
                         </pre>
                     </div>
                 </ResizablePanel>

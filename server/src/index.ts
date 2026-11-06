@@ -4,11 +4,13 @@ import { Server } from "socket.io";
 import cors from "cors";
 
 import { connectToDatabase } from "./db";
-import {AppServer, closeRoom,  registerSocketHandlers, lobbyChannel } from "./socket";
+import {AppServer, closeRoom, isLiveRoomCode, isLiveRoomHost, lobbyChannel, registerSocketHandlers } from "./socket";
+import { pastRoomForHost, pastRoomsForHost } from "./pastRooms";
 
 
-import { generateRoomCode } from "./utils/roomCode"; 
+import { generateRoomCode } from "./utils/roomCode";
 import {Room} from "./models/Room"
+import {PastRoom} from "./models/PastRoom"
 import {Activity} from "./models/Activity"
 
 import { authConfig } from "./auth/config";
@@ -63,18 +65,10 @@ export function createApp(io : AppServer) {
 
   // createRoom(host: RoomHost): string -- body: { host }
   // TODO: Verify the authenticated participant is a RoomHost. 
-  app.post("/api/rooms", async (req, res) => { 
-    
-      const code : string = generateRoomCode(); // generate a random code <roomCode.ts> 
-      let hostID = req.body.hostID;
+  // The host is the logged-in user, never an id the browser sends.
+  app.post("/api/rooms", requireLogin, async (req, res) => {
 
-      if (typeof(hostID) !== "string"){ 
-        console.error("Invalid Value"); 
-        res.status(400).json({error : "Room Creation Error: Invalid Value"}); 
-        return; 
-      }
-
-      hostID = hostID.trim(); 
+      const hostID = String(req.session.user!.id ?? "").trim();
 
        if (!hostID){ 
           res.status(400).json({error: "Missing HostID. "}); 
@@ -83,8 +77,25 @@ export function createApp(io : AppServer) {
 
       const expiresAt : Date =  new Date(Date.now() + 60 * 60 * 1000); // expires every 60 mins WE CAN CHANGE THIS BTW 
       
-      try { 
-        const createdRoomDoc = await Room.create({ 
+      try {
+        // A random code <roomCode.ts> that no open, live, or saved room uses,
+        // so a saved room's code never points at a new room.
+        let code : string | null = null;
+        for (let tries = 0; tries < 10 && code === null; tries++) {
+          const candidate = generateRoomCode();
+          if (isLiveRoomCode(candidate)) continue;
+          const [inRooms, inPastRooms] = await Promise.all([
+            Room.exists({ code: candidate }),
+            PastRoom.exists({ code: candidate }),
+          ]);
+          if (!inRooms && !inPastRooms) code = candidate;
+        }
+        if (code === null) {
+          res.status(500).json({error : "Failed to create room on server."});
+          return;
+        }
+
+        const createdRoomDoc = await Room.create({
           code, 
           hostID, 
           expiresAt
@@ -122,15 +133,10 @@ export function createApp(io : AppServer) {
 
   // deleteRoom(roomCode: string): boolean
   // TODO: Restrict deletion to the room host and disconnect its participants.
-  app.delete("/api/rooms/:roomCode", async (req, res) => { 
-      const c : string = req.params.roomCode.trim().toUpperCase(); 
-      let hostID : string = req.body.hostID; 
-
-      if (typeof(hostID) !== "string"){
-        res.status(400).json({error : "hostID must be a string."}); 
-        return; 
-      }
-      hostID = hostID.trim(); 
+  // Only the logged-in user's own rooms can be ended.
+  app.delete("/api/rooms/:roomCode", requireLogin, async (req, res) => {
+      const c : string = req.params.roomCode.trim().toUpperCase();
+      const hostID : string = String(req.session.user!.id ?? "").trim();
 
 
         if (!c){
@@ -144,11 +150,12 @@ export function createApp(io : AppServer) {
         }
 
       try { 
-        const deleted = await Room.findOneAndDelete({code : c, hostID : hostID}); 
+        const deleted = await Room.findOneAndDelete({code : c, hostID : hostID});
 
-        if (deleted === null){ 
-          res.status(404).json({error : "Nothing to delete!"}); 
-        } else { 
+        // A room past its 60 minutes has no Room doc but can still be live; its host can still end it.
+        if (deleted === null && !isLiveRoomHost(c, hostID)){
+          res.status(404).json({error : "Nothing to delete!"});
+        } else {
           closeRoom(io,c); 
            res.status(200).json({message : "Successfully deleted room."});
            return; 
@@ -305,6 +312,32 @@ export function createApp(io : AppServer) {
   // authenticate(user: string, password: string): boolean
   // Body: { user, password }. TODO: Validate credentials using the auth service.
   app.post("/api/auth/login", notImplemented("authenticate"));
+
+  // Previous activities: the rooms the logged-in teacher ran that have ended,
+  // newest first. Uses the session's user id, never one the browser sends.
+  app.get("/api/past-rooms", requireLogin, async (req, res) => {
+    try {
+      res.status(200).json(await pastRoomsForHost(req.session.user!.id));
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load previous activities." });
+    }
+  });
+
+  // One ended room of the logged-in teacher, with every student's saved work and the chats.
+  app.get("/api/past-rooms/:roomCode", requireLogin, async (req, res) => {
+    try {
+      const room = await pastRoomForHost(req.params.roomCode, req.session.user!.id);
+      if (room === null) {
+        res.status(404).json({ error: "Cannot find that room." });
+        return;
+      }
+      res.status(200).json(room);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load that room." });
+    }
+  });
 
   // onConnect/onDisconnect are registered in socket.ts. generateRoomCode and
   // logEvent are internal helpers, not public HTTP endpoints.

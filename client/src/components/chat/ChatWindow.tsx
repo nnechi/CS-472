@@ -15,6 +15,8 @@ interface ChatWindowProps {
   onSend: (text: string) => void;
   // Shown between the messages and the input, e.g. the chat tabs.
   aboveInput?: ReactNode;
+  // An ended room: the messages can be read, but nothing can be sent.
+  readOnly?: boolean;
 }
 
 // One chat on screen: its messages, and the box to write in it.
@@ -24,6 +26,7 @@ export default function ChatWindow({
   placeholder,
   onSend,
   aboveInput,
+  readOnly = false,
 }: ChatWindowProps) {
   const [text, setText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -97,6 +100,11 @@ export default function ChatWindow({
 
       {aboveInput}
 
+      {readOnly ? (
+        <p className="border-t border-brand/20 bg-white p-3 text-center text-sm text-brand/70">
+          This room has ended. Chat is read-only.
+        </p>
+      ) : (
       <form className="flex items-center gap-2 border-t border-brand/20 bg-white p-3" onSubmit={handleSubmit}>
         <input
           className="h-11 min-w-0 flex-1 rounded-full border border-brand/30 bg-paper px-4 text-sm text-brand placeholder:text-brand/50 focus:border-brand focus:outline-none"
@@ -117,6 +125,7 @@ export default function ChatWindow({
           </svg>
         </button>
       </form>
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   ActivityType,
   AnswerProgress,
   ChatMessage,
+  CodingProgress,
   ClientToServerEvents,
   ServerToClientEvents,
   ACTIVITY_MAX_LENGTH,
@@ -19,7 +20,7 @@ import {
   InterServerEvents,
   ParsonsDisplayOptions,
   ParsonsLine,
-  Participant, 
+  Participant as LobbyParticipant,
   PrivateChat,
   RaisedHand,
   RosterStudent,
@@ -29,6 +30,7 @@ import {
   SocketData,
   STUDENT_CODE_MAX_LENGTH,
   StudentEnvironment,
+  StudentProgress,
   TimerState,
   emptyStudentEnvironment,
 } from "./types";
@@ -36,7 +38,8 @@ import { randomUUID } from "node:crypto";
 import { CodeRunJob, InvalidRunJobError, JobHooks, executionQueue, runnableLanguage } from "./compile";
 import { InvalidCompileRequestError } from "./compile/plan";
 
-import { Room } from "./models/Room"; 
+import { Room } from "./models/Room";
+import { PastRoom } from "./models/PastRoom";
 
 // The socket's first HTTP request, with the login session attached
 // (see io.engine.use(sessionMiddleware) in index.ts).
@@ -68,22 +71,219 @@ export function lobbyChannel(room : string){
 
 
 
-// need helper function to disconnect all of the things from the room. 
+// Ends a room: forgets everything kept in memory for it, tells everyone it closed,
+// disconnects them, and (if a teacher ran it) saves it for Previous activities.
+// Safe to call more than once; only the first call does anything.
 export function closeRoom(io : AppServer, room : string): void {
-  io.to([room, lobbyChannel(room)]).emit("room closed");
+  const live = liveRooms.get(room);
+
+  // Take what the archive needs before anything is cleared. The participants are
+  // copied, so nothing that happens after this changes the saved room.
+  const snapshot: RoomSnapshot | null = live
+    ? {
+        code: room,
+        hostID: live.hostID,
+        activityId: live.activityId,
+        teacherJoined: live.teacherJoined,
+        startedAt: live.startedAt,
+        participants: [...live.participants.values()].map((p) => ({
+          ...p,
+          privateMessages: [...p.privateMessages],
+        })),
+      }
+    : null;
+
+  if (live) {
+    liveRooms.delete(room);
+    if (live.expiryTimer) clearTimeout(live.expiryTimer);
+  }
+  markClosed(room);
   handQueues.delete(room);
   rosters.delete(room);
-  privateChats.delete(room);
   clearEnvironments(room);
   roomActivities.delete(room);
   currentQuestions.delete(room);
   clearTimer(room);
+
+  // Students still waiting in the lobby are told too, even if the room never
+  // went live (the teacher discarded it before opening it).
+  io.to([room, lobbyChannel(room)]).emit("room closed");
   io.in([room, lobbyChannel(room)]).disconnectSockets();
+
+  // Rooms that were only created and discarded (never opened by a teacher) aren't saved.
+  if (snapshot?.teacherJoined) void archiveRoom(snapshot);
+}
+
+// True if the room is still live in memory and was opened by this host. Used by
+// DELETE /api/rooms/:code for a room whose Room doc already expired.
+export function isLiveRoomHost(code : string, hostID : string): boolean {
+  const live = liveRooms.get(code);
+  return !!live && live.hostID !== null && live.hostID === hostID;
+}
+
+// True if the code belongs to a room still live in memory (its Room doc may
+// already be gone after expiry), so a new room must not reuse it.
+export function isLiveRoomCode(code : string): boolean {
+  return liveRooms.has(code);
+}
+
+// A room's 60 minutes passed. New joins are refused from now on, but nobody is
+// kicked: the room ends once the last person leaves (or right away if empty).
+async function onRoomExpired(io : AppServer, room : string): Promise<void> {
+  const live = liveRooms.get(room);
+  if (!live) return;
+  live.expired = true;
+  live.expiryTimer = undefined;
+
+  try {
+    await Room.deleteOne({ code: room });
+  } catch (err) {
+    console.error("[socket] failed to delete expired room:", err);
+  }
+
+  if (socketCount(io, room) === 0) closeRoom(io, room);
+}
+
+// How many sockets are in the room right now. In "disconnect" the leaving
+// socket has already left, so it isn't counted.
+function socketCount(io : AppServer, room : string): number {
+  return io.sockets.adapter.rooms.get(room)?.size ?? 0;
+}
+
+// Group chat messages saved in the database, as clients see them.
+function toChatMessage(m: {
+  username: string;
+  role: string;
+  text: string;
+  room: string;
+  createdAt?: unknown;
+  avatarUrl?: string | null;
+  pup?: string | null;
+}): ChatMessage {
+  return {
+    username: m.username,
+    role: m.role as Role,
+    text: m.text,
+    room: m.room,
+    createdAt: (m.createdAt as Date).toISOString(),
+    chatId: GROUP_CHAT_ID,
+    avatarUrl: m.avatarUrl ?? null,
+    pup: m.pup ?? null,
+  };
+}
+
+const jsonBytes = (value: unknown): number => Buffer.byteLength(JSON.stringify(value), "utf8");
+
+// Keeps a saved room under ARCHIVE_SIZE_LIMIT so it fits in one MongoDB
+// document. Normal rooms are untouched. Otherwise the oldest group messages go
+// first, then the oldest private messages of the largest chats. Changes doc.
+function fitArchive(doc: {
+  code: string;
+  students: { privateMessages: ChatMessage[] }[];
+  messages: ChatMessage[];
+}): void {
+  let size = jsonBytes(doc);
+  if (size <= ARCHIVE_SIZE_LIMIT) return;
+
+  let dropped = 0;
+  // Each pass drops by estimate (the message's JSON plus a comma), then measures again.
+  while (size > ARCHIVE_SIZE_LIMIT && doc.messages.length > 0) {
+    let estimate = size;
+    while (estimate > ARCHIVE_SIZE_LIMIT && doc.messages.length > 0) {
+      estimate -= jsonBytes(doc.messages.shift()) + 1;
+      dropped++;
+    }
+    size = jsonBytes(doc);
+  }
+
+  while (size > ARCHIVE_SIZE_LIMIT) {
+    const chatBytes = doc.students.map((s) => jsonBytes(s.privateMessages));
+    let estimate = size;
+    while (estimate > ARCHIVE_SIZE_LIMIT) {
+      // The largest chat that still has messages.
+      let largest = -1;
+      for (let i = 0; i < doc.students.length; i++) {
+        if (doc.students[i].privateMessages.length === 0) continue;
+        if (largest === -1 || chatBytes[i] > chatBytes[largest]) largest = i;
+      }
+      if (largest === -1) break;
+      const removed = jsonBytes(doc.students[largest].privateMessages.shift()) + 1;
+      chatBytes[largest] -= removed;
+      estimate -= removed;
+      dropped++;
+    }
+    const before = size;
+    size = jsonBytes(doc);
+    if (size >= before) break; // no messages left to drop
+  }
+
+  console.warn(
+    `[room] ${doc.code} was too large to save in full; dropped the ${dropped} oldest message(s)` +
+      (size > ARCHIVE_SIZE_LIMIT ? " and it is still over the limit" : "")
+  );
+}
+
+// Saves an ended room for Previous activities. Runs after the room is already
+// closed, so it only logs errors and never throws.
+async function archiveRoom(snapshot: RoomSnapshot): Promise<void> {
+  try {
+    if (!snapshot.hostID) {
+      console.error("[socket] not saving room without a host:", snapshot.code);
+      return;
+    }
+
+    const activity = await loadRoomActivity(snapshot.activityId, "teacher");
+    let activityName: string | null = null;
+    let activityType: ActivityType | null = null;
+    if (snapshot.activityId) {
+      try {
+        const info = await Activity.findById(snapshot.activityId).select("name type language").lean();
+        activityName = info?.name ?? null;
+        activityType = (info?.type as ActivityType | undefined) ?? null;
+      } catch (err) {
+        console.error("[socket] failed to load activity name for archive:", err);
+      }
+    }
+
+    let messages: ChatMessage[] = [];
+    try {
+      const saved = await Message.find({ room: snapshot.code }).sort({ createdAt: 1 }).lean();
+      messages = saved.map(toChatMessage);
+    } catch (err) {
+      console.error("[socket] failed to load group chat for archive:", err);
+    }
+
+    const endedAt = new Date();
+    const doc = {
+      code: snapshot.code,
+      hostID: snapshot.hostID,
+      activityName,
+      activityType,
+      activity,
+      startedAt: snapshot.startedAt ?? endedAt,
+      endedAt,
+      students: snapshot.participants.map((p) => ({
+        id: p.id,
+        username: p.username,
+        pup: p.pup,
+        joinedAt: p.joinedAt,
+        hasPrivateChat: p.chatOpened,
+        progress: p.progress,
+        privateMessages: [...p.privateMessages],
+      })),
+      messages,
+    };
+    fitArchive(doc);
+    await PastRoom.create(doc);
+    console.log(`[room] ${snapshot.code} saved to previous activities`);
+  } catch (err) {
+    console.error("[socket] failed to save ended room:", err);
+  }
 }
 
 export async function broadcastParticipants(io : AppServer, room : string){ 
   const sockets = await io.in([room, lobbyChannel(room)]).fetchSockets(); 
-  const list : Participant[] = sockets.filter((s) => s.data.role === "student").map((s) => ({id : s.id, username : s.data.username})); 
+  const list : LobbyParticipant[] = sockets.filter((s) => s.data.role === "student").map((s) => ({id : s.id, username : s.data.username})); 
   io.to(teacherChannel(room)).emit("participants",list); 
 } 
 
@@ -98,27 +298,137 @@ const rosters = new Map<string, RosterStudent[]>();
 // Not stored in database, like raised hands.
 const currentQuestions = new Map<string, number>();
 
-// Private chats are not stored in database, like raised hands. Each room maps
-// a student's socket id to that chat's details and its recent messages.
-interface PrivateChatState {
-  chat: PrivateChat;
-  messages: ChatMessage[];
-  // The student's work on the activity, as last sent by them.
-  progress: AnswerProgress;
+// A student who joined the room, kept (with their work and private chat) until
+// the room ends, even after they disconnect, so the room can be saved.
+interface Participant {
+  id: string; // the student's socket id
+  username: string;
+  pup: string | null;
+  joinedAt: Date;
+  connected: boolean;
+  // The teacher has opened a private chat with them.
+  chatOpened: boolean;
+  // The teacher who opened the chat, shown in the chat header.
+  chatTeacherName: string;
+  privateMessages: ChatMessage[];
+  // The student's work on the activity, as last sent by them. Null until they send any.
+  progress: StudentProgress | null;
+  // JSON length of progress, counted against the room's PROGRESS_BUDGET.
+  progressSize: number;
 }
-const privateChats = new Map<string, Map<string, PrivateChatState>>();
-// Same cap as the group chat's history on join.
-const PRIVATE_HISTORY_LIMIT = 50;
 
-// The room's private chats, created on first use.
-const roomPrivateChats = (room: string): Map<string, PrivateChatState> => {
-  let chats = privateChats.get(room);
-  if (!chats) {
-    chats = new Map();
-    privateChats.set(room, chats);
+// Everything kept in memory about a live room. Not stored in database, like
+// raised hands, until the room ends (see closeRoom).
+interface LiveRoom {
+  hostID: string | null; // from the Room doc, set on the first teacher join
+  activityId: unknown; // from the Room doc, refreshed on each join
+  teacherJoined: boolean;
+  startedAt: Date | null; // first teacher join
+  expiresAt: number; // ms, from the Room doc
+  expired: boolean;
+  expiryTimer?: ReturnType<typeof setTimeout>;
+  participants: Map<string, Participant>;
+  // Sum of every participant's progressSize, kept at or below PROGRESS_BUDGET.
+  progressBytes: number;
+  // The budget was hit and logged once already.
+  budgetWarned: boolean;
+  // An oversized single update was refused and logged once already.
+  studentLimitWarned: boolean;
+}
+
+// What closeRoom keeps of a room to save it.
+interface RoomSnapshot {
+  code: string;
+  hostID: string | null;
+  activityId: unknown;
+  teacherJoined: boolean;
+  startedAt: Date | null;
+  participants: Participant[];
+}
+
+const liveRooms = new Map<string, LiveRoom>();
+// Most messages kept per private chat, so saved rooms keep all of a normal class's.
+const PRIVATE_HISTORY_LIMIT = 500;
+// Most students kept per live room, so one client can't flood it.
+const MAX_PARTICIPANTS = 200;
+// Most progress (JSON bytes, all students together) kept per room, so the
+// saved room stays well under MongoDB's 16 MB document limit.
+const PROGRESS_BUDGET = 8_000_000;
+// Most progress (JSON bytes) one student's single update may be.
+const MAX_STUDENT_PROGRESS = 250_000;
+// Largest saved room (JSON bytes). Above it, the oldest messages are dropped.
+const ARCHIVE_SIZE_LIMIT = 12_000_000;
+
+// Rooms that ended recently, with when they ended. A join that was still
+// looking up the Room doc when its room ended must not bring the room back.
+const closedRooms = new Map<string, number>();
+const CLOSED_ROOM_MEMORY_MS = 60 * 60 * 1000;
+
+function markClosed(room: string): void {
+  const now = Date.now();
+  for (const [code, at] of closedRooms) {
+    if (now - at > CLOSED_ROOM_MEMORY_MS) closedRooms.delete(code);
   }
-  return chats;
-};
+  closedRooms.set(room, now);
+}
+
+// True if the room ended at or after `since` (when a join started).
+function closedSince(room: string, since: number): boolean {
+  const at = closedRooms.get(room);
+  return at !== undefined && at >= since;
+}
+
+// The room's live state, created on the first successful join. That also starts
+// the countdown to its expiry, once.
+function ensureLiveRoom(io : AppServer, room : string, expiresAt : Date, hostID : string | null): LiveRoom {
+  let live = liveRooms.get(room);
+  if (!live) {
+    const expiresMs = expiresAt.getTime();
+    const created: LiveRoom = {
+      // Known from the Room doc, so the host can get back in after expiry.
+      hostID,
+      activityId: null,
+      teacherJoined: false,
+      startedAt: null,
+      expiresAt: expiresMs,
+      expired: false,
+      participants: new Map(),
+      progressBytes: 0,
+      budgetWarned: false,
+      studentLimitWarned: false,
+    };
+    created.expiryTimer = setTimeout(() => {
+      void onRoomExpired(io, room);
+    }, Math.max(0, expiresMs - Date.now()));
+    liveRooms.set(room, created);
+    live = created;
+  }
+  return live;
+}
+
+// A student's empty Parsons work, for a first check before any update.
+const emptyParsons = (): { type: "parsons" } & AnswerProgress => ({
+  type: "parsons",
+  answers: [],
+  results: [],
+  marks: [],
+});
+
+// A student's code and last Run output for each coding question, kept within
+// the teacher editor's limits. Returns null if codes isn't a list.
+function cleanCoding(codes: unknown, outputs: unknown): CodingProgress | null {
+  if (!Array.isArray(codes)) return null;
+  const cleanCodes = codes
+    .slice(0, ACTIVITY_MAX_QUESTIONS)
+    .map((code) => (typeof code === "string" ? code.slice(0, ACTIVITY_MAX_LENGTH) : ""));
+  const given: unknown[] = Array.isArray(outputs) ? outputs : [];
+  // One output per code: missing ones are null, extra ones are dropped.
+  const cleanOutputs = cleanCodes.map((_, i) => {
+    const output = given[i];
+    return typeof output === "string" ? output.slice(0, ACTIVITY_MAX_LENGTH) : null;
+  });
+  return { codes: cleanCodes, outputs: cleanOutputs };
+}
 
 // Each student's workspace, by room and then by studentKey. Not stored in the
 // database, like raised hands. A student who disconnects keeps theirs for a
@@ -269,8 +579,10 @@ async function loadParsonsQuestion(
   questionIndex: number
 ): Promise<{ solution: ParsonsLine[]; options: ParsonsOptions } | null> {
   const found = await Room.findOne({ code: room }).select("activityId").lean();
-  if (!found?.activityId) return null;
-  const activity = await Activity.findById(found.activityId).select("type questions").lean();
+  // After expiry the Room doc is gone but the room stays live, so use the live copy.
+  const activityId = found ? found.activityId : liveRooms.get(room)?.activityId;
+  if (!activityId) return null;
+  const activity = await Activity.findById(activityId).select("type questions").lean();
   if (!activity || activity.type !== "parsons") return null;
   const question = activity.questions[questionIndex];
   if (!question) return null;
@@ -345,8 +657,10 @@ function clearTimer(room: string): void {
 }
 
 // What clients see: time left right now, and whether it is counting down.
+// Only reads: a room without a timer entry (new, or already closed) shows the
+// default, and no entry is stored for it.
 function timerSnapshot(room: string): TimerState {
-  const timer = getTimer(room);
+  const timer = timers.get(room) ?? { durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, endsAt: null };
   if (timer.endsAt === null) {
     return { durationMs: timer.durationMs, remainingMs: timer.remainingMs, running: false };
   }
@@ -425,20 +739,52 @@ export function registerSocketHandlers(
     io.to(room).emit("timer state", timerSnapshot(room));
   };
 
+  // A student in a live room, by socket id.
+  const getParticipant = (room: string, id: string) => liveRooms.get(room)?.participants.get(id);
+
+  // A student's private chat, as clients see it.
+  const privateChatOf = (p: Participant): PrivateChat => ({
+    id: p.id,
+    studentName: p.username,
+    teacherName: p.chatTeacherName,
+  });
+
   // Tell both the student and the room's teachers that a private chat exists.
   // The student's socket is in a room named after its own id.
-  const sendPrivateChat = (room: string, state: PrivateChatState) => {
-    io.to([state.chat.id, teacherChannel(room)]).emit("private chat opened", {
-      chat: state.chat,
-      messages: state.messages,
-      progress: state.progress,
+  const sendPrivateChat = (room: string, p: Participant) => {
+    io.to([p.id, teacherChannel(room)]).emit("private chat opened", {
+      chat: privateChatOf(p),
+      messages: p.privateMessages,
     });
   };
 
-  // Remove a student's private chat, e.g. when they leave. Teachers see it close.
-  const closePrivateChat = (room: string, studentId: string) => {
-    if (!privateChats.get(room)?.delete(studentId)) return;
-    io.to(teacherChannel(room)).emit("private chat closed", studentId);
+  // Store a student's new work and send it to the room's teachers only.
+  // Ignored if it would take the room past its progress budget.
+  const setProgress = (room: string, p: Participant, progress: StudentProgress) => {
+    const live = liveRooms.get(room);
+    if (!live) return;
+    const size = Buffer.byteLength(JSON.stringify(progress), "utf8");
+    // One student can't use up the room's budget: an oversized update is
+    // ignored and their previous work is kept.
+    if (size > MAX_STUDENT_PROGRESS) {
+      if (!live.studentLimitWarned) {
+        live.studentLimitWarned = true;
+        console.warn(`[room] ${room} got a progress update over ${MAX_STUDENT_PROGRESS} bytes; ignored`);
+      }
+      return;
+    }
+    const total = live.progressBytes - p.progressSize + size;
+    if (total > PROGRESS_BUDGET) {
+      if (!live.budgetWarned) {
+        live.budgetWarned = true;
+        console.warn(`[room] ${room} reached its progress limit; further updates that grow it are ignored`);
+      }
+      return;
+    }
+    live.progressBytes = total;
+    p.progressSize = size;
+    p.progress = progress;
+    io.to(teacherChannel(room)).emit("student activity", { studentId: p.id, progress });
   };
 
   // Start counting down. When time runs out, the timer stops at zero.
@@ -520,38 +866,90 @@ export function registerSocketHandlers(
 
         if (!cleanUser || !roomCode) return;
 
-        let activityId: unknown = null;
-        let verifiedRole : Role  = "student"; 
-        let waiting = false; 
+        // Only the two known roles can join; anything else changes nothing.
+        if (role !== "teacher" && role !== "student") {
+          socket.emit("join error");
+          socket.disconnect();
+          return;
+        }
 
+        // A socket belongs to one room only.
+        if (socket.data.room && socket.data.room !== roomCode) {
+          socket.emit("join error");
+          return;
+        }
+
+        const refuse = () => {
+          socket.emit("join error");
+          socket.disconnect();
+        };
+
+        // The logged-in user, from the login session (never from the browser's message).
         const sessionUser = (socket.request as SessionRequest).session?.user;
+        const joinStarted = Date.now();
+
+        let activityId: unknown = null;
+        let hostID: string | null = null;
+        let expiresAt: Date;
+        // Students who arrive before the teacher clicks Open room wait in the lobby.
+        let isOpen = true;
         try{
-        const success = await Room.findOne( {code : roomCode });
-        
-          if (success === null || success.expiresAt === null || success.expiresAt.getTime() <= Date.now()){
-            socket.emit("join error");
-            socket.disconnect();
-            return;
-        }
-
-
-        if (role === "teacher" && sessionUser?.id === success.hostID){ 
-          verifiedRole = "teacher"; 
-        }
-
-        if (!success.isOpen && verifiedRole !== "teacher"){ 
-          waiting = true;  
-        }
-          activityId = success.activityId;
-
+          const success = await Room.findOne( {code : roomCode });
+          if (success !== null && success.expiresAt !== null && success.expiresAt.getTime() > Date.now()) {
+            activityId = success.activityId;
+            hostID = success.hostID;
+            expiresAt = success.expiresAt;
+            isOpen = success.isOpen;
+          } else {
+            // Past its 60 minutes (or the Room doc is gone): students can't join
+            // any more, but the host can get back into a room still live to end it.
+            const stillLive = liveRooms.get(roomCode);
+            if (role !== "teacher" || !stillLive || stillLive.hostID === null) {
+              refuse();
+              return;
+            }
+            activityId = stillLive.activityId;
+            hostID = stillLive.hostID;
+            expiresAt = new Date(stillLive.expiresAt);
+          }
         } catch (e){
-          console.error(e); 
-          socket.emit("join error"); 
-          socket.disconnect(); 
-          return; 
+          console.error(e);
+          refuse();
+          return;
         }
-        
-      
+
+        // Only the room's host can join as its teacher (teachers see every student's work).
+        if (role === "teacher" && (!sessionUser?.id || sessionUser.id !== hostID)) {
+          refuse();
+          return;
+        }
+
+        // Things that may have changed while the Room doc was loading. No await
+        // from here until the socket has joined, so the room can't end in between.
+        if (!socket.connected) return;
+        if (socket.data.room && socket.data.room !== roomCode) {
+          socket.emit("join error");
+          return;
+        }
+        if (closedSince(roomCode, joinStarted)) {
+          refuse();
+          return;
+        }
+
+        // A new student can't join a full room.
+        const current = liveRooms.get(roomCode);
+        if (
+          role !== "teacher" &&
+          current &&
+          !current.participants.has(socket.id) &&
+          current.participants.size >= MAX_PARTICIPANTS
+        ) {
+          refuse();
+          return;
+        }
+
+        const waiting = !isOpen && role !== "teacher";
+
         // A socket that already has an environment in this room (it joined
         // twice, e.g. a waiting student let in) keeps it, whatever it sends.
         const previousKey = socket.data.room === roomCode ? socket.data.studentKey ?? null : null;
@@ -561,15 +959,13 @@ export function registerSocketHandlers(
         // A teacher's picture comes from their login session, not from what the
         // browser sends, so nobody can show someone else's picture. Students
         // have no account, so they get none (the chat shows their initials).
-
-      
-        socket.data.avatarUrl = verifiedRole === "teacher" ? sessionUser?.picture ?? null : null;
-        socket.data.role = verifiedRole;
+        socket.data.avatarUrl = role === "teacher" ? sessionUser?.picture ?? null : null;
+        socket.data.role = role;
         // Students pick a pup avatar. Teachers show their picture instead.
         socket.data.pup = role === "student" ? cleanPup(pup) : null;
         socket.data.room = roomCode;
-        socket.data.waiting = waiting; 
-        socket.data.studentKey = verifiedRole === "student" ? previousKey : null;
+        socket.data.waiting = waiting;
+        socket.data.studentKey = role === "student" ? previousKey : null;
 
         if (waiting){ 
           socket.join(lobbyChannel(roomCode)); 
@@ -581,26 +977,42 @@ export function registerSocketHandlers(
         //  subscribe this socket to a channel (room).
         socket.join(roomCode);
 
-        socket.leave(lobbyChannel(roomCode)); 
+        socket.leave(lobbyChannel(roomCode));
 
-         void sendStudentCount(roomCode);
-        // Only teachers get the list of who needs help.
-        if (verifiedRole === "teacher") {
+        // The room's live state, kept until it ends so it can be saved. Waiting
+        // students don't make it live; only those who get in do.
+        const live = ensureLiveRoom(io, roomCode, expiresAt, hostID);
+        live.activityId = activityId;
+
         // A student arrived, or a teacher needs the current number.
-       
-
+        void sendStudentCount(roomCode);
+        // Only teachers get the list of who needs help and who's connected.
+        if (role === "teacher") {
+          live.hostID = hostID;
+          live.teacherJoined = true;
+          live.startedAt ??= new Date();
           socket.join(teacherChannel(roomCode));
           socket.emit("hand queue", getQueue(roomCode));
           socket.emit("room roster", getRoster(roomCode));
-          // Put back any private chats still open in this room.
-          for (const state of roomPrivateChats(roomCode).values()) {
-            socket.emit("private chat opened", {
-              chat: state.chat,
-              messages: state.messages,
-              progress: state.progress,
+        } else {
+          // A student joined -- remember them (and their work) until the room ends.
+          const existing = live.participants.get(socket.id);
+          if (existing) {
+            existing.connected = true;
+          } else {
+            live.participants.set(socket.id, {
+              id: socket.id,
+              username: cleanUser,
+              pup: socket.data.pup,
+              joinedAt: new Date(),
+              connected: true,
+              chatOpened: false,
+              chatTeacherName: "",
+              privateMessages: [],
+              progress: null,
+              progressSize: 0,
             });
           }
-        } else {
           // A student joined -- add them to the roster teachers see.
           addToRoster(roomCode, { id: socket.id, username: cleanUser });
         }
@@ -608,16 +1020,20 @@ export function registerSocketHandlers(
         broadcastParticipants(io, roomCode).catch(console.error); 
 
         // Everyone gets the room's activity, shaped for their role.
-        const roomActivity = await loadRoomActivity(activityId, verifiedRole);
-        roomActivities.set(roomCode, {
-          language: roomActivity?.language ?? null,
-          questionCount: roomActivity?.questions.length ?? 0,
-        });
+        const roomActivity = await loadRoomActivity(activityId, role);
+        // The room may have ended while the activity loaded; nothing to set up then.
+        const stillLive = liveRooms.has(roomCode);
+        if (stillLive) {
+          roomActivities.set(roomCode, {
+            language: roomActivity?.language ?? null,
+            questionCount: roomActivity?.questions.length ?? 0,
+          });
+        }
 
         // A student gets their environment back, or a new one, plus the key to
         // ask for it next time. Skipped if they left while the activity loaded,
         // since their disconnect has already run and nothing would release it.
-        if (verifiedRole === "student" && socket.connected) {
+        if (role === "student" && socket.connected && stillLive) {
           const key = claimEnvironment(
             roomCode,
             socket.id,
@@ -630,6 +1046,20 @@ export function registerSocketHandlers(
         }
 
         socket.emit("room activity", roomActivity);
+
+        if (role === "teacher") {
+          const participants = liveRooms.get(roomCode)?.participants.values() ?? [];
+          for (const p of participants) {
+            // Put back any private chats still open in this room.
+            if (p.connected && p.chatOpened) {
+              socket.emit("private chat opened", { chat: privateChatOf(p), messages: p.privateMessages });
+            }
+            // Every student's work so far, whether or not they have a chat open.
+            if (p.progress !== null) {
+              socket.emit("student activity", { studentId: p.id, progress: p.progress });
+            }
+          }
+        }
         // Late joiners land on the question the teacher has picked.
         socket.emit("current question", currentQuestions.get(roomCode) ?? 0);
 
@@ -641,16 +1071,7 @@ export function registerSocketHandlers(
             .limit(50)
             .lean();
 
-          const history: ChatMessage[] = recent.reverse().map((m) => ({
-            username: m.username,
-            role: m.role as Role,
-            text: m.text,
-            room: m.room,
-            createdAt: (m.createdAt as Date).toISOString(),
-            chatId: GROUP_CHAT_ID,
-            avatarUrl: m.avatarUrl ?? null,
-            pup: m.pup ?? null,
-          }));
+          const history: ChatMessage[] = recent.reverse().map(toChatMessage);
 
           socket.emit("chat history", history);
         } catch (err) {
@@ -665,6 +1086,9 @@ export function registerSocketHandlers(
       socket.on("set pup", ({ pup }) => {
         if (socket.data.role !== "student") return;
         socket.data.pup = cleanPup(pup);
+        // The saved room shows the pup they had last.
+        const p = socket.data.room ? getParticipant(socket.data.room, socket.id) : undefined;
+        if (p) p.pup = socket.data.pup;
       });
 
       // Mesages limited by room
@@ -776,19 +1200,14 @@ export function registerSocketHandlers(
         if (!room || role !== "teacher") return;
 
         const id = String(studentId || "");
-        const student = io.sockets.sockets.get(id);
-        if (!student || student.data.room !== room || student.data.role !== "student") return;
+        const student = getParticipant(room, id);
+        if (!student || !student.connected) return;
 
-        const chats = roomPrivateChats(room);
-        if (!chats.has(id)) {
-          chats.set(id, {
-            chat: { id, studentName: student.data.username, teacherName: username },
-            messages: [],
-            // Filled in when the student's copy syncs, right after they're opened.
-            progress: { answers: [], results: [], marks: [] },
-          });
+        if (!student.chatOpened) {
+          student.chatOpened = true;
+          student.chatTeacherName = username;
         }
-        sendPrivateChat(room, chats.get(id)!);
+        sendPrivateChat(room, student);
       });
 
       // Students can only write in their own private chat. Teachers can write
@@ -800,9 +1219,9 @@ export function registerSocketHandlers(
         const { username, role, room } = socket.data;
         if (!username || !room) return;
 
-        const state = privateChats.get(room)?.get(String(chatId || ""));
-        if (!state) return;
-        if (role === "student" && state.chat.id !== socket.id) return;
+        const state = getParticipant(room, String(chatId || ""));
+        if (!state || !state.connected || !state.chatOpened) return;
+        if (role === "student" && state.id !== socket.id) return;
 
         const cleanText = String(text || "").trim().slice(0, 1000);
         if (!cleanText) return;
@@ -813,43 +1232,50 @@ export function registerSocketHandlers(
           text: cleanText,
           room,
           createdAt: new Date().toISOString(),
-          chatId: state.chat.id,
+          chatId: state.id,
           avatarUrl: socket.data.avatarUrl ?? null,
           pup: socket.data.pup ?? null,
         };
-        state.messages = [...state.messages, message].slice(-PRIVATE_HISTORY_LIMIT);
+        state.privateMessages = [...state.privateMessages, message].slice(-PRIVATE_HISTORY_LIMIT);
 
         // Only the student in this chat and the room's teachers get it.
-        io.to([state.chat.id, teacherChannel(room)]).emit("private message", message);
+        io.to([state.id, teacherChannel(room)]).emit("private message", message);
       });
 
-      // A student's work only reaches the teacher while their private chat is
-      // open. Changing an answer clears its result, since the old result no
-      // longer applies.
-
-     
-
+      // A student's Parsons work reaches the room's teachers as it changes,
+      // whether or not a private chat is open. Changing an answer clears its
+      // result, since the old result no longer applies.
       socket.on("activity update", ({ answers }) => {
         if (socket.data.waiting) return; 
         const { role, room } = socket.data;
         if (!room || role !== "student") return;
 
-        const state = privateChats.get(room)?.get(socket.id);
+        const state = getParticipant(room, socket.id);
         const cleaned = cleanAnswers(answers);
         if (!state || !cleaned) return;
 
-        const previous = state.progress;
+        const previous = state.progress?.type === "parsons" ? state.progress : emptyParsons();
         const unchanged = (lines: ParsonsLine[], i: number) =>
           JSON.stringify(lines) === JSON.stringify(previous.answers[i]);
-        state.progress = {
+        setProgress(room, state, {
+          type: "parsons",
           answers: cleaned,
           results: cleaned.map((lines, i) => (unchanged(lines, i) ? previous.results[i] ?? null : null)),
           marks: cleaned.map((lines, i) => (unchanged(lines, i) ? previous.marks[i] ?? null : null)),
-        };
-        io.to(teacherChannel(room)).emit("student activity", {
-          chatId: socket.id,
-          progress: state.progress,
         });
+      });
+
+      // A student's coding work: their code and last Run output for each
+      // question. Reaches the room's teachers as it changes.
+      socket.on("code update", ({ codes, outputs }) => {
+        const { role, room } = socket.data;
+        if (!room || role !== "student") return;
+
+        const state = getParticipant(room, socket.id);
+        const cleaned = cleanCoding(codes, outputs);
+        if (!state || !cleaned) return;
+
+        setProgress(room, state, { type: "coding", ...cleaned });
       });
 
       // A student checks one Parsons question. The grading runs here, so the
@@ -880,16 +1306,15 @@ export function registerSocketHandlers(
             marks: showFeedback ? graded.marks : [],
           });
 
-          const state = privateChats.get(room)?.get(socket.id);
+          // Looked up after grading, since the room may have ended meanwhile.
+          const state = getParticipant(room, socket.id);
           if (state) {
-            state.progress = {
-              answers: withValue(state.progress.answers, index, answer, []),
-              results: withValue(state.progress.results, index, graded.success, null),
-              marks: withValue(state.progress.marks, index, graded.marks, null),
-            };
-            io.to(teacherChannel(room)).emit("student activity", {
-              chatId: socket.id,
-              progress: state.progress,
+            const previous = state.progress?.type === "parsons" ? state.progress : emptyParsons();
+            setProgress(room, state, {
+              type: "parsons",
+              answers: withValue(previous.answers, index, answer, []),
+              results: withValue(previous.results, index, graded.success, null),
+              marks: withValue(previous.marks, index, graded.marks, null),
             });
           }
         } catch (err) {
@@ -982,11 +1407,25 @@ export function registerSocketHandlers(
         // A student who leaves shouldn't stay in the teacher's list.
         if (socket.data.room) removeHand(socket.data.room, socket.id);
         if (socket.data.room && socket.data.role === "student") {
-          closePrivateChat(socket.data.room, socket.id);
+          // Keep the student, their work and their messages for the saved room.
+          const p = getParticipant(socket.data.room, socket.id);
+          if (p) {
+            p.connected = false;
+            // Teachers see the private chat close, as before.
+            if (p.chatOpened) io.to(teacherChannel(socket.data.room)).emit("private chat closed", socket.id);
+            // Nothing to save for a student who did no work and had no chat.
+            if (p.progress === null && !p.chatOpened && p.privateMessages.length === 0) {
+              liveRooms.get(socket.data.room)?.participants.delete(socket.id);
+            }
+          }
           removeFromRoster(socket.data.room, socket.id);
           // Their work is kept for a while in case they come back.
           if (socket.data.studentKey) releaseEnvironment(socket.data.room, socket.data.studentKey, socket.id);
           broadcastParticipants(io, socket.data.room).catch(console.error);
+        }
+        // An expired room ends once the last person (student or teacher) leaves.
+        if (socket.data.room && liveRooms.get(socket.data.room)?.expired && socketCount(io, socket.data.room) === 0) {
+          closeRoom(io, socket.data.room);
         }
       });
     }

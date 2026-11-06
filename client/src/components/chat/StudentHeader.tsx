@@ -2,13 +2,13 @@ import { RaiseHandButton } from "../HandQueue"
 import { RoomCodeBadge } from "./RoomCodeBadge"
 import { LeaveRoomButton } from "./LeaveRoomButton"
 import Timer from "../Timer"
-import type { RoomSocket } from "../../hooks/useRoomSocket"
+import type { RoomView } from "../../hooks/roomView"
 import { Session } from "../../types"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
 
 interface StudentHeaderProps {
     session: Session
-    room: RoomSocket
+    room: RoomView
 
     // Leaving unmounts the chat, which disconnects the socket and
     // drops the student from the teacher's hand queue.

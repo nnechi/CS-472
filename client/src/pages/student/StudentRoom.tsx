@@ -92,6 +92,7 @@ function StudentRoomScreen({ session, waiting }: { session: Session; waiting: bo
                             currentQuestion={room.currentQuestion}
                             role="student"
                             codes={room.code}
+                            outputs={room.codeOutputs}
                             run={room.run}
                             onCodeChange={room.setCode}
                             onRun={room.runCode}

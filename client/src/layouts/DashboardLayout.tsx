@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet } from "react-router-dom"
 import useAuth from "../hooks/useAuth"
 import DashboardSearch from "../components/DashboardSearch"
 import UserAvatar from "../components/UserAvatar"
-import { ChatIcon, FolderIcon, HomeIcon, LogoutIcon, PencilIcon, SettingsIcon } from "../components/MenuIcons"
+import { FolderIcon, HistoryIcon, HomeIcon, LogoutIcon, PencilIcon, SettingsIcon } from "../components/MenuIcons"
 import shortLogo from "../assets/LittlePointers Logo/Short Logo.png"
 
 // Menu items stack the icon above the text on small screens and sit side by side on laptop and larger.
@@ -86,10 +86,10 @@ export default function DashboardLayout() {
                             <span className={labelClass}>Notes</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Notes</span>
                         </NavLink>
-                        <NavLink to="/dashboard/chat" aria-label="Chats" className={linkClass}>
-                            <ChatIcon/>
-                            <span className={labelClass}>Chats</span>
-                            <span className={tooltipClass(menuOpen)} aria-hidden="true">Chats</span>
+                        <NavLink to="/dashboard/previous-activities" aria-label="Previous activities" className={linkClass}>
+                            <HistoryIcon/>
+                            <span className={labelClass}>Previous activities</span>
+                            <span className={tooltipClass(menuOpen)} aria-hidden="true">Previous activities</span>
                         </NavLink>
                         <NavLink to="/dashboard/settings" aria-label="Settings" className={linkClass}>
                             <SettingsIcon/>
