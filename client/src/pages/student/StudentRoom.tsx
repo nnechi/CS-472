@@ -37,6 +37,10 @@ function StudentRoomScreen({ session }: { session: Session }) {
         },
     })
 
+    // The question on screen, as CodeEditor shows it, so its code is saved under the right question.
+    const questionCount = room.activity?.questions.length ?? 0
+    const questionIndex = Math.max(0, Math.min(room.currentQuestion, questionCount - 1))
+
     return (
         <div className="flex h-screen flex-col bg-white text-black">
             {/* Leaving unmounts the chat, which disconnects the socket and
@@ -63,6 +67,10 @@ function StudentRoomScreen({ session }: { session: Session }) {
                             activity={room.activity}
                             currentQuestion={room.currentQuestion}
                             role="student"
+                            code={room.studentCodes[questionIndex] ?? ""}
+                            onCodeChange={(code) => room.setStudentCode(questionIndex, code)}
+                            output={room.studentOutputs[questionIndex] ?? null}
+                            onOutputChange={(output) => room.setStudentOutput(questionIndex, output)}
                         />
                     )
                 }

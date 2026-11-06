@@ -2,12 +2,12 @@ import { AnswerProgress, RoomActivity } from "../../types";
 import LineBox, { ANSWER_FRAME_STYLE, lineStates } from "./LineBox";
 
 interface TeacherParsonsProps {
-  // "Activity" in the group chat, or the student's name in their private chat.
+  // "Class activity", or "<name>'s work" when a student is selected.
   title: string;
   activity: RoomActivity | null;
   // The question everyone in the room is on.
   currentQuestion: number;
-  // Set in a private chat: the student's arrangement and results for each question.
+  // Set when a student is selected: their arrangement and results for each question.
   progress?: AnswerProgress;
 }
 

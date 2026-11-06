@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { ROOM_CODE_MAX_LENGTH, normalizeRoomCode } from "../utils/roomCode"
 import { checkRoomExists } from "../api.ts"; 
 
@@ -10,7 +10,12 @@ import wideLogo from "../assets/LittlePointers Logo/Full Logo Wide.png"
 // in the teacher's hand queue, so the teacher knows who is asking for help.
 export default function JoinRoom() {
     const navigate = useNavigate()
-    const [code, setCode] = useState("")
+    // A shared link (/rooms/<CODE>) lands here as /joinroom?code=<CODE>, so the code starts filled in.
+    // The student still types their name and presses Join.
+    const [searchParams] = useSearchParams()
+    const [code, setCode] = useState(() =>
+        normalizeRoomCode(searchParams.get("code") ?? "").slice(0, ROOM_CODE_MAX_LENGTH)
+    )
     const [name, setName] = useState("")
     const [error, setError] = useState("")
 
