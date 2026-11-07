@@ -40,7 +40,12 @@ export const LANGUAGE_SPECS: Readonly<Record<CompileLanguage, LanguageSpec>> = {
     // Java submissions should declare a Main class.
     sourceFile: "Main.java",
     compile: { executable: "javac", args: ["-encoding", "UTF-8", "Main.java"] },
-    run: { executable: "java", args: ["-Dfile.encoding=UTF-8", "-cp", ".", "Main"] },
+    // Since JDK 18, System.out/err use stdout/stderr.encoding (from the locale),
+    // not file.encoding. Programs run without LANG, so set them explicitly.
+    run: {
+      executable: "java",
+      args: ["-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-cp", ".", "Main"],
+    },
   },
   python: {
     sourceFile: "main.py",
