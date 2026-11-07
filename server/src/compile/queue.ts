@@ -1,19 +1,18 @@
 import { CodeRunJob, JobHooks, JobOutcome } from "./job";
-import { runSubmission, RunOptions } from "./runner";
+import { RunOptions } from "./runner";
+import { defaultRunner } from "./remote";
 import { CompileRequest, CompileResult } from "./types";
 
-// How many programs run at once. Each is a real compiler or interpreter
-// process on this server, so keep it small.
+// How many programs run at once. Each is a sandbox container on this machine
+// (see runner/), so keep it small.
 export const MAX_CONCURRENT_RUNS = 2;
 // How many jobs can wait. Past this, new jobs are turned away instead of
 // letting the line (and memory) grow without end.
 export const MAX_QUEUED_RUNS = 50;
 
-// Runs one request. The real one is runSubmission; tests pass a fake.
+// Runs one request. The real one is defaultRunner (see remote.ts): the
+// sandboxed runner service when RUNNER_URL is set. Tests pass a fake.
 export type Runner = (request: CompileRequest, options: RunOptions) => Promise<CompileResult>;
-
-const runSubmissionRunner: Runner = (request, options) =>
-  runSubmission(request, request.language, options);
 
 export interface ExecutionQueueOptions {
   maxConcurrent?: number;
@@ -54,7 +53,7 @@ export class ExecutionQueue {
   constructor({
     maxConcurrent = MAX_CONCURRENT_RUNS,
     maxQueued = MAX_QUEUED_RUNS,
-    run = runSubmissionRunner,
+    run = defaultRunner,
   }: ExecutionQueueOptions = {}) {
     if (!Number.isSafeInteger(maxConcurrent) || maxConcurrent < 1) {
       throw new RangeError("maxConcurrent must be a positive integer");
