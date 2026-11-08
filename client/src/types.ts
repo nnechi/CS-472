@@ -98,6 +98,7 @@ export interface RoomQuestion {
 
 // The room's activity, with the questions shaped for the person receiving it.
 export interface RoomActivity {
+  name: string;
   type: ActivityType;
   language: string | null;
   questions: RoomQuestion[];

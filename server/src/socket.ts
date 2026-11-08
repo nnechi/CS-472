@@ -565,7 +565,7 @@ async function loadRoomActivity(activityId: unknown, role: Role): Promise<RoomAc
         options,
       };
     });
-    return { type, language: activity.language ?? null, questions };
+    return { name: activity.name, type, language: activity.language ?? null, questions };
   } catch (err) {
     console.error("[socket] failed to load activity:", err);
     return null;
