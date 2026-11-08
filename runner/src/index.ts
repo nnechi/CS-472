@@ -36,6 +36,8 @@ const BACKSTOP_MS = 30_000;
 // own only once Docker has removed the container, a moment later. Without a
 // short wait, the server's next queued run lands in that gap and fails.
 const SLOT_WAIT_MS = 5_000;
+// SLOT_WAIT_MS + BACKSTOP_MS must stay below REMOTE_TIMEOUT_MS in
+// server/src/compile/remote.ts, or the server gives up on a run first.
 
 // Keep in sync with COMPILE_LANGUAGES in server/src/compile/types.ts. This is a
 // separate package, so it can't import it.

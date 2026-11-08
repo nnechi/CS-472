@@ -5,9 +5,12 @@ import { CompileResult, CompileUpdate } from "./types";
 // sandbox container for each run. Which runner the server uses is decided in
 // defaultRunner.ts.
 
-// The runner ends every run within 30 s (its backstop) and says so. This limit
-// is for when the runner itself hangs: a run never holds a queue slot longer.
-const REMOTE_TIMEOUT_MS = 35_000;
+// For when the runner itself hangs: a run never holds a queue slot longer.
+// The runner already ends every run itself, so this has to stay above the
+// longest it can take (runner/src/index.ts): up to SLOT_WAIT_MS (5 s) waiting
+// for a slot, then BACKSTOP_MS (30 s). Otherwise this fires first and the
+// student gets this message instead of the runner's own.
+const REMOTE_TIMEOUT_MS = 40_000;
 const TIMEOUT_MESSAGE = "The code runner took too long to answer. Try again.";
 
 // A runner that sends each run to the runner service at baseUrl and turns its
