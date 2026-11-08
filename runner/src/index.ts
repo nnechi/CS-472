@@ -11,7 +11,14 @@ import http, { IncomingMessage, ServerResponse } from "node:http";
 // student code itself and must not be reachable from outside the compose network.
 
 const PORT = positiveInteger(process.env.PORT, 4000);
+// Required. This service can start containers on the host, so it never runs
+// without a token, however it's started.
 const RUNNER_TOKEN = process.env.RUNNER_TOKEN ?? "";
+if (!RUNNER_TOKEN.trim()) {
+  console.error("[runner] RUNNER_TOKEN is not set. Refusing to start: anyone who could reach this port could run code.");
+  console.error("[runner] Generate one with: openssl rand -hex 32");
+  process.exit(1);
+}
 const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "littlepointers-sandbox";
 // Match MAX_CONCURRENT_RUNS in server/src/compile/queue.ts. The server's queue
 // is the real limit; this is a backstop.
@@ -38,7 +45,7 @@ const SANDBOX_FLAGS = [
   "--network", "none",                     // no internet, no Mongo, no server
   "--memory", "512m", "--memory-swap", "512m",
   "--cpus", "1",
-  "--pids-limit", "64",                    // stops fork bombs
+  "--pids-limit", "128",                   // stops fork bombs; threads count too, and the JVM and node use many
   "--read-only",
   "--tmpfs", "/tmp:rw,exec,size=64m",      // runSubmission's work dir; exec for C/C++ binaries
   "--cap-drop", "ALL",
@@ -193,7 +200,6 @@ function removeContainer(name: string, docker: ChildProcess): void {
 }
 
 function authorized(header: string | undefined): boolean {
-  if (!RUNNER_TOKEN) return true;
   const expected = Buffer.from(`Bearer ${RUNNER_TOKEN}`);
   const actual = Buffer.from(header ?? "");
   // timingSafeEqual throws on different lengths, so check that first.
@@ -267,7 +273,6 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 
 removeLeftovers().then(() => {
   server.listen(PORT, () => {
-    console.log(`[runner] listening on ${PORT}, image ${SANDBOX_IMAGE}, max ${MAX_CONCURRENT} at once` +
-      (RUNNER_TOKEN ? "" : " (no RUNNER_TOKEN set: anyone who can reach this port can run code)"));
+    console.log(`[runner] listening on ${PORT}, image ${SANDBOX_IMAGE}, max ${MAX_CONCURRENT} at once`);
   });
 });

@@ -7,6 +7,11 @@ import { CompileRequest, CompileResult, CompileUpdate } from "./types";
 
 type Runner = (request: CompileRequest, options: RunOptions) => Promise<CompileResult>;
 
+// The runner ends every run within 30 s (its backstop) and says so. This limit
+// is for when the runner itself hangs: a run never holds a queue slot longer.
+const REMOTE_TIMEOUT_MS = 35_000;
+const TIMEOUT_MESSAGE = "The code runner took too long to answer. Try again.";
+
 // A runner that sends each run to the runner service at baseUrl and turns its
 // stream (one JSON object per line) back into onUpdate calls and a result.
 // Throws with a message the student can read when the run can't happen.
@@ -14,6 +19,10 @@ export function createRemoteRunner(baseUrl: string, token = ""): Runner {
   const url = new URL("/run", baseUrl).toString();
 
   return async (request, options) => {
+    // Stop (options.signal) or the time limit, whichever comes first.
+    const timeout = AbortSignal.timeout(REMOTE_TIMEOUT_MS);
+    const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
+
     let response: Response;
     try {
       response = await fetch(url, {
@@ -23,12 +32,13 @@ export function createRemoteRunner(baseUrl: string, token = ""): Runner {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ language: request.language, code: request.code, stdin: request.stdin }),
-        // Aborting (Stop, or the student left) closes the request, and the
-        // runner removes the container.
-        signal: options.signal,
+        // Aborting (Stop, the student left, or the time limit) closes the
+        // request, and the runner removes the container.
+        signal,
       });
     } catch (error) {
       if (options.signal?.aborted) throw error;
+      if (timeout.aborted) throw new Error(TIMEOUT_MESSAGE);
       console.error("[compile] runner unreachable:", error);
       throw new Error("The code runner isn't available right now. Try again in a moment.");
     }
@@ -71,11 +81,21 @@ export function createRemoteRunner(baseUrl: string, token = ""): Runner {
       return false;
     };
 
-    for await (const chunk of response.body) {
-      pending += decoder.decode(chunk as Uint8Array, { stream: true });
-      const lines = pending.split("\n");
-      pending = lines.pop() ?? "";
-      for (const line of lines) if (handleLine(line)) return result!;
+    try {
+      for await (const chunk of response.body) {
+        pending += decoder.decode(chunk as Uint8Array, { stream: true });
+        const lines = pending.split("\n");
+        pending = lines.pop() ?? "";
+        for (const line of lines) if (handleLine(line)) return result!;
+      }
+    } catch (error) {
+      // A Stop and fatal lines pass through as they are; only the time limit
+      // gets its own message.
+      if (!options.signal?.aborted && timeout.aborted) {
+        console.error("[compile] runner timed out mid-run");
+        throw new Error(TIMEOUT_MESSAGE);
+      }
+      throw error;
     }
     pending += decoder.decode();
     if (handleLine(pending) && result) return result;
