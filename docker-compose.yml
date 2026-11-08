@@ -22,6 +22,10 @@ services:
       MONGO_URI: mongodb://mongo:27017/chat
       CLIENT_ORIGIN: http://localhost:5173
       PORT: "3000"
+      # Student code runs in the runner service, never in this container.
+      # "runner" resolves to the runner container on the compose network.
+      RUNNER_URL: http://runner:4000
+      RUNNER_TOKEN: ${RUNNER_TOKEN:?Set RUNNER_TOKEN in .env at the repo root (see .env.example)}
     volumes:
       # Mount your source so edits trigger hot reload inside the container.
       # We deliberately DON'T mount node_modules (see the anonymous volume below).
@@ -29,6 +33,37 @@ services:
       - /app/node_modules
     depends_on:
       - mongo # start mongo first
+      - runner
+
+  # ---------- Sandbox image for student code ----------
+  # Not a long-running service: it's here so "docker compose up --build" builds
+  # the littlepointers-sandbox image the runner starts for each run. The
+  # container itself exits right away.
+  sandbox:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.sandbox
+    image: littlepointers-sandbox # the name the runner's SANDBOX_IMAGE refers to
+    entrypoint: ["true"]
+    restart: "no"
+
+  # ---------- Code runner ----------
+  # Starts one locked-down sandbox container per code run (see runner/ and
+  # docs/runner-service-guide.md). It has the Docker socket, which is root on
+  # the host, so it has NO "ports:" entry: only the server can reach it, over
+  # the compose network.
+  runner:
+    build: ./runner
+    environment:
+      PORT: "4000"
+      SANDBOX_IMAGE: littlepointers-sandbox
+      MAX_CONCURRENT: "2" # match MAX_CONCURRENT_RUNS in server/src/compile/queue.ts
+      RUNNER_TOKEN: ${RUNNER_TOKEN:?Set RUNNER_TOKEN in .env at the repo root (see .env.example)}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      sandbox:
+        condition: service_completed_successfully # image built before the first run
 
   # ---------- React + Vite dev server (the "R") ----------
   client:
