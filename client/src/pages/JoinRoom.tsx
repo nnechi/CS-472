@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { ROOM_CODE_MAX_LENGTH, normalizeRoomCode } from "../utils/roomCode"
-import { checkRoomExists } from "../api.ts"; 
+import { getRoomStatus } from "../api.ts";
 
 import wideLogo from "../assets/LittlePointers Logo/Full Logo Wide.png"
 
@@ -34,12 +34,12 @@ export default function JoinRoom() {
         // The name travels in router state, not the URL, so it stays out of links.
 
         try { 
-            const verifyRoom = await (checkRoomExists(roomCode)); 
-            if (verifyRoom){
-            navigate(`/rooms/join/${roomCode}`, { state: { username } })
-            } else { 
-                setError("That room doesn't exist or it has expired."); 
-                return; 
+            const status = await getRoomStatus(roomCode);
+            if (status === "ok" || status === "not-open") {
+                navigate(`/rooms/join/${roomCode}`, { state: { username, waiting : status ==="not-open"} })
+                
+            } else {
+                setError("That room doesn't exist or it has expired.");
             }
         } catch (e){ 
             setError("Couldn't reach server, try again."); 

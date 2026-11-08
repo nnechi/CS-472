@@ -73,6 +73,7 @@ export interface RoomQuestion {
 
 // The room's activity, with the questions shaped for the person receiving it.
 export interface RoomActivity {
+  name: string;
   type: ActivityType;
   language: string | null;
   questions: RoomQuestion[];
@@ -86,6 +87,135 @@ export interface AnswerProgress {
   // Which lines of each checked answer are wrong, for the teacher to see.
   // null until checked, and reset with the result when the answer changes.
   marks: (LineMark[] | null)[];
+}
+
+// The feedback for one checked question: messages and the marked lines.
+export interface AnswerFeedback {
+  errors: string[];
+  marks: LineMark[];
+}
+
+// ---------------------------------------------------------------------------
+// Student environments. Keep this block identical in client and server types.
+//
+// Each student has their own workspace: their work on every question, their
+// last run, and what their screen looks like. The student owns it and sends it
+// to the server, and a teacher watching that student renders the same
+// components from it, read-only, to see exactly what the student sees.
+// Everything here must survive JSON: no pixels, Monaco objects, or functions.
+// ---------------------------------------------------------------------------
+
+// Longest code a student can keep for one question.
+export const STUDENT_CODE_MAX_LENGTH = 20000;
+// Longest stdout or stderr kept from one run.
+export const RUN_OUTPUT_MAX_LENGTH = 20000;
+
+// One finished run of a student's code. The raw parts are kept, not the
+// formatted text, so student and teacher format it the same way.
+export interface RunResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+  timedOut: boolean;
+  outputLimitExceeded: boolean;
+  finishedAt: string; // ISO timestamp
+}
+
+// How a run ended. Every run ends exactly once.
+export type RunOutcome =
+  | { type: "finished"; result: RunResult } // ran; check result for timeouts/compile errors
+  | { type: "cancelled" } // stopped by its owner or a disconnect
+  | { type: "replaced" } // still waiting when newer code was queued
+  | { type: "error"; message: string }; // the runner itself failed
+
+// A student's work on one Parsons question.
+export interface ParsonsWork {
+  answer: ParsonsLine[];
+  // null until checked, and reset when the answer changes.
+  result: boolean | null;
+  // Exactly what the student was shown. null when feedback is off or unchecked.
+  feedback: AnswerFeedback | null;
+  // Teachers only: which lines are wrong, even when the student's feedback is off.
+  marks: LineMark[] | null;
+}
+
+// A student's work on one question, whatever its type.
+export interface QuestionWork {
+  code: string; // coding: the editor contents
+  lastRun: RunResult | null; // coding: null until the student runs it
+  parsons: ParsonsWork | null; // Parsons only, null for coding questions
+}
+
+// A line and column in the editor, 1-based like Monaco's.
+export interface EditorPosition {
+  lineNumber: number;
+  column: number;
+}
+
+// What the student's screen looks like right now. Sizes are percentages and
+// scroll is in lines, so it maps onto a teacher's screen of any size.
+export interface EnvironmentViewport {
+  // The coding layout's three resizable groups, each panel as a percentage.
+  panels: {
+    outer: number[]; // question/output column | editor/output column
+    left: number[]; // question | correct output
+    right: number[]; // editor | student output
+  } | null;
+  editorTopLine: number; // first visible line in the editor, 1-based
+  cursor: EditorPosition | null;
+  selection: { start: EditorPosition; end: EditorPosition } | null;
+  // Parsons: how far down the activity is scrolled, 0 to 1.
+  activityScrollRatio: number;
+}
+
+// One student's whole workspace in a room.
+export interface StudentEnvironment {
+  // Stable per student across refreshes (unlike the socket id).
+  studentKey: string;
+  username: string;
+  // The question the student is looking at.
+  questionIndex: number;
+  // One entry per question in the room's activity.
+  questions: QuestionWork[];
+  // True while a run is in progress. Only one run at a time.
+  running: boolean;
+  viewport: EnvironmentViewport;
+  // Goes up by one on every change. Anything older than what's held is ignored.
+  version: number;
+}
+
+// The viewport before the student has scrolled, moved, or resized anything.
+export const EMPTY_VIEWPORT: EnvironmentViewport = {
+  panels: null,
+  editorTopLine: 1,
+  cursor: null,
+  selection: null,
+  activityScrollRatio: 0,
+};
+
+// A fresh environment for a student joining a room with this activity.
+export function emptyStudentEnvironment(
+  studentKey: string,
+  username: string,
+  activityType: ActivityType | null,
+  questionCount: number,
+): StudentEnvironment {
+  const count = Math.max(0, Math.min(questionCount, ACTIVITY_MAX_QUESTIONS));
+  return {
+    studentKey,
+    username,
+    questionIndex: 0,
+    questions: Array.from({ length: count }, () => ({
+      code: "",
+      lastRun: null,
+      parsons: activityType === "parsons"
+        ? { answer: [], result: null, feedback: null, marks: null }
+        : null,
+    })),
+    running: false,
+    viewport: { ...EMPTY_VIEWPORT },
+    version: 0,
+  };
 }
 
 // A student's work on a coding activity: the code they wrote for each question,
@@ -157,7 +287,12 @@ export interface PastRoomDetail {
 // What the client is allowed to send to the server.
 export interface ClientToServerEvents {
   // Sent once, right after connecting.
-  join: (payload: { username: string; role: Role; room: string; pup?: string }) => void;
+  // Students send the studentKey they were given last time in this room, if any.
+  join: (payload: { username: string; role: Role; room: string; pup?: string; studentKey?: string }) => void;
+  // Run this question's code. Queued; results come back as "run ..." events.
+  "run code": (payload: { questionIndex: number; code: string }) => void;
+  // Stop your own queued or running code.
+  "cancel run": () => void;
   // Students only: change their pup avatar. Later messages use the new pup.
   "set pup": (payload: { pup: string }) => void;
   // Username, role, and room are remembered server-side, so we only send text.
@@ -187,6 +322,10 @@ export interface ClientToServerEvents {
   "code update": (payload: { codes: string[]; outputs: (string | null)[] }) => void;
 }
 
+export interface Participant  { 
+  id : string; 
+  username : string; 
+}
 // What the server sends back to clients.
 export interface ServerToClientEvents {
   "chat message": (message: ChatMessage) => void;
@@ -227,6 +366,23 @@ export interface ServerToClientEvents {
   "timer state": (timer: TimerState) => void;
   "room closed" : () => void;
   "join error" : () => void;
+
+
+  "participants" : (participants : Participant[]) => void; 
+  "room waiting" : () => void; 
+  "room opened" : () => void;
+  // Students only: the key their environment is kept under in this room.
+  // Saved by the client and sent back with "join" so a refresh keeps their work.
+  "student key": (studentKey: string) => void;
+  // Your run is waiting. Sent again whenever its place changes (1 = next).
+  "run queued": (payload: { jobId: string; questionIndex: number; position: number }) => void;
+  "run started": (payload: { jobId: string; questionIndex: number }) => void;
+  // Output as the program produces it.
+  "run output": (payload: { jobId: string; stream: "stdout" | "stderr"; chunk: string }) => void;
+  "run finished": (payload: { jobId: string; questionIndex: number; outcome: RunOutcome }) => void;
+  // The run wasn't queued, with a message to show the student.
+  "run rejected": (payload: { questionIndex: number; reason: string }) => void;
+
 }
 
 //Incase we set up server-to-server events
@@ -239,6 +395,8 @@ export interface SocketData {
   room: string;
   // A signed-in teacher's Google picture, from their login session.
   avatarUrl: string | null;
-  // A student's pup avatar id. Null for teachers.
+  waiting : boolean; 
   pup: string | null;
+  // Students only: the key of their environment in this room.
+  studentKey: string | null;
 }

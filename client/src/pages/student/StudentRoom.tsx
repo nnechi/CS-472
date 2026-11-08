@@ -16,30 +16,54 @@ export default function StudentRoom() {
     const location = useLocation()
     const { roomCode } = useParams()
     const room = normalizeRoomCode(roomCode ?? "")
-    const username = (location.state as { username?: string } | null)?.username?.trim()
+    const state = location.state as { username?: string; waiting?: boolean } | null
+    const username = state?.username?.trim()
+    const waiting = state?.waiting ?? false
 
     if (!room || !username) return <Navigate to="/" replace />
 
-    return <StudentRoomScreen session={{ username, role: "student", room }} />
+    return <StudentRoomScreen session={{ username, role: "student", room }} waiting={waiting} />
 }
 
 // The socket is opened here, so it only runs once the name check has passed.
-function StudentRoomScreen({ session }: { session: Session }) {
+function StudentRoomScreen({ session, waiting }: { session: Session; waiting: boolean }) {
     const navigate = useNavigate()
     const room = useRoomSocket(session, {
+        startWaiting: waiting,
         onRoomClosed: () => {
             window.alert("Your teacher ended this room.")
             navigate("/")
         },
         onJoinError: () => {
-            window.alert("This room doesn't exist or it's expired.")
+            window.alert("This room isn't available. Your teacher may not have opened it or it has expired.")
             navigate("/")
         },
     })
 
-    // The question on screen, as CodeEditor shows it, so its code is saved under the right question.
-    const questionCount = room.activity?.questions.length ?? 0
-    const questionIndex = Math.max(0, Math.min(room.currentQuestion, questionCount - 1))
+    // Joined before the teacher opened the room: hold here until "room opened".
+    if (room.waiting) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-white px-4">
+                <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border border-brand bg-white p-9 text-center text-brand shadow-[0_4px_14px_rgba(34,21,116,0.15)]">
+                    <div
+                        className="h-10 w-10 animate-spin rounded-full border-4 border-brand/20 border-t-brand"
+                        aria-hidden="true"
+                    />
+                    <h1 className="text-2xl font-bold">Waiting for your teacher…</h1>
+                    <p className="text-brand/70">You'll join automatically when the room opens.</p>
+                    <p className="text-sm text-brand/70">Room code</p>
+                    <p className="-mt-3 text-2xl font-bold tracking-widest">{session.room}</p>
+                    <button
+                        type="button"
+                        className="mt-2 rounded-lg border border-brand/30 px-4 py-2 text-brand cursor-pointer hover:bg-brand-light"
+                        onClick={() => navigate("/")}
+                    >
+                        Leave
+                    </button>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="flex min-h-screen flex-col bg-white text-black">
@@ -67,10 +91,12 @@ function StudentRoomScreen({ session }: { session: Session }) {
                             activity={room.activity}
                             currentQuestion={room.currentQuestion}
                             role="student"
-                            code={room.studentCodes[questionIndex] ?? ""}
-                            onCodeChange={(code) => room.setStudentCode(questionIndex, code)}
-                            output={room.studentOutputs[questionIndex] ?? null}
-                            onOutputChange={(output) => room.setStudentOutput(questionIndex, output)}
+                            codes={room.code}
+                            outputs={room.codeOutputs}
+                            run={room.run}
+                            onCodeChange={room.setCode}
+                            onRun={room.runCode}
+                            onCancel={room.cancelRun}
                         />
                     )
                 }

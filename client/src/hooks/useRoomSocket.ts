@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { DEFAULT_TIMER_MS } from "../components/Timer";
 import { socket } from "../socket";
 import { PupId, loadPupId, savePupId } from "../components/chat/PupAvatar";
-import type { RoomView } from "./roomView";
+import { loadStudentKey, saveStudentKey } from "../utils/studentKey";
+import type { RoomView, RunState } from "./roomView";
 import {
   AnswerFeedback,
   ChatMessage,
@@ -13,6 +14,7 @@ import {
   RosterStudent,
   RoomActivity,
   RoomQuestion,
+  RunOutcome,
   Session,
   StudentProgress,
   TimerState,
@@ -21,10 +23,30 @@ import {
 interface RoomSocketOptions {
   onRoomClosed?: () => void;
   onJoinError?: () => void;
+  startWaiting?: boolean;
 }
 
 // How long a student's arrangement or code waits before it is sent to the teacher.
 const PROGRESS_SYNC_DELAY_MS = 300;
+
+export type { RunState } from "./roomView";
+
+const IDLE_RUN: RunState = {
+  jobId: null,
+  questionIndex: null,
+  status: "idle",
+  position: null,
+  output: "",
+  outcome: null,
+  error: null,
+};
+
+// The text shown for a finished run: stdout, then stderr under a label.
+function formatRunOutput(outcome: RunOutcome, streamed: string): string {
+  if (outcome.type !== "finished") return streamed;
+  const { stdout, stderr } = outcome.result;
+  return `${stdout}${stderr ? "\n[stderr]\n" + stderr : ""}`;
+}
 
 // Fisher-Yates shuffle, for reshuffling a Parsons problem's lines.
 function shuffle<T>(items: T[]): T[] {
@@ -49,7 +71,7 @@ function startingAnswer(question: RoomQuestion): ParsonsLine[] {
 // this and call the actions it returns.
 export function useRoomSocket(
   session: Session,
-  { onRoomClosed, onJoinError }: RoomSocketOptions
+  { startWaiting = false, onRoomClosed, onJoinError }: RoomSocketOptions
 ): RoomView {
   // Messages for each chat, keyed by chat id (GROUP_CHAT_ID or a student's id).
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
@@ -62,6 +84,7 @@ export function useRoomSocket(
   // Teachers only: how many students are in the room right now.
   const [studentCount, setStudentCount] = useState(0);
   const [handRaised, setHandRaised] = useState(false);
+  const [waiting, setWaiting] = useState(startWaiting);
   // Teachers only: everyone currently connected to the room.
   const [roster, setRoster] = useState<RosterStudent[]>([]);
   // Shared countdown. The server sends it on join and on every play/pause.
@@ -79,12 +102,15 @@ export function useRoomSocket(
   const [studentAnswers, setStudentAnswers] = useState<ParsonsLine[][]>([]);
   const [studentResults, setStudentResults] = useState<(boolean | null)[]>([]);
   const [studentFeedback, setStudentFeedback] = useState<(AnswerFeedback | null)[]>([]);
-  // A student's own code and last Run output for each coding question. Kept per
-  // question, so changing question does not wipe it. Reset when the activity changes.
-  const [studentCodes, setStudentCodes] = useState<string[]>([]);
-  const [studentOutputs, setStudentOutputs] = useState<(string | null)[]>([]);
   // Teachers only: each student's progress, keyed by that student's id.
   const [studentProgress, setStudentProgress] = useState<Record<string, StudentProgress>>({});
+  // This person's code for each coding question, kept when the question
+  // changes, and their latest run from the server's execution queue.
+  const [code, setCode] = useState<string[]>([]);
+  const [run, setRun] = useState<RunState>(IDLE_RUN);
+  // The output of the last finished run of each question, or null if it hasn't
+  // been run since its code last changed. Students send it to the teacher.
+  const [codeOutputs, setCodeOutputs] = useState<(string | null)[]>([]);
   // Students: whether they changed their work since the activity loaded. Until
   // then nothing is sent, so the teacher sees "no work yet".
   const touchedRef = useRef(false);
@@ -106,6 +132,7 @@ export function useRoomSocket(
   // Socket listeners run outside render, so they read the latest values here.
   const activeChatRef = useRef(GROUP_CHAT_ID);
   const chatOpenRef = useRef(false);
+  const pupRef = useRef(pup);
   const onRoomClosedRef = useRef(onRoomClosed);
   onRoomClosedRef.current = onRoomClosed;
   const onJoinErrorRef = useRef(onJoinError);
@@ -187,6 +214,7 @@ export function useRoomSocket(
     // reconnect). Students start with nothing arranged, but a rejoin with the
     // same activity keeps the work they already did.
     const onRoomActivity = (next: RoomActivity | null) => {
+      setWaiting(false);
       setActivity(next);
       const json = JSON.stringify(next);
       if (lastActivityJsonRef.current === json) return;
@@ -195,8 +223,8 @@ export function useRoomSocket(
       setStudentAnswers(questions.map(startingAnswer));
       setStudentResults(questions.map(() => null));
       setStudentFeedback(questions.map(() => null));
-      setStudentCodes(questions.map(() => ""));
-      setStudentOutputs(questions.map(() => null));
+      setCode(questions.map(() => ""));
+      setCodeOutputs(questions.map(() => null));
       touchedRef.current = false;
       // Unsent work belonged to the previous activity.
       pendingAnswersRef.current = null;
@@ -224,6 +252,60 @@ export function useRoomSocket(
     const onHandQueue = (queue: RaisedHand[]) => setHandQueue(queue);
     const onClosed = () => onRoomClosedRef.current?.();
     const onJoinErrorEvent = () => onJoinErrorRef.current?.();
+    const onWaiting = () => setWaiting(true);
+    // Used for the first join and again when a waiting student is let in.
+    // Reads the pup from the ref, so a pup picked while waiting isn't lost.
+    const joinRoom = () => {
+      socket.emit("join", {
+        username: session.username,
+        role: session.role,
+        room: session.room,
+        pup: session.role === "student" ? pupRef.current : undefined,
+        // Read at each join, so a key saved since the last join is sent.
+        studentKey: session.role === "student" ? loadStudentKey(session.room) : undefined,
+      });
+    };
+    // The server's key for this student's environment, to send back next time.
+    const onStudentKey = (key: string) => saveStudentKey(session.room, key);
+    const onRoomOpened = () => joinRoom();
+
+    // A run waiting in line. A new jobId means a new run, so start fresh;
+    // the same jobId is just its place in line moving up.
+    const onRunQueued = ({ jobId, questionIndex, position }: { jobId: string; questionIndex: number; position: number }) =>
+      setRun((prev) =>
+        prev.jobId === jobId
+          ? { ...prev, position }
+          : { ...IDLE_RUN, jobId, questionIndex, status: "queued", position }
+      );
+    const onRunStarted = ({ jobId }: { jobId: string }) =>
+      setRun((prev) => (prev.jobId === jobId ? { ...prev, status: "running", position: null } : prev));
+    const onRunOutput = ({ jobId, chunk }: { jobId: string; chunk: string }) =>
+      setRun((prev) => (prev.jobId === jobId ? { ...prev, output: prev.output + chunk } : prev));
+    const onRunFinished = ({
+      jobId,
+      questionIndex,
+      outcome,
+    }: {
+      jobId: string;
+      questionIndex: number;
+      outcome: RunOutcome;
+    }) => {
+      // Only a run that actually finished has output worth keeping for its question.
+      if (outcome.type === "finished") {
+        touchedRef.current = true;
+        setCodeOutputs((prev) =>
+          prev.map((o, i) => (i === questionIndex ? formatRunOutput(outcome, "") : o))
+        );
+      }
+      setRun((prev) => {
+        // A replaced run is already superseded by the newer one being tracked.
+        if (prev.jobId !== jobId || outcome.type === "replaced") return prev;
+        const output = formatRunOutput(outcome, prev.output);
+        return { ...prev, status: "idle", position: null, output, outcome };
+      });
+    };
+    const onRunRejected = ({ questionIndex, reason }: { questionIndex: number; reason: string }) =>
+      setRun((prev) => ({ ...prev, questionIndex, status: "idle", position: null, error: reason }));
 
     socket.on("chat history", onHistory);
     socket.on("chat message", onMessage);
@@ -241,18 +323,18 @@ export function useRoomSocket(
     socket.on("timer state", setTimer);
     socket.on("room closed", onClosed);
     socket.on("join error", onJoinErrorEvent);
+    socket.on("room waiting", onWaiting); 
+    socket.on("room opened", onRoomOpened); 
+    socket.on("student key", onStudentKey);
+    socket.on("run queued", onRunQueued);
+    socket.on("run started", onRunStarted);
+    socket.on("run output", onRunOutput);
+    socket.on("run finished", onRunFinished);
+    socket.on("run rejected", onRunRejected);
 
     // Sent on every connect. Socket.IO reconnects by itself after a network
     // drop, and the new connection is in no room, so "join" must go again.
-    const sendJoin = () => {
-      socket.emit("join", {
-        username: session.username,
-        role: session.role,
-        room: session.room,
-        pup: session.role === "student" ? pup : undefined,
-      });
-    };
-    socket.on("connect", sendJoin);
+    socket.on("connect", joinRoom);
 
     // The socket is opened only while a room is on screen. Disconnecting on
     // unmount leaves the room server-side and drops a student from the
@@ -276,7 +358,15 @@ export function useRoomSocket(
       socket.off("timer state", setTimer);
       socket.off("room closed", onClosed);
       socket.off("join error", onJoinErrorEvent);
-      socket.off("connect", sendJoin);
+      socket.off("room waiting", onWaiting);
+      socket.off("room opened", onRoomOpened);
+      socket.off("student key", onStudentKey);
+      socket.off("run queued", onRunQueued);
+      socket.off("run started", onRunStarted);
+      socket.off("run output", onRunOutput);
+      socket.off("run finished", onRunFinished);
+      socket.off("run rejected", onRunRejected);
+      socket.off("connect", joinRoom);
       lastActivityJsonRef.current = null;
       // Send any work still waiting out the sync delay before leaving the room
       // or disconnecting. Edits made in the last 300 ms before the room ends
@@ -301,9 +391,10 @@ export function useRoomSocket(
       setStudentAnswers([]);
       setStudentResults([]);
       setStudentFeedback([]);
-      setStudentCodes([]);
-      setStudentOutputs([]);
       setStudentProgress({});
+      setRun(IDLE_RUN);
+      setCode([]);
+      setCodeOutputs([]);
       touchedRef.current = false;
     };
   }, [session.username, session.role, session.room]);
@@ -327,14 +418,14 @@ export function useRoomSocket(
 
   useEffect(() => {
     if (!isStudent || activityType !== "coding" || !touchedRef.current) return;
-    const payload = { codes: studentCodes, outputs: studentOutputs };
+    const payload = { codes: code, outputs: codeOutputs };
     pendingCodesRef.current = payload;
     const id = setTimeout(() => {
       socket.emit("code update", payload);
       if (pendingCodesRef.current === payload) pendingCodesRef.current = null;
     }, PROGRESS_SYNC_DELAY_MS);
     return () => clearTimeout(id);
-  }, [studentCodes, studentOutputs, isStudent, activityType]);
+  }, [code, codeOutputs, isStudent, activityType]);
 
   // Student: change the lines in one question. A changed answer has no result or feedback yet.
   const setStudentAnswer = (questionIndex: number, lines: ParsonsLine[]) => {
@@ -344,17 +435,12 @@ export function useRoomSocket(
     setStudentFeedback((prev) => prev.map((feedback, i) => (i === questionIndex ? null : feedback)));
   };
 
-  // Student: change the code of one question. Its last output no longer matches, so it is cleared.
-  const setStudentCode = (questionIndex: number, code: string) => {
+  // Change this person's code for one question. Its last output no longer
+  // matches the code, so it is cleared.
+  const setCodeAt = (questionIndex: number, next: string) => {
     touchedRef.current = true;
-    setStudentCodes((prev) => prev.map((c, i) => (i === questionIndex ? code : c)));
-    setStudentOutputs((prev) => prev.map((o, i) => (i === questionIndex ? null : o)));
-  };
-
-  // Student: the output of running one question's code.
-  const setStudentOutput = (questionIndex: number, output: string | null) => {
-    touchedRef.current = true;
-    setStudentOutputs((prev) => prev.map((o, i) => (i === questionIndex ? output : o)));
+    setCode((prev) => prev.map((c, i) => (i === questionIndex ? next : c)));
+    setCodeOutputs((prev) => prev.map((o, i) => (i === questionIndex ? null : o)));
   };
 
   // Student: ask the server whether this question's arrangement is right.
@@ -400,6 +486,7 @@ export function useRoomSocket(
     pup,
     // Students: save a new pup here and tell the server, so later messages use it.
     setPup: (next: PupId) => {
+      pupRef.current = next;
       setPupState(next);
       savePupId(next);
       socket.emit("set pup", { pup: next });
@@ -407,6 +494,7 @@ export function useRoomSocket(
     handQueue,
     studentCount,
     handRaised,
+    waiting,
     roster,
     timer,
     activity,
@@ -418,16 +506,20 @@ export function useRoomSocket(
     setStudentAnswer,
     checkAnswer,
     resetProblem,
-    studentCodes,
-    studentOutputs,
-    setStudentCode,
-    setStudentOutput,
     studentProgress: (studentId: string) => studentProgress[studentId] ?? null,
     selectChat,
     sendMessage,
     openPrivateChat,
     raiseHand: () => socket.emit("raise hand"),
     lowerHand: (id: string) => socket.emit("lower hand", { id }),
+    // This person's code for each question, their latest run, and the
+    // actions to edit, start, or stop it. Students and teachers alike.
+    code,
+    codeOutputs,
+    setCode: setCodeAt,
+    run,
+    runCode: (questionIndex: number, code: string) => socket.emit("run code", { questionIndex, code }),
+    cancelRun: () => socket.emit("cancel run"),
     ended: false,
   };
 }

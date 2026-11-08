@@ -84,10 +84,6 @@ interface TeacherRoomViewProps {
 export function TeacherRoomView({ room, session, onLeave, statusLabel }: TeacherRoomViewProps) {
     // The student whose work is on screen, or null for the class activity.
     const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
-    // The teacher's own class-activity code and output, per question. Kept here so they
-    // survive switching to a student and back.
-    const [playgroundCode, setPlaygroundCode] = useState<Record<number, string>>({})
-    const [playgroundOutput, setPlaygroundOutput] = useState<Record<number, string | null>>({})
     // Whether the Needs help box is open. Toggled by the raise-hand icon in the header.
     const [showHandQueue, setShowHandQueue] = useState(false)
 
@@ -178,14 +174,28 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                             activity={room.activity}
                             currentQuestion={room.currentQuestion}
                             role="teacher"
-                            code={playgroundCode[room.currentQuestion] ?? ""}
-                            onCodeChange={(code) => setPlaygroundCode((current) => ({ ...current, [room.currentQuestion]: code }))}
-                            output={playgroundOutput[room.currentQuestion] ?? null}
-                            onOutputChange={(output) => setPlaygroundOutput((current) => ({ ...current, [room.currentQuestion]: output }))}
-                            // A student's work, and every saved (ended) room, can't be edited or run.
-                            // The live teacher's own playground stays editable.
-                            readOnly={!!selectedStudent || room.ended}
-                            teacherProgress={selectedStudent ? codingProgress : undefined}
+                            {...(selectedStudent
+                                // A student's work can't be edited or run: it shows
+                                // their code and the output of their last run.
+                                ? {
+                                      codes: codingProgress?.codes ?? [],
+                                      outputs: codingProgress?.outputs ?? [],
+                                      emptyMessage: codingProgress
+                                          ? "This student hasn't run this code yet."
+                                          : "This student hasn't written any code yet.",
+                                  }
+                                : room.ended
+                                // A saved (ended) room's class activity is read-only too.
+                                ? { emptyMessage: "No output." }
+                                // The live teacher's own playground stays editable and runnable.
+                                : {
+                                      codes: room.code,
+                                      outputs: room.codeOutputs,
+                                      run: room.run,
+                                      onCodeChange: room.setCode,
+                                      onRun: room.runCode,
+                                      onCancel: room.cancelRun,
+                                  })}
                         />
                     )
                 }

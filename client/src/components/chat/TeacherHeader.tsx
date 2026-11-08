@@ -5,6 +5,7 @@ import { HandRaiseAlert } from "../HandQueue"
 import { RoomCodeBadge } from "./RoomCodeBadge"
 import { LeaveRoomButton } from "./LeaveRoomButton"
 import StudentSelector from "./StudentSelector"
+import ActivityInfo from "./ActivityInfo"
 import UserAvatar from "../UserAvatar"
 import useAuth from "../../hooks/useAuth"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
@@ -147,43 +148,46 @@ export default function TeacherHeader({
                 </div>
             </div>
 
-            {questions.length > 0 && (
-                <div className="border-t border-brand/15 px-4 py-2 sm:px-8">
-                    <Pagination aria-label="Questions">
-                        <PaginationContent className="flex-wrap justify-center">
-                            <PaginationItem>
-                                <PaginationPrevious
-                                    aria-label="Go to previous question"
-                                    aria-disabled={onFirstQuestion}
-                                    className={cn(QUESTION_NAV_CLASS, onFirstQuestion ? "pointer-events-none opacity-50" : "cursor-pointer")}
-                                    onClick={() => !onFirstQuestion && room.selectQuestion(index - 1)}
-                                />
-                            </PaginationItem>
-                            {questions.map((_, i) => {
-                                const correct = progress?.results[i] === true
-                                return (
-                                    <PaginationItem key={i}>
-                                        <PaginationLink
-                                            aria-label={`Question ${i + 1}${correct ? ", correct" : ""}`}
-                                            isActive={i === index}
-                                            className={`cursor-pointer ${correct ? "text-green-700" : ""}`}
-                                            onClick={() => room.selectQuestion(i)}
-                                        >
-                                            {i + 1}
-                                        </PaginationLink>
-                                    </PaginationItem>
-                                )
-                            })}
-                            <PaginationItem>
-                                <PaginationNext
-                                    aria-label="Go to next question"
-                                    aria-disabled={onLastQuestion}
-                                    className={cn(QUESTION_NAV_CLASS, onLastQuestion ? "pointer-events-none opacity-50" : "cursor-pointer")}
-                                    onClick={() => !onLastQuestion && room.selectQuestion(index + 1)}
-                                />
-                            </PaginationItem>
-                        </PaginationContent>
-                    </Pagination>
+            {room.activity && (
+                <div className="flex flex-col gap-2 border-t border-brand/15 px-4 py-2 sm:px-8 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
+                    <ActivityInfo activity={room.activity} />
+                    {questions.length > 0 && (
+                        <Pagination aria-label="Questions" className="md:mx-0 md:w-auto">
+                            <PaginationContent className="flex-wrap justify-center">
+                                <PaginationItem>
+                                    <PaginationPrevious
+                                        aria-label="Go to previous question"
+                                        aria-disabled={onFirstQuestion}
+                                        className={cn(QUESTION_NAV_CLASS, onFirstQuestion ? "pointer-events-none opacity-50" : "cursor-pointer")}
+                                        onClick={() => !onFirstQuestion && room.selectQuestion(index - 1)}
+                                    />
+                                </PaginationItem>
+                                {questions.map((_, i) => {
+                                    const correct = progress?.results[i] === true
+                                    return (
+                                        <PaginationItem key={i}>
+                                            <PaginationLink
+                                                aria-label={`Question ${i + 1}${correct ? ", correct" : ""}`}
+                                                isActive={i === index}
+                                                className={`cursor-pointer ${correct ? "text-green-700" : ""}`}
+                                                onClick={() => room.selectQuestion(i)}
+                                            >
+                                                {i + 1}
+                                            </PaginationLink>
+                                        </PaginationItem>
+                                    )
+                                })}
+                                <PaginationItem>
+                                    <PaginationNext
+                                        aria-label="Go to next question"
+                                        aria-disabled={onLastQuestion}
+                                        className={cn(QUESTION_NAV_CLASS, onLastQuestion ? "pointer-events-none opacity-50" : "cursor-pointer")}
+                                        onClick={() => !onLastQuestion && room.selectQuestion(index + 1)}
+                                    />
+                                </PaginationItem>
+                            </PaginationContent>
+                        </Pagination>
+                    )}
                 </div>
             )}
         </div>
