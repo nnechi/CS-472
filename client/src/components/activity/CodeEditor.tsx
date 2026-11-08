@@ -6,9 +6,20 @@ import {
 } from "@/components/ui/resizable"
 import type { RoomActivity } from "../../types"
 import type { RunState } from "../../hooks/useRoomSocket"
+import { PlayIcon, StopIcon } from "../ActivitySVGs"
 
 // The activity languages that have a runner on the server.
 const RUNNABLE = ["python", "javascript", "typescript", "java", "c", "c++"];
+
+// A circle with a diagonal slash: shown on the Run button while it is disabled.
+function CrossCircleIcon({ className = "" }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 24 24" className={`h-5 w-5 shrink-0 ${className}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="5.6" y1="18.4" x2="18.4" y2="5.6" />
+        </svg>
+    )
+}
 
 interface CodeEditorProps {
     // The current activtity being used in the room
@@ -102,6 +113,14 @@ export default function CodeEditor({
     const runHere = run && run.questionIndex === index ? run : undefined;
     // Waiting in line or running: Run is off until it's done, Stop is on.
     const busy = runHere?.status === "queued" || runHere?.status === "running";
+    // Why Run is off, shown as the button's tooltip. Empty when Run can be pressed.
+    const runDisabledReason = busy
+        ? "Your code is running"
+        : !code.trim()
+            ? "Write some code to enable \"Run\""
+            : !canRun
+                ? (activity.language ? `Execution is not available for this activity’s language (${activity.language}).` : "The teacher needs to set a programming language for this activity.")
+                : "";
     const status = runHere ? runStatus(runHere) : null;
     const output = runHere ? runHere.output : outputs[index] ?? "";
 
@@ -122,12 +141,20 @@ export default function CodeEditor({
 
                 {onRun && (
                     <div className="flex flex-wrap items-center gap-3">
-                        {busy && onCancel && <button type="button" onClick={onCancel}>Stop</button>}
+                        {busy && onCancel && (
+                            <button type="button" onClick={onCancel}
+                                className="inline-flex items-center gap-2 cursor-pointer rounded-lg border border-gray-400 bg-white px-4 py-2 font-semibold text-gray-700 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2">
+                                <StopIcon />
+                                Stop
+                            </button>
+                        )}
                         {/* Green on white; the shadow grows on hover. No hover effect while disabled. */}
                         <button type="button"
-                            className="cursor-pointer rounded-lg border border-green-600 bg-white px-4 py-2 font-semibold text-green-700 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-sm"
+                            className="inline-flex items-center gap-2 cursor-pointer rounded-lg border border-green-600 bg-white px-4 py-2 font-semibold text-green-700 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-sm"
                             disabled={busy || !code.trim() || !canRun}
+                            title={runDisabledReason || undefined}
                             onClick={() => onRun(index, code)}>
+                            {runDisabledReason ? <CrossCircleIcon /> : <PlayIcon />}
                             {runHere?.status === "running" ? "Running…" : runHere?.status === "queued" ? "Waiting…" : "Run"}
                         </button>
                     </div>

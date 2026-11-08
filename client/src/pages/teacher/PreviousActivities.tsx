@@ -28,6 +28,9 @@ function sortRooms(list: PastRoomSummary[], order: SortOrder): PastRoomSummary[]
     return sorted
 }
 
+// How many rooms are shown on one page.
+const PAGE_SIZE = 5
+
 // An eye: used for the View room item in the row menu.
 function EyeIcon({ className = "" }: { className?: string }) {
     return (
@@ -56,6 +59,13 @@ export default function PreviousActivities() {
         () => (rooms === null ? null : sortRooms(rooms, sortOrder)),
         [rooms, sortOrder]
     )
+
+    // Which page of rooms is showing. Each page holds PAGE_SIZE rooms.
+    const [page, setPage] = useState(0)
+    const pageCount = Math.max(1, Math.ceil((sortedRooms?.length ?? 0) / PAGE_SIZE))
+    // Keeps the page in range when a delete leaves fewer pages.
+    const currentPage = Math.min(page, pageCount - 1)
+    const pageRooms = sortedRooms?.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE) ?? null
 
     // Closes the sort menu when the user clicks anywhere outside it.
     useEffect(() => {
@@ -125,21 +135,46 @@ export default function PreviousActivities() {
             return <p className="text-gray-600">No previous activities yet. Rooms you end will show up here.</p>
 
         return (
-            <ul className="space-y-4">
-                {sortedRooms.map((r) => (
-                    <li key={r.code}>
-                        <PreviousRoomRow
-                            room={r}
-                            menuOpen={openMenuCode === r.code}
-                            onMenuToggle={() => setOpenMenuCode((current) => current === r.code ? null : r.code)}
-                            onMenuClose={() => setOpenMenuCode(null)}
-                            deleting={deletingCode === r.code}
-                            error={rowErrors[r.code] ?? ""}
-                            onDelete={() => handleDelete(r)}
-                        />
-                    </li>
-                ))}
-            </ul>
+            <>
+                <ul className="space-y-4">
+                    {pageRooms?.map((r) => (
+                        <li key={r.code}>
+                            <PreviousRoomRow
+                                room={r}
+                                menuOpen={openMenuCode === r.code}
+                                onMenuToggle={() => setOpenMenuCode((current) => current === r.code ? null : r.code)}
+                                onMenuClose={() => setOpenMenuCode(null)}
+                                deleting={deletingCode === r.code}
+                                error={rowErrors[r.code] ?? ""}
+                                onDelete={() => handleDelete(r)}
+                            />
+                        </li>
+                    ))}
+                </ul>
+                {sortedRooms.length > PAGE_SIZE && (
+                    <nav aria-label="Previous activities pages" className="mt-6 flex items-center justify-center gap-4 text-gray-900">
+                        <button
+                            type="button"
+                            aria-label="Previous page"
+                            onClick={() => setPage(currentPage - 1)}
+                            disabled={currentPage === 0}
+                            className="cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-1 text-xl disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            &lt;
+                        </button>
+                        <span>Page {currentPage + 1} of {pageCount}</span>
+                        <button
+                            type="button"
+                            aria-label="Next page"
+                            onClick={() => setPage(currentPage + 1)}
+                            disabled={currentPage >= pageCount - 1}
+                            className="cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-1 text-xl disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            &gt;
+                        </button>
+                    </nav>
+                )}
+            </>
         )
     }
 
@@ -169,6 +204,7 @@ export default function PreviousActivities() {
                                     aria-selected={order === sortOrder}
                                     onClick={() => {
                                         setSortOrder(order)
+                                        setPage(0)
                                         setSortOpen(false)
                                     }}
                                     className={`cursor-pointer rounded-md px-3 py-2 text-brand hover:bg-[#ccc9f7] ${order === sortOrder ? "font-semibold" : ""}`}

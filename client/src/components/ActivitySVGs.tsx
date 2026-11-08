@@ -32,6 +32,15 @@ export function PlayIcon({ className = "" }: { className?: string }) {
     )
 }
 
+// A stop sign: an octagon, used on the Stop button.
+export function StopIcon({ className = "" }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 24 24" className={`h-5 w-5 shrink-0 ${className}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z" />
+        </svg>
+    )
+}
+
 // A pencil for editing.
 export function PencilIcon({ className = "" }: { className?: string }) {
     return (

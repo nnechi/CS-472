@@ -183,7 +183,7 @@ export default function CreateActivity(){
                         required
                     >
                         <option value="" disabled>Choose a language</option>
-                        {PROGRAMMING_LANGUAGES.map((lang) => (
+                        {PROGRAMMING_LANGUAGES.filter((lang) => lang !== "other").map((lang) => (
                             <option key={lang} value={lang}>{lang}</option>
                         ))}
                     </select>

@@ -6,6 +6,9 @@ import { NoteIcon } from "../../components/ActivitySVGs"
 import { deleteActivity, listActivities } from "../../api"
 import type { ActivitySummary } from "../../types"
 
+// How many activities are shown on one page.
+const PAGE_SIZE = 5
+
 // The order the activity list can be shown in.
 type SortOrder = "newest" | "oldest" | "az" | "za"
 
@@ -62,6 +65,12 @@ export default function Activities() {
         () => (activities === null ? null : sortActivities(activities, sortOrder)),
         [activities, sortOrder]
     )
+    // Which page of activities is showing. Each page holds PAGE_SIZE activities.
+    const [page, setPage] = useState(0)
+    const pageCount = Math.max(1, Math.ceil((sortedActivities?.length ?? 0) / PAGE_SIZE))
+    // Keeps the page in range when a delete leaves fewer pages.
+    const currentPage = Math.min(page, pageCount - 1)
+    const pageActivities = sortedActivities?.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE) ?? null
     
     // Set an error string for when the list fails to load. Defaults to blank, as an error has not occurred yet
     const [listError, setListError] = useState("")
@@ -119,24 +128,51 @@ export default function Activities() {
             return <p className="text-gray-600">You haven't made any activities yet. Click "Create an Activity" to create your first activity.</p>
 
         // Otherwise, activities array is loaded and has activities to display, so display the Activity components
-        return sortedActivities.map((a) => (
-            <div
-                key={a.id}
-                id={`activity-${a.id}`}
-                className={a.id === highlightId ? "rounded-lg ring-2 ring-indigo-600" : undefined}
-            >
-                <Activity
-                    id={a.id}
-                    name={a.name}
-                    questionCount={a.questionCount}
-                    createdAt={a.createdAt}
-                    onDelete={() => handleDelete(a.id)}
-                    menuOpen={openMenuId === a.id}
-                    onMenuToggle={() => setOpenMenuId((current) => current === a.id ? null : a.id)}
-                    onMenuClose={() => setOpenMenuId(null)}
-                />
-            </div>
-        ))
+        return (
+            <>
+                {pageActivities?.map((a) => (
+                    <div
+                        key={a.id}
+                        id={`activity-${a.id}`}
+                        className={a.id === highlightId ? "rounded-lg ring-2 ring-indigo-600" : undefined}
+                    >
+                        <Activity
+                            id={a.id}
+                            name={a.name}
+                            questionCount={a.questionCount}
+                            createdAt={a.createdAt}
+                            onDelete={() => handleDelete(a.id)}
+                            menuOpen={openMenuId === a.id}
+                            onMenuToggle={() => setOpenMenuId((current) => current === a.id ? null : a.id)}
+                            onMenuClose={() => setOpenMenuId(null)}
+                        />
+                    </div>
+                ))}
+                {sortedActivities.length > PAGE_SIZE && (
+                    <nav aria-label="Activity pages" className="mt-6 flex items-center justify-center gap-4 text-gray-900">
+                        <button
+                            type="button"
+                            aria-label="Previous page"
+                            onClick={() => setPage(currentPage - 1)}
+                            disabled={currentPage === 0}
+                            className="cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-1 text-xl disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            &lt;
+                        </button>
+                        <span>Page {currentPage + 1} of {pageCount}</span>
+                        <button
+                            type="button"
+                            aria-label="Next page"
+                            onClick={() => setPage(currentPage + 1)}
+                            disabled={currentPage >= pageCount - 1}
+                            className="cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-1 text-xl disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            &gt;
+                        </button>
+                    </nav>
+                )}
+            </>
+        )
     }
 
     // Deletes the activity from the database, then removes it from the list on screen
@@ -186,6 +222,7 @@ export default function Activities() {
                                         aria-selected={order === sortOrder}
                                         onClick={() => {
                                             setSortOrder(order)
+                                            setPage(0)
                                             setSortOpen(false)
                                         }}
                                         className={`cursor-pointer rounded-md px-3 py-2 text-brand hover:bg-[#ccc9f7] ${order === sortOrder ? "font-semibold" : ""}`}
