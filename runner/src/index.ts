@@ -30,6 +30,11 @@ const MAX_BODY_BYTES = 1024 * 1024;
 // Well above the sandbox's own limits (10 s compile + 5 s run) plus container
 // start. Only reached if something inside the sandbox hangs.
 const BACKSTOP_MS = 30_000;
+// How long a run waits for a free slot before getting a 503. The server's queue
+// frees its slot as soon as a run's result arrives, but this service frees its
+// own only once Docker has removed the container, a moment later. Without a
+// short wait, the server's next queued run lands in that gap and fails.
+const SLOT_WAIT_MS = 5_000;
 
 // Keep in sync with COMPILE_LANGUAGES in server/src/compile/types.ts. This is a
 // separate package, so it can't import it.
@@ -64,6 +69,40 @@ interface RunBody {
 // Names of containers currently running, for shutdown.
 const activeRuns = new Set<string>();
 
+// Run slots. A slot is taken before a container starts and given back once the
+// container is gone. Runs that arrive while all are taken wait here, in order.
+let slotsInUse = 0;
+const slotWaiters: ((granted: boolean) => void)[] = [];
+
+// Takes a slot, waiting up to SLOT_WAIT_MS for one. False if none came free in
+// time or the client went away while waiting.
+function acquireSlot(res: ServerResponse): Promise<boolean> {
+  if (slotsInUse < MAX_CONCURRENT) {
+    slotsInUse++;
+    return Promise.resolve(true);
+  }
+  return new Promise(resolve => {
+    const settle = (granted: boolean) => {
+      clearTimeout(timer);
+      res.off("close", onClose);
+      const i = slotWaiters.indexOf(settle);
+      if (i !== -1) slotWaiters.splice(i, 1);
+      resolve(granted);
+    };
+    const onClose = () => settle(false);
+    const timer = setTimeout(() => settle(false), SLOT_WAIT_MS);
+    res.on("close", onClose);
+    slotWaiters.push(settle);
+  });
+}
+
+// Gives a slot back: straight to the longest-waiting run if there is one.
+function releaseSlot(): void {
+  const next = slotWaiters[0];
+  if (next) next(true); // the slot passes on, so slotsInUse stays the same
+  else slotsInUse--;
+}
+
 const server = http.createServer((req, res) => {
   handle(req, res).catch(error => {
     console.error("[runner] request failed:", error);
@@ -77,7 +116,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
   if (req.method === "GET" && path === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, active: activeRuns.size, max: MAX_CONCURRENT }));
+    res.end(JSON.stringify({ ok: true, active: slotsInUse, waiting: slotWaiters.length, max: MAX_CONCURRENT }));
     return;
   }
   if (req.method !== "POST" || path !== "/run") return sendStatus(res, 404, "Not found");
@@ -95,7 +134,12 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const body = parseBody(raw);
   if (!body) return sendStatus(res, 400, "Invalid run request");
 
-  if (activeRuns.size >= MAX_CONCURRENT) return sendStatus(res, 503, "Runner is busy");
+  if (!(await acquireSlot(res))) {
+    if (!res.destroyed) sendStatus(res, 503, "Runner is busy");
+    return;
+  }
+  // The client may have gone away just as the slot came free.
+  if (res.destroyed) return releaseSlot();
 
   run(body, res);
 }
@@ -133,6 +177,7 @@ function run(body: RunBody, res: ServerResponse): void {
     if (released) return;
     released = true;
     activeRuns.delete(name);
+    releaseSlot();
   };
 
   const backstop = setTimeout(() => {
