@@ -164,12 +164,7 @@ export default function RoomCreation() {
             <div className="flex flex-col gap-4 rounded-lg border border-brand/30 p-6">
                 <p className="text-base text-brand/70">Room Code:</p>
 
-                {/* Split after the third character, with a wide gap between the two halves. */}
-                <p className="-mt-2 text-5xl font-bold tracking-widest text-brand">
-                    {code.slice(0, 3)}
-                    <span className="inline-block w-8" aria-hidden="true" />
-                    {code.slice(3)}
-                </p>
+                <p className="-mt-2 text-5xl font-bold tracking-widest text-brand">{code}</p>
 
                 <div className="flex flex-wrap items-center gap-3">
                     <button
