@@ -25,7 +25,7 @@ export default function StudentHeader({ session, room, onLeave } : StudentHeader
     return (
         <div className="flex flex-col gap-3 border-b border-brand bg-brand-light px-4 py-3 sm:px-8 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
             <div className="flex min-w-0 flex-wrap items-center gap-4">
-                <img src={shortLogo} alt="LittlePointers" className="h-8 w-auto shrink-0" />
+                <img src={shortLogo} alt="LittlePointers" className="h-14 w-14 shrink-0" />
                 <div className="flex items-center gap-3">
                     <span className="text-lg font-semibold text-brand">{session.username}</span>
                     <RaiseHandButton raised={room.handRaised} onToggle={room.raiseHand} />

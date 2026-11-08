@@ -84,6 +84,12 @@ interface TeacherRoomViewProps {
 export function TeacherRoomView({ room, session, onLeave, statusLabel }: TeacherRoomViewProps) {
     // The student whose work is on screen, or null for the class activity.
     const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+    // The teacher's own class-activity code and output, per question. Kept here so they
+    // survive switching to a student and back.
+    const [playgroundCode, setPlaygroundCode] = useState<Record<number, string>>({})
+    const [playgroundOutput, setPlaygroundOutput] = useState<Record<number, string | null>>({})
+    // Whether the Needs help box is open. Toggled by the raise-hand icon in the header.
+    const [showHandQueue, setShowHandQueue] = useState(false)
 
     // If the selected student leaves a live room, drop the stale selection.
     useEffect(() => {
@@ -116,7 +122,7 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
     const codingProgress = progress?.type === "coding" ? progress : null
 
     return (
-        <div className="flex h-screen flex-col bg-white text-black">
+        <div className="flex min-h-screen flex-col bg-white text-black">
             <TeacherHeader
                 session={session}
                 room={room}
@@ -125,8 +131,10 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                 onSelectStudent={setSelectedStudentId}
                 onLeave={onLeave}
                 statusLabel={statusLabel}
+                handQueueOpen={showHandQueue}
+                onToggleHandQueue={() => setShowHandQueue((open) => !open)}
             />
-            {!room.ended && (
+            {!room.ended && showHandQueue && (
                 <div className="px-4 py-3 sm:px-8">
                     <HandQueue
                         queue={room.handQueue}
@@ -165,9 +173,15 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                     ) :
                     (
                         <CodeEditor
+                            // A fresh editor for each view, so a student's code never carries over to Class activity.
+                            key={studentId ?? "class-activity"}
                             activity={room.activity}
                             currentQuestion={room.currentQuestion}
                             role="teacher"
+                            code={playgroundCode[room.currentQuestion] ?? ""}
+                            onCodeChange={(code) => setPlaygroundCode((current) => ({ ...current, [room.currentQuestion]: code }))}
+                            output={playgroundOutput[room.currentQuestion] ?? null}
+                            onOutputChange={(output) => setPlaygroundOutput((current) => ({ ...current, [room.currentQuestion]: output }))}
                             // A student's work, and every saved (ended) room, can't be edited or run.
                             // The live teacher's own playground stays editable.
                             readOnly={!!selectedStudent || room.ended}

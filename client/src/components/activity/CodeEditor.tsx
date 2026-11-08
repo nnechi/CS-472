@@ -7,6 +7,17 @@ import {
 } from "@/components/ui/resizable"
 import Editor, { OnMount } from "@monaco-editor/react";
 import type { RoomActivity } from "../../types"
+import { PlayIcon } from "../ActivitySVGs"
+
+// A circle with a diagonal slash: shown on the Run button while it is disabled.
+function CrossCircleIcon({ className = "" }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 24 24" className={`h-5 w-5 shrink-0 ${className}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="5.6" y1="18.4" x2="18.4" y2="5.6" />
+        </svg>
+    )
+}
 
 interface CodeEditorProps {
     // The current activtity being used in the room
@@ -55,6 +66,13 @@ export default function CodeEditor({
     const language = activity?.language === "c++" ? "cpp" : activity?.language;
     const canRun = !!language && ["python", "javascript", "typescript", "java", "c", "cpp"].includes(language);
     const [running, setRunning] = useState(false);
+    // A short message shown when Run is clicked while it is disabled. It clears itself after a few seconds.
+    const [runHint, setRunHint] = useState("");
+    useEffect(() => {
+        if (!runHint) return;
+        const timer = setTimeout(() => setRunHint(""), 5000);
+        return () => clearTimeout(timer);
+    }, [runHint]);
     const requestRef = useRef<AbortController | null>(null);
     useEffect(() => () => requestRef.current?.abort(), []);
     useEffect(() => {
@@ -87,6 +105,16 @@ export default function CodeEditor({
         else setLocalOutput(next);
     };
 
+    // The Run button is off while code is running, is empty, or the language can't be run.
+    const runDisabled = running || !code.trim() || !canRun;
+    // Why Run is off, shown as the button's tooltip. Empty when Run can be pressed.
+    const runDisabledReason = running
+        ? "Your code is running"
+        : !code.trim()
+            ? "Write some code to enable \"Run\""
+            : !canRun
+                ? (language ? `Execution is not available for this activity’s language (${activity?.language}).` : "The teacher needs to set a programming language for this activity.")
+                : "";
     async function runCode() {
         if (requestRef.current || !canRun || readOnly) return;
         const controller = new AbortController();
@@ -138,7 +166,7 @@ export default function CodeEditor({
     };
 
     return (
-        <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+        <section className="flex flex-col gap-4 p-4">
             {/* Display the current question number out of the total number of questions */}
             <p className="text-xl font-semibold">
                 Question {index + 1} of {activity.questions.length}
@@ -147,24 +175,27 @@ export default function CodeEditor({
             {readOnly ? (
                 teacherProgress === null && <p className="text-sm text-gray-600">This student hasn't written any code yet.</p>
             ) : (
-            <div className="flex flex-wrap items-center gap-3">
-                <button type="button" className="rounded border px-4 py-2 disabled:opacity-50"
-                    disabled={running || !code.trim() || !canRun} onClick={runCode}>{running ? "Running…" : "Run"}</button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+                {/* aria-disabled instead of disabled, so a click still reaches the button and can show why it is off. */}
+                <button type="button" className="flex items-center gap-2 rounded border border-green-700 bg-green-700 px-4 py-2 text-white cursor-pointer hover:bg-green-800 aria-disabled:cursor-not-allowed aria-disabled:opacity-75 aria-disabled:hover:bg-green-700"
+                    aria-disabled={runDisabled} title={runDisabledReason || undefined}
+                    onClick={() => (runDisabled ? setRunHint(runDisabledReason) : runCode())}>{runDisabled ? <CrossCircleIcon /> : <PlayIcon />}{running ? "Running…" : "Run"}</button>
                 {running && <button type="button" onClick={() => requestRef.current?.abort()}>Stop</button>}
+                {runHint && <p role="status" className="rounded-md bg-warn px-3 py-2 text-sm text-brand">{runHint}</p>}
             </div>
             )}
-            {!canRun && !readOnly && <p className="text-sm text-gray-600">{language ? `Execution is not available for this activity’s language (${activity.language}).` : "The teacher needs to set a programming language for this activity."}</p>}
+            {!canRun && !readOnly && <p className="text-sm text-gray-600">{language ? `Execution is not available for this activity’s language (${activity?.language}).` : "The teacher needs to set a programming language for this activity."}</p>}
             {/* 4 quadrants */}
             <ResizablePanelGroup
             orientation="horizontal"
-            className="min-h-0 flex-1 rounded-lg border"
+            className="h-[90vh] min-h-[600px] shrink-0 rounded-lg border"
             >
             <ResizablePanel defaultSize="30%">
                 <ResizablePanelGroup orientation="vertical">
                 {/* Quadrant 1 - Question area */}
                 <ResizablePanel defaultSize="55%">
                     <div className="flex h-full p-6">
-                        <p className="font-semibold text-2xl">{question.question}</p>
+                        <p className="font-semibold text-2xl whitespace-pre-wrap">{question.question}</p>
                     </div>
                 </ResizablePanel>
 
@@ -174,7 +205,7 @@ export default function CodeEditor({
                 <ResizablePanel defaultSize="45%">
                     <div className="flex h-full flex-col gap-3 p-6">
                         <p className="text-2xl font-semibold">Correct Output</p>
-                        <p className="text-lg">{question.output}</p>
+                        <p className="text-lg whitespace-pre-wrap">{question.output}</p>
                     </div>
                 </ResizablePanel>
                 </ResizablePanelGroup>

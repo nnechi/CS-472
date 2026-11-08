@@ -124,6 +124,14 @@ export async function getPastRoom(roomCode : string) : Promise<PastRoomDetail> {
     return res.json();
 }
 
+// Deletes one ended room this teacher ran. Throws with the server's reason if it fails.
+export async function deletePastRoom(roomCode : string) : Promise<void> {
+    const res = await fetch(`${SERVER_URL}/api/past-rooms/${encodeURIComponent(roomCode)}`, { method: "DELETE", credentials: "include" })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not delete that room."));
+}
+
 export async function checkRoomExists(roomCode : string) : Promise<Boolean> {
     const res = await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent(roomCode)}`, { 
         method: "GET", 
