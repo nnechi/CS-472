@@ -1,0 +1,47 @@
+# Sandbox image: the runner service (runner/) starts one container from this
+# image per code run, with no network, a read-only filesystem, and tight
+# limits. It contains only the compile module, never the rest of the server.
+#
+# Build from the repo root:
+#   docker build -t littlepointers-sandbox -f server/Dockerfile.sandbox server
+# Try it by hand:
+#   echo '{"language":"python","code":"print(1)"}' | docker run --rm -i littlepointers-sandbox
+
+# ---------- Build: compile sandbox.ts to plain JavaScript ----------
+FROM node:20-alpine AS build
+WORKDIR /app
+
+# Uses npm install like server/Dockerfile; switch to npm ci once
+# package-lock.json is back in sync with package.json.
+COPY package.json package-lock.json ./
+RUN npm install
+
+# Only the compile module. No routes, models, or .env (see .dockerignore).
+COPY src/compile ./src/compile
+
+# Compiles sandbox.ts and only the files it imports (runner, plan, languages,
+# types), with the same settings as server/tsconfig.json.
+RUN npx tsc src/compile/sandbox.ts --outDir dist --rootDir src \
+      --target ES2022 --module commonjs --moduleResolution node \
+      --esModuleInterop --strict --skipLibCheck --types node
+
+# ---------- Sandbox: what student code actually runs next to ----------
+# Same base as server/Dockerfile, so the sandbox and the dev server behave the same.
+FROM node:20-alpine
+
+# Submission runtimes: keep this line in sync with server/Dockerfile.
+RUN apk add --no-cache python3 openjdk21-jdk gcc g++ musl-dev
+
+WORKDIR /app
+
+# The compiled sandbox, plus the one package it needs at run time: typescript,
+# to compile TypeScript submissions. None of the server's other dependencies
+# (express, mongoose, socket.io, ...) are in this image.
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/node_modules/typescript ./node_modules/typescript
+
+# The node image's built-in unprivileged user (uid 1000). The runner also
+# passes --user 1000:1000.
+USER node
+
+ENTRYPOINT ["node", "dist/compile/sandbox.js"]

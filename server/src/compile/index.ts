@@ -36,3 +36,15 @@ export type { CRunOptions } from "./c";
 
 export { runCpp } from "./cpp";
 export type { CppRunOptions } from "./cpp";
+
+export {
+  ExecutionQueue,
+  executionQueue,
+  MAX_CONCURRENT_RUNS,
+  MAX_QUEUED_RUNS,
+} from "./queue";
+export type { EnqueueResult, ExecutionQueueOptions, Runner } from "./queue";
+export { CodeRunJob, InvalidRunJobError, runnableLanguage } from "./job";
+export type { JobHooks, JobOutcome } from "./job";
+export { createRemoteRunner } from "./remote";
+export { defaultRunner } from "./defaultRunner";

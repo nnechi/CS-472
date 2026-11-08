@@ -168,10 +168,28 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                             activity={room.activity}
                             currentQuestion={room.currentQuestion}
                             role="teacher"
-                            // A student's work, and every saved (ended) room, can't be edited or run.
-                            // The live teacher's own playground stays editable.
-                            readOnly={!!selectedStudent || room.ended}
-                            teacherProgress={selectedStudent ? codingProgress : undefined}
+                            {...(selectedStudent
+                                // A student's work can't be edited or run: it shows
+                                // their code and the output of their last run.
+                                ? {
+                                      codes: codingProgress?.codes ?? [],
+                                      outputs: codingProgress?.outputs ?? [],
+                                      emptyMessage: codingProgress
+                                          ? "This student hasn't run this code yet."
+                                          : "This student hasn't written any code yet.",
+                                  }
+                                : room.ended
+                                // A saved (ended) room's class activity is read-only too.
+                                ? { emptyMessage: "No output." }
+                                // The live teacher's own playground stays editable and runnable.
+                                : {
+                                      codes: room.code,
+                                      outputs: room.codeOutputs,
+                                      run: room.run,
+                                      onCodeChange: room.setCode,
+                                      onRun: room.runCode,
+                                      onCancel: room.cancelRun,
+                                  })}
                         />
                     )
                 }

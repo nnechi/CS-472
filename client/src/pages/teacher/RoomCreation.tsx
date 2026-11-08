@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef } from "react"
+import { createRoom, deleteRoom, saveActivity, markRoomOpen} from '../../api.ts'
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
-import { createRoom, deleteRoom, saveActivity } from '../../api.ts'
+
+
 import useAuth from "../../hooks/useAuth.tsx"
+import { socket } from "../../socket"
+import { Participant } from "../../types"
 
 // Later this can POST /api/rooms so codes are unique and persisted.
 export default function RoomCreation() {
@@ -20,6 +24,7 @@ export default function RoomCreation() {
     const [busy, setBusy] = useState(true);
 
     const [saving, setSaving] = useState(false);
+    const [participants, setParticipants] = useState<Participant[]>([]);
     // False once the panel unmounts, so a late response can clean up after itself.
     const mounted = useRef(false);
 
@@ -75,6 +80,22 @@ export default function RoomCreation() {
     }, [auth?.user.id, code, startingActivityId]);
 
     useEffect(() => {
+        if (!auth || !code) return;
+
+        const onParticipants = (list: Participant[]) => setParticipants(list);
+
+        socket.on("participants", onParticipants);
+        socket.connect();
+        socket.emit("join", { username: auth.user.name, role: "teacher", room: code });
+
+        return () => {
+            socket.off("participants", onParticipants);
+            socket.disconnect();
+            setParticipants([]);
+        };
+    }, [code, auth?.user.id]);
+
+    useEffect(() => {
         mounted.current = true;
         return () => { mounted.current = false; };
     }, []);
@@ -97,6 +118,8 @@ export default function RoomCreation() {
         if (!auth || !startingActivityId || saving) return;
         setSaving(true);
         try {
+            await saveActivity(code, auth.user.id, startingActivityId); 
+            await markRoomOpen(code, auth.user.id, startingActivityId); 
             navigate(`/rooms/${code}`);
         } catch (e) {
             window.alert(`Could not open the room. ${e instanceof Error ? e.message : ""}`.trim());
@@ -141,12 +164,7 @@ export default function RoomCreation() {
             <div className="flex flex-col gap-4 rounded-lg border border-brand/30 p-6">
                 <p className="text-base text-brand/70">Room Code:</p>
 
-                {/* Split after the third character, with a wide gap between the two halves. */}
-                <p className="-mt-2 text-5xl font-bold tracking-widest text-brand">
-                    {code.slice(0, 3)}
-                    <span className="inline-block w-8" aria-hidden="true" />
-                    {code.slice(3)}
-                </p>
+                <p className="-mt-2 text-5xl font-bold tracking-widest text-brand">{code}</p>
 
                 <div className="flex flex-wrap items-center gap-3">
                     <button
@@ -170,9 +188,19 @@ export default function RoomCreation() {
             </div>
             </section>
 
-            {/* Placeholder for the students who join. */}
             <div className="mx-auto mb-8 min-h-96 w-[85%] rounded-lg bg-brand-light p-6" aria-label="Students who have joined">
                 <h2 className="text-center text-3xl font-bold text-brand">Participants</h2>
+                {participants.length === 0 ? (
+                    <p className="mt-6 text-center text-brand/70">No one has joined yet.</p>
+                ) : (
+                    <ul className="mt-6 flex flex-wrap justify-center gap-3">
+                        {participants.map((p) => (
+                            <li key={p.id} className="rounded-lg bg-white px-4 py-2 text-lg text-brand shadow-sm">
+                                {p.username}
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
         </div>
     )

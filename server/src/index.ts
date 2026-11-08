@@ -1,11 +1,10 @@
-import { compileRouter } from "./compile/routes";
 import express, { ErrorRequestHandler, RequestHandler } from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 
 import { connectToDatabase } from "./db";
-import {AppServer, closeRoom, isLiveRoomCode, isLiveRoomHost, registerSocketHandlers } from "./socket";
+import {AppServer, closeRoom, isLiveRoomCode, isLiveRoomHost, lobbyChannel, registerSocketHandlers } from "./socket";
 import { pastRoomForHost, pastRoomsForHost } from "./pastRooms";
 
 
@@ -54,7 +53,6 @@ export function createApp(io : AppServer) {
 
   app.use(cors({ origin: CLIENT_ORIGIN }));
   app.use(express.json({ limit: "1mb" }));
-  app.use("/api/compile", compileRouter);
 
   // A tiny health-check route so you can confirm the server is up in a browser.
   app.get("/health", (_req, res) => {
@@ -120,6 +118,9 @@ export function createApp(io : AppServer) {
       const roomExists = await Room.findOne({code : c}); 
       if (roomExists === null || roomExists.expiresAt.getTime() <= Date.now()){ 
         res.status(404).json({error: "Cannot find room!"}); 
+      } else if (!roomExists.isOpen){ 
+        // The room exists, but the teacher hasn't clicked Open room yet.
+        res.status(409).json({error : "This room isn't open yet."}); 
       } else { 
         res.status(200).json({message: "Joining room!"}); 
       }
@@ -241,7 +242,6 @@ export function createApp(io : AppServer) {
     const c : string = req.params.roomCode.trim().toUpperCase();
     const hostID = typeof req.body?.hostID === "string" ? req.body.hostID.trim() : "";
     const activityId = typeof req.body?.activityId === "string" ? req.body.activityId.trim() : "";
-
     if (!hostID) {
       res.status(400).json({ error: "Missing HostID." });
       return;
@@ -272,6 +272,38 @@ export function createApp(io : AppServer) {
       res.status(500).json({ error: "Failed to save activity." });
     }
   });
+
+// toggle open flags on the room to prevent early student joins. teacher clicks open room, students can join afterwards. 
+  app.put("/api/rooms/:roomCode/open", async (req, res) => { 
+    const c : string = req.params.roomCode.trim().toUpperCase();
+    const hostID = typeof req.body?.hostID === "string" ? req.body.hostID.trim() : "";
+    const activityId = typeof req.body?.activityId === "string" ? req.body.activityId.trim() : "";
+    if (!hostID) {
+      res.status(400).json({ error: "Missing HostID." });
+      return;
+    }
+    if (!isObjectIdOrHexString(activityId)) {
+      res.status(400).json({ error: "Choose an activity." });
+      return;
+    }
+
+    try { 
+      const updated = await Room.findOneAndUpdate( 
+        {code : c, hostID, expiresAt: { $gt: new Date() }, activityId}, { isOpen : true }
+      ); 
+      if (updated === null){ 
+        res.status(404).json({error : "Cannot find room!"}); 
+
+      } else { 
+        res.status(200).json({ message : "Opened room."}); 
+        io.to(lobbyChannel(c)).emit("room opened"); 
+      }
+    } catch (e){ 
+      console.error(e); 
+      res.status(500).json({error: "Failed to open room."}); 
+    }
+  }); 
+
 
   // joinRoom(ID: string, user: Participant): boolean -- body: { user }
   // TODO: Check the room code and capacity before adding the participant.
