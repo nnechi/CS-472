@@ -18,6 +18,9 @@ export const DEFAULT_TIMEOUT_MS = 5_000;
 export const DEFAULT_COMPILE_TIMEOUT_MS = 10_000;
 export const DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024;
 
+// Process groups are a POSIX feature; on Windows only the program itself is killed.
+const GROUP_KILL = process.platform !== "win32";
+
 export interface RunOptions {
   onUpdate?: OnCompileUpdate;
   signal?: AbortSignal;
@@ -108,11 +111,30 @@ export async function runSubmission(
         cwd: workDir,
         shell: false,
         stdio: ["pipe", "pipe", "pipe"],
+        // Its own process group, so killGroup() also reaches any processes
+        // the program starts. Not on Windows, where this opens a new console.
+        detached: GROUP_KILL,
         // Do not pass server secrets or NODE_OPTIONS into submitted programs.
         env: expectedLanguage === "c" || expectedLanguage === "cpp"
           ? { PATH: process.env.PATH, TMPDIR: workDir }
           : expectedLanguage === "java" ? { PATH: process.env.PATH } : {},
       });
+
+      // child.kill() signals only the program itself. Processes it forked keep
+      // running and keep the output pipes open, so "close" (and the run)
+      // would wait for them. Kill the whole group instead. SIGKILL because a
+      // program can catch or ignore SIGTERM.
+      const killGroup = () => {
+        if (GROUP_KILL && child.pid !== undefined) {
+          try {
+            process.kill(-child.pid, "SIGKILL");
+            return;
+          } catch {
+            // The group is already gone (ESRCH).
+          }
+        }
+        child.kill("SIGKILL");
+      };
 
       const decoders = {
         stdout: new StringDecoder("utf8"),
@@ -130,7 +152,7 @@ export async function runSubmission(
         }
         if (chunk.length > remaining || outputBytes >= maxOutputBytes) {
           result.outputLimitExceeded = true;
-          child.kill();
+          killGroup();
         }
       };
       child.stdout.on("data", (chunk: Buffer) => onChunk("stdout", chunk));
@@ -140,14 +162,14 @@ export async function runSubmission(
 
       const onAbort = () => {
         result.cancelled = true;
-        child.kill();
+        killGroup();
       };
       options.signal?.addEventListener("abort", onAbort, { once: true });
       if (options.signal?.aborted) onAbort();
 
       const timer = setTimeout(() => {
         result.timedOut = true;
-        child.kill();
+        killGroup();
       }, stageTimeoutMs);
       try {
         child.stdin.end(stdin);
@@ -177,6 +199,9 @@ export async function runSubmission(
         }
       } finally {
         clearTimeout(timer);
+        // The program may have exited but left processes running in the
+        // background (with their output closed). Don't let them outlive the run.
+        killGroup();
         options.signal?.removeEventListener("abort", onAbort);
       }
     };
