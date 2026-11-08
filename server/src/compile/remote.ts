@@ -1,11 +1,9 @@
-import { runSubmission, RunOptions } from "./runner";
-import { CompileRequest, CompileResult, CompileUpdate } from "./types";
+import { runSubmission, Runner } from "./runner";
+import { CompileResult, CompileUpdate } from "./types";
 
 // Runs code through the runner service (runner/), which starts a locked-down
 // sandbox container for each run. The server itself never runs student code
 // unless ALLOW_UNSANDBOXED_RUNS=1 is set for local development.
-
-type Runner = (request: CompileRequest, options: RunOptions) => Promise<CompileResult>;
 
 // The runner ends every run within 30 s (its backstop) and says so. This limit
 // is for when the runner itself hangs: a run never holds a queue slot longer.

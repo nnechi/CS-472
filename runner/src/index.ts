@@ -5,7 +5,7 @@ import http, { IncomingMessage, ServerResponse } from "node:http";
 // The runner service. The server's remote.ts POSTs each code run here; this
 // starts one locked-down sandbox container for it (server/Dockerfile.sandbox)
 // and streams the container's stdout back as the response, one JSON object
-// per line. See docs/runner-service-guide.md for the whole design.
+// per line. sandbox.ts (server/src/compile) runs inside each container.
 //
 // This process has Docker access, which is root on the host. It must never run
 // student code itself and must not be reachable from outside the compose network.
@@ -20,9 +20,10 @@ if (!RUNNER_TOKEN.trim()) {
   process.exit(1);
 }
 const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "littlepointers-sandbox";
-// Match MAX_CONCURRENT_RUNS in server/src/compile/queue.ts. The server's queue
-// is the real limit; this is a backstop.
-const MAX_CONCURRENT = positiveInteger(process.env.MAX_CONCURRENT, 2);
+// The same MAX_CONCURRENT_RUNS the server's queue reads (docker-compose.yml
+// gives both the one value). The server's queue is the real limit; this is a
+// backstop.
+const MAX_CONCURRENT = positiveInteger(process.env.MAX_CONCURRENT_RUNS, 2);
 
 // Code and stdin limits (server/src/compile/plan.ts) plus JSON overhead, with
 // room to spare. The sandbox checks the real limits.

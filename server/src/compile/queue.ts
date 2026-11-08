@@ -1,18 +1,18 @@
 import { CodeRunJob, JobHooks, JobOutcome } from "./job";
-import { RunOptions } from "./runner";
+import { Runner, RunOptions } from "./runner";
 import { defaultRunner } from "./remote";
-import { CompileRequest, CompileResult } from "./types";
 
 // How many programs run at once. Each is a sandbox container on this machine
-// (see runner/), so keep it small.
-export const MAX_CONCURRENT_RUNS = 2;
+// (see runner/), so keep it small. Set with MAX_CONCURRENT_RUNS, which
+// docker-compose.yml gives the runner too, so the two limits always match.
+export const MAX_CONCURRENT_RUNS = runLimitFromEnv(process.env.MAX_CONCURRENT_RUNS, 2);
 // How many jobs can wait. Past this, new jobs are turned away instead of
 // letting the line (and memory) grow without end.
 export const MAX_QUEUED_RUNS = 50;
 
-// Runs one request. The real one is defaultRunner (see remote.ts): the
-// sandboxed runner service when RUNNER_URL is set. Tests pass a fake.
-export type Runner = (request: CompileRequest, options: RunOptions) => Promise<CompileResult>;
+// Runs one request (see runner.ts). The real one is defaultRunner (see
+// remote.ts): the sandboxed runner service when RUNNER_URL is set.
+export type { Runner } from "./runner";
 
 export interface ExecutionQueueOptions {
   maxConcurrent?: number;
@@ -213,3 +213,13 @@ function callHook<K extends keyof JobHooks>(
 
 // The server's one queue. Every room shares it, since they share the machine.
 export const executionQueue = new ExecutionQueue();
+
+// A positive whole number from the environment, or the fallback if unset.
+function runLimitFromEnv(value: string | undefined, fallback: number): number {
+  if (value === undefined || value.trim() === "") return fallback;
+  const n = Number(value);
+  if (!Number.isSafeInteger(n) || n < 1) {
+    throw new RangeError(`MAX_CONCURRENT_RUNS must be a positive whole number, got "${value}"`);
+  }
+  return n;
+}

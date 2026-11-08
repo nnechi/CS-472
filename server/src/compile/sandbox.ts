@@ -3,7 +3,7 @@ import { InvalidCompileRequestError, MAX_CODE_BYTES, MAX_STDIN_BYTES } from "./p
 import { CompileLanguage, CompileUpdate } from "./types";
 
 // Entry point inside a sandbox container (see server/Dockerfile.sandbox and
-// docs/runner-service-guide.md). Runs exactly one request and exits:
+// runner/src/index.ts). Runs exactly one request and exits:
 //
 //   stdin:  one JSON request, { language, code, stdin? }
 //   stdout: one JSON object per line, the stream the runner service forwards

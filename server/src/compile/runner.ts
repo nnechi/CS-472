@@ -9,6 +9,7 @@ import {
   CommandSpec,
   CompilePhase,
   CompileLanguage,
+  CompileRequest,
   CompileResult,
   OnCompileUpdate,
   OutputStream,
@@ -28,6 +29,9 @@ export interface RunOptions {
   compileTimeoutMs?: number;
   maxOutputBytes?: number;
 }
+
+// Runs one request. The queue uses defaultRunner (remote.ts); tests pass a fake.
+export type Runner = (request: CompileRequest, options: RunOptions) => Promise<CompileResult>;
 
 /** Shared process and output handling for supported submission runners. */
 export async function runSubmission(
