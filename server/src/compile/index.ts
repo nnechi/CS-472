@@ -46,4 +46,5 @@ export {
 export type { EnqueueResult, ExecutionQueueOptions, Runner } from "./queue";
 export { CodeRunJob, InvalidRunJobError, runnableLanguage } from "./job";
 export type { JobHooks, JobOutcome } from "./job";
-export { createRemoteRunner, defaultRunner } from "./remote";
+export { createRemoteRunner } from "./remote";
+export { defaultRunner } from "./defaultRunner";

@@ -30,7 +30,7 @@ export interface RunOptions {
   maxOutputBytes?: number;
 }
 
-// Runs one request. The queue uses defaultRunner (remote.ts); tests pass a fake.
+// Runs one request. The queue uses defaultRunner (defaultRunner.ts); tests pass a fake.
 export type Runner = (request: CompileRequest, options: RunOptions) => Promise<CompileResult>;
 
 /** Shared process and output handling for supported submission runners. */

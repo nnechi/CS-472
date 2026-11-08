@@ -1,6 +1,6 @@
 import { CodeRunJob, JobHooks, JobOutcome } from "./job";
 import { Runner, RunOptions } from "./runner";
-import { defaultRunner } from "./remote";
+import { defaultRunner } from "./defaultRunner";
 
 // How many programs run at once. Each is a sandbox container on this machine
 // (see runner/), so keep it small. Set with MAX_CONCURRENT_RUNS, which
@@ -11,7 +11,7 @@ export const MAX_CONCURRENT_RUNS = runLimitFromEnv(process.env.MAX_CONCURRENT_RU
 export const MAX_QUEUED_RUNS = 50;
 
 // Runs one request (see runner.ts). The real one is defaultRunner (see
-// remote.ts): the sandboxed runner service when RUNNER_URL is set.
+// defaultRunner.ts): the sandboxed runner service when RUNNER_URL is set.
 export type { Runner } from "./runner";
 
 export interface ExecutionQueueOptions {
