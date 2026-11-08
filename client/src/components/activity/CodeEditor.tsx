@@ -114,21 +114,25 @@ export default function CodeEditor({
 
     return (
         <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
-            {/* Display the current question number out of the total number of questions */}
-            <p className="text-xl font-semibold">
-                Question {index + 1} of {activity.questions.length}
-            </p>
+            {/* The question number on the left, Run (and Stop while busy) on the right. */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xl font-semibold">
+                    Question {index + 1} of {activity.questions.length}
+                </p>
 
-            {onRun && (
-                <div className="flex flex-wrap items-center gap-3">
-                    <button type="button" className="rounded border px-4 py-2 disabled:opacity-50"
-                        disabled={busy || !code.trim() || !canRun}
-                        onClick={() => onRun(index, code)}>
-                        {runHere?.status === "running" ? "Running…" : runHere?.status === "queued" ? "Waiting…" : "Run"}
-                    </button>
-                    {busy && onCancel && <button type="button" onClick={onCancel}>Stop</button>}
-                </div>
-            )}
+                {onRun && (
+                    <div className="flex flex-wrap items-center gap-3">
+                        {busy && onCancel && <button type="button" onClick={onCancel}>Stop</button>}
+                        {/* Green on white; the shadow grows on hover. No hover effect while disabled. */}
+                        <button type="button"
+                            className="cursor-pointer rounded-lg border border-green-600 bg-white px-4 py-2 font-semibold text-green-700 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-sm"
+                            disabled={busy || !code.trim() || !canRun}
+                            onClick={() => onRun(index, code)}>
+                            {runHere?.status === "running" ? "Running…" : runHere?.status === "queued" ? "Waiting…" : "Run"}
+                        </button>
+                    </div>
+                )}
+            </div>
             {!canRun && !readOnly && <p className="text-sm text-gray-600">{activity.language ? `Execution is not available for this activity’s language (${activity.language}).` : "The teacher needs to set a programming language for this activity."}</p>}
             {/* 4 quadrants */}
             <ResizablePanelGroup
