@@ -5,7 +5,7 @@ import cors from "cors";
 
 import { connectToDatabase } from "./db";
 import {AppServer, closeRoom, isLiveRoomCode, isLiveRoomHost, lobbyChannel, registerSocketHandlers } from "./socket";
-import { pastRoomForHost, pastRoomsForHost } from "./pastRooms";
+import { deletePastRoomForHost, pastRoomForHost, pastRoomsForHost } from "./pastRooms";
 
 
 import { generateRoomCode } from "./utils/roomCode";
@@ -336,6 +336,21 @@ export function createApp(io : AppServer) {
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to load that room." });
+    }
+  });
+
+  // Deletes one ended room of the logged-in teacher. A teacher can only delete their own rooms.
+  app.delete("/api/past-rooms/:roomCode", requireLogin, async (req, res) => {
+    try {
+      const deleted = await deletePastRoomForHost(req.params.roomCode, req.session.user!.id);
+      if (!deleted) {
+        res.status(404).json({ error: "Cannot find that room." });
+        return;
+      }
+      res.status(200).json({ message: "Deleted." });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to delete that room." });
     }
   });
 

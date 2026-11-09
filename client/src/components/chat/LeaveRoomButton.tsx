@@ -29,7 +29,7 @@ export function LeaveRoomButton({ onLeave, className }: LeaveRoomButtonProps) {
               aria-label="Leave Room"
               onClick={onLeave}
               className={cn(
-                "rounded-full border-brand/40 bg-white text-brand shadow-sm transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600",
+                "cursor-pointer rounded-full border-brand/40 bg-white text-brand shadow-sm transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600",
                 className
               )}
             >

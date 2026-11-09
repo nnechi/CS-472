@@ -104,6 +104,9 @@ export function HandQueue({ queue, onLowerHand, onOpenPrivateChat }: HandQueuePr
 interface HandRaiseAlertProps {
   // How many students currently have a hand raised.
   count: number;
+  // Whether the Needs help box is open, and the click that opens or closes it.
+  open: boolean;
+  onToggle: () => void;
 }
 
 // Teacher header: a compact, glanceable version of the hand queue above. Not
@@ -112,7 +115,7 @@ interface HandRaiseAlertProps {
 // queue empties), with a single brief pop the moment it first becomes
 // urgent, and always reports the current count to screen readers via its
 // status role.
-export function HandRaiseAlert({ count }: HandRaiseAlertProps) {
+export function HandRaiseAlert({ count, open, onToggle }: HandRaiseAlertProps) {
   const [justRaised, setJustRaised] = useState(false);
   const previousCount = useRef(count);
   const needsHelp = count > 0;
@@ -134,7 +137,17 @@ export function HandRaiseAlert({ count }: HandRaiseAlertProps) {
   const label = needsHelp ? `${count} student${count === 1 ? "" : "s"} need help` : "No students currently need help";
 
   return (
-    <span className="relative inline-flex">
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-label={open ? "Hide the Needs help box" : "Show the Needs help box"}
+      className="relative inline-flex cursor-pointer rounded-full"
+    >
       <span
         role="status"
         aria-label={label}
@@ -156,7 +169,12 @@ export function HandRaiseAlert({ count }: HandRaiseAlertProps) {
           {count > 99 ? "99+" : count}
         </span>
       )}
-    </span>
+    </button>
+          }
+        />
+        <TooltipContent>Raised hands</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -179,7 +197,7 @@ export function RaiseHandButton({ raised, onToggle }: RaiseHandButtonProps) {
               aria-label={raised ? "Lower Hand" : "Raise Hand"}
               aria-pressed={raised}
               className={cn(
-                "size-11 rounded-full border-2 shadow-sm transition-colors",
+                "size-11 cursor-pointer rounded-full border-2 shadow-sm transition-colors",
                 raised
                   ? "border-green-600 bg-green-600 text-white hover:bg-green-700 hover:text-white"
                   : "border-brand/40 bg-white text-brand hover:bg-brand/10 hover:text-brand"

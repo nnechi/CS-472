@@ -18,7 +18,11 @@ export default function TeacherDashboard() {
         if (!auth) return
         let cancelled = false
         listActivities(auth.user.id)
-            .then((found) => { if (!cancelled) setActivities(found) })
+            .then((found) => {
+                // Newest first. The server sends them A to Z, so sort them here.
+                const newestFirst = [...found].sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0))
+                if (!cancelled) setActivities(newestFirst)
+            })
             .catch((err) => {
                 if (!cancelled) setListError(err instanceof Error ? err.message : "Could not load your activities.")
             })
@@ -45,7 +49,7 @@ export default function TeacherDashboard() {
             <button
                 key={a.id}
                 type="button"
-                className="block w-full rounded-md px-3 py-2 text-left text-brand cursor-pointer hover:bg-pop"
+                className="block w-full rounded-md px-3 py-2 text-left text-brand cursor-pointer hover:bg-[#ccc9f7]"
                 onClick={() => startRoom(a.id)}
             >
                 {a.name}
@@ -64,7 +68,7 @@ export default function TeacherDashboard() {
                     aria-expanded={menuOpen}
                     onClick={() => setMenuOpen((open) => !open)}
                 >
-                    Start a room ▾
+                    Start a room {menuOpen ? "▴" : "▾"}
                 </button>
                 {menuOpen && (
                     <div className="absolute left-0 top-full z-20 mt-2 flex max-h-80 w-72 flex-col overflow-y-auto rounded-lg border border-brand bg-white p-2 shadow-md">

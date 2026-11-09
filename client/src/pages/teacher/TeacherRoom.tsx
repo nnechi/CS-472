@@ -84,6 +84,8 @@ interface TeacherRoomViewProps {
 export function TeacherRoomView({ room, session, onLeave, statusLabel }: TeacherRoomViewProps) {
     // The student whose work is on screen, or null for the class activity.
     const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+    // Whether the Needs help box is open. Toggled by the raise-hand icon in the header.
+    const [showHandQueue, setShowHandQueue] = useState(false)
 
     // If the selected student leaves a live room, drop the stale selection.
     useEffect(() => {
@@ -118,7 +120,7 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
         room.roster.some((student) => student.id === studentId) && !!room.editStudentCode
 
     return (
-        <div className="flex h-screen flex-col bg-white text-black">
+        <div className="flex min-h-screen flex-col bg-white text-black">
             <TeacherHeader
                 session={session}
                 room={room}
@@ -127,8 +129,10 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                 onSelectStudent={setSelectedStudentId}
                 onLeave={onLeave}
                 statusLabel={statusLabel}
+                handQueueOpen={showHandQueue}
+                onToggleHandQueue={() => setShowHandQueue((open) => !open)}
             />
-            {!room.ended && (
+            {!room.ended && showHandQueue && (
                 <div className="px-4 py-3 sm:px-8">
                     <HandQueue
                         queue={room.handQueue}
@@ -167,7 +171,8 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                     ) :
                     (
                         <CodeEditor
-                            key={studentId ?? "class"}
+                            // A fresh editor for each view, so a student's code never carries over to Class activity.
+                            key={studentId ?? "class-activity"}
                             activity={room.activity}
                             currentQuestion={room.currentQuestion}
                             role="teacher"

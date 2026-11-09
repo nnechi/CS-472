@@ -124,7 +124,15 @@ export async function getPastRoom(roomCode : string) : Promise<PastRoomDetail> {
     return res.json();
 }
 
-// determines whether the roomstatus is allowing students to join. 
+// Deletes one ended room this teacher ran. Throws with the server's reason if it fails.
+export async function deletePastRoom(roomCode : string) : Promise<void> {
+    const res = await fetch(`${SERVER_URL}/api/past-rooms/${encodeURIComponent(roomCode)}`, { method: "DELETE", credentials: "include" })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not delete that room."));
+}
+
+// determines whether the roomstatus is allowing students to join.
 export type RoomStatus = "ok" | "not-found" | "not-open";
 
 export async function getRoomStatus(roomCode : string) : Promise<RoomStatus> {
