@@ -10,7 +10,6 @@ import {
   ActivityType,
   AnswerProgress,
   ChatMessage,
-  CodingProgress,
   ClientToServerEvents,
   ServerToClientEvents,
   ACTIVITY_MAX_LENGTH,
@@ -35,6 +34,7 @@ import {
   emptyStudentEnvironment,
 } from "./types";
 import { randomUUID } from "node:crypto";
+import { mergeCodeEdit } from "./codeEdit";
 import { CodeRunJob, InvalidRunJobError, JobHooks, executionQueue, runnableLanguage } from "./compile";
 import { InvalidCompileRequestError } from "./compile/plan";
 import { allowCodeRun } from "./compile/submission";
@@ -415,22 +415,6 @@ const emptyParsons = (): { type: "parsons" } & AnswerProgress => ({
   marks: [],
 });
 
-// A student's code and last Run output for each coding question, kept within
-// the teacher editor's limits. Returns null if codes isn't a list.
-function cleanCoding(codes: unknown, outputs: unknown): CodingProgress | null {
-  if (!Array.isArray(codes)) return null;
-  const cleanCodes = codes
-    .slice(0, ACTIVITY_MAX_QUESTIONS)
-    .map((code) => (typeof code === "string" ? code.slice(0, ACTIVITY_MAX_LENGTH) : ""));
-  const given: unknown[] = Array.isArray(outputs) ? outputs : [];
-  // One output per code: missing ones are null, extra ones are dropped.
-  const cleanOutputs = cleanCodes.map((_, i) => {
-    const output = given[i];
-    return typeof output === "string" ? output.slice(0, ACTIVITY_MAX_LENGTH) : null;
-  });
-  return { codes: cleanCodes, outputs: cleanOutputs };
-}
-
 // Each student's workspace, by room and then by studentKey. Not stored in the
 // database, like raised hands. A student who disconnects keeps theirs for a
 // while, so a refresh or a dropped connection doesn't lose their work.
@@ -438,6 +422,7 @@ interface StoredEnvironment {
   env: StudentEnvironment;
   // The socket using it right now, or null while the student is away.
   socketId: string | null;
+  previousSocketId?: string;
   // Set while the student is away: removes the environment when it fires.
   expiry?: ReturnType<typeof setTimeout>;
 }
@@ -519,6 +504,7 @@ function releaseEnvironment(room: string, key: string, socketId: string): void {
   const stored = environments.get(room)?.get(key);
   if (!stored || stored.socketId !== socketId) return;
   stored.socketId = null;
+  stored.previousSocketId = socketId;
   stored.expiry = setTimeout(() => {
     const envs = environments.get(room);
     if (envs?.get(key) !== stored) return;
@@ -786,7 +772,18 @@ export function registerSocketHandlers(
     p.progressSize = size;
     p.progress = progress;
     io.to(teacherChannel(room)).emit("student activity", { studentId: p.id, progress });
+    if (progress.type === "coding") io.to(p.id).emit("student activity", { studentId: p.id, progress });
+    return true;
   };
+
+  const publishCode = (room: string, student: Participant, env: StudentEnvironment) =>
+    setProgress(room, student, {
+      type: "coding",
+      codes: env.questions.map((question) => question.code),
+      outputs: env.questions.map(({ lastRun }) => lastRun
+        ? `${lastRun.stdout}${lastRun.stderr ? "\n[stderr]\n" + lastRun.stderr : ""}`.slice(0, ACTIVITY_MAX_LENGTH)
+        : null),
+    });
 
   // Start counting down. When time runs out, the timer stops at zero.
   const playTimer = (room: string) => {
@@ -1048,6 +1045,33 @@ export function registerSocketHandlers(
         }
 
         socket.emit("room activity", roomActivity);
+        if (role === "student" && roomActivity?.type === "coding") {
+          const key = socket.data.studentKey;
+          const stored = key ? environments.get(roomCode)?.get(key) : undefined;
+          const participant = getParticipant(roomCode, socket.id);
+          if (stored && participant) {
+            const old = stored.previousSocketId ? getParticipant(roomCode, stored.previousSocketId) : undefined;
+            if (old?.progress?.type === "coding" && !old.connected) {
+              live.progressBytes -= old.progressSize;
+              old.progress = null;
+              old.progressSize = 0;
+              if (!old.chatOpened && old.privateMessages.length === 0) live.participants.delete(old.id);
+            }
+            stored.previousSocketId = undefined;
+            if (stored.env.questions.some((question) => question.code || question.lastRun)) {
+              publishCode(roomCode, participant, stored.env);
+            } else {
+              socket.emit("student activity", {
+                studentId: socket.id,
+                progress: {
+                  type: "coding",
+                  codes: stored.env.questions.map(() => ""),
+                  outputs: stored.env.questions.map(() => null),
+                },
+              });
+            }
+          }
+        }
 
         if (role === "teacher") {
           const participants = liveRooms.get(roomCode)?.participants.values() ?? [];
@@ -1267,17 +1291,41 @@ export function registerSocketHandlers(
         });
       });
 
-      // A student's coding work: their code and last Run output for each
-      // question. Reaches the room's teachers as it changes.
-      socket.on("code update", ({ codes, outputs }) => {
-        const { role, room } = socket.data;
-        if (!room || role !== "student") return;
+      socket.on("edit student code", (edit, acknowledge) => {
+        if (typeof acknowledge !== "function") return;
+        const { role, room, waiting } = socket.data;
+        if (!room || waiting || !edit || (role !== "student" && role !== "teacher")) {
+          return acknowledge("You must join the room to edit code.");
+        }
+        const { studentId, questionIndex, before, code } = edit;
+        // Only the authenticated room host can join as a teacher.
+        const targetId = role === "student" ? socket.id : studentId;
+        const target = typeof targetId === "string" ? io.sockets.sockets.get(targetId) : undefined;
+        const key = target?.data.studentKey;
+        const stored = key ? environments.get(room)?.get(key) : undefined;
+        const participant = target ? getParticipant(room, target.id) : undefined;
+        const question = Number.isInteger(questionIndex) ? stored?.env.questions[questionIndex] : undefined;
+        if (!target || target.data.room !== room || !stored || stored.socketId !== target.id ||
+            !participant?.connected || !question || question.parsons) {
+          return acknowledge("That student's editor is unavailable.");
+        }
+        if (typeof before !== "string" || typeof code !== "string" ||
+            before.length > STUDENT_CODE_MAX_LENGTH || code.length > STUDENT_CODE_MAX_LENGTH) {
+          return acknowledge("The code is too long to share.");
+        }
+        const next = mergeCodeEdit(before, code, question.code);
+        if (next === null) return acknowledge("Another edit changed the same text. Review the shared code and try again.");
+        if (next.length > STUDENT_CODE_MAX_LENGTH) return acknowledge("The code is too long to share.");
+        if (next === question.code) return acknowledge(null);
 
-        const state = getParticipant(room, socket.id);
-        const cleaned = cleanCoding(codes, outputs);
-        if (!state || !cleaned) return;
-
-        setProgress(room, state, { type: "coding", ...cleaned });
+        const previous = { ...question };
+        question.code = next;
+        question.lastRun = null;
+        if (!publishCode(room, participant, stored.env)) {
+          Object.assign(question, previous);
+          return acknowledge("The room has reached its limit for saved work.");
+        }
+        acknowledge(null);
       });
 
       // A student checks one Parsons question. The grading runs here, so the
@@ -1325,8 +1373,8 @@ export function registerSocketHandlers(
       });
 
       // Someone runs one question's code; the run waits its turn in the shared
-      // queue. A student's code is saved to their environment and the job is
-      // built from it. A teacher has no environment, so their code runs as sent.
+      // queue. Students run the shared code. The teacher's own playground
+      // has no environment, so its code runs as sent.
       socket.on("run code", ({ questionIndex, code }) => {
         if (socket.data.waiting) return;
         const { role, room, studentKey } = socket.data;
@@ -1358,7 +1406,13 @@ export function registerSocketHandlers(
           onOutput: (stream, chunk) => socket.emit("run output", { jobId: job.id, stream, chunk }),
           onDone: (outcome) => {
             if (stored && started) stored.env.running = false;
-            if (stored && outcome.type === "finished") stored.env.questions[index].lastRun = outcome.result;
+            const question = stored?.env.questions[index];
+            const participant = getParticipant(room, socket.id);
+            if (stored && question && participant && outcome.type === "finished" && question.code === job.request.code) {
+              const previous = question.lastRun;
+              question.lastRun = outcome.result;
+              if (!publishCode(room, participant, stored.env)) question.lastRun = previous;
+            }
             socket.emit("run finished", { jobId: job.id, questionIndex: index, outcome });
           },
         };
@@ -1367,7 +1421,7 @@ export function registerSocketHandlers(
           if (stored) {
             const question = Number.isInteger(index) ? stored.env.questions[index] : undefined;
             if (!question) return reject("That question doesn't exist.");
-            question.code = code;
+            if (question.code !== code) return reject("The shared code changed. Review it and run again.");
             job = CodeRunJob.fromEnvironment(stored.env, index, language, hooks);
           } else {
             if (!Number.isInteger(index) || index < 0 || index >= (activity?.questionCount ?? 0)) {

@@ -420,5 +420,8 @@ export interface ClientToServerEvents {
   // Students only: check one Parsons question's arrangement against the solution.
   "check answer": (payload: { questionIndex: number; lines: ParsonsLine[] }) => void;
   // Students only: their code and last Run output for each coding question. Sent as it changes.
-  "code update": (payload: { codes: string[]; outputs: (string | null)[] }) => void;
+  "edit student code": (
+    payload: { studentId: string | null; questionIndex: number; before: string; code: string },
+    acknowledge: (error: string | null) => void
+  ) => void;
 }

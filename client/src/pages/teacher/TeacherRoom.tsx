@@ -114,6 +114,8 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
     const progress = studentId ? room.studentProgress(studentId) : null
     const parsonsProgress = progress?.type === "parsons" ? progress : undefined
     const codingProgress = progress?.type === "coding" ? progress : null
+    const canEditStudent = !room.ended && room.activity?.type === "coding" &&
+        room.roster.some((student) => student.id === studentId) && !!room.editStudentCode
 
     return (
         <div className="flex h-screen flex-col bg-white text-black">
@@ -141,7 +143,7 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                     className="flex flex-wrap items-center justify-between gap-2 border-b border-brand/15 bg-brand-light/40 px-4 py-2 text-sm text-brand sm:px-8"
                 >
                     <span className="font-semibold">
-                        Viewing {selectedStudent.username}'s work
+                        {canEditStudent ? "Editing with" : "Viewing"} {canEditStudent ? selectedStudent.username : `${selectedStudent.username}'s work`}
                         {!progress && <span className="font-normal text-brand/70"> (no work yet)</span>}
                     </span>
                     <button
@@ -165,15 +167,18 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                     ) :
                     (
                         <CodeEditor
+                            key={studentId ?? "class"}
                             activity={room.activity}
                             currentQuestion={room.currentQuestion}
                             role="teacher"
                             {...(selectedStudent
-                                // A student's work can't be edited or run: it shows
-                                // their code and the output of their last run.
                                 ? {
                                       codes: codingProgress?.codes ?? [],
                                       outputs: codingProgress?.outputs ?? [],
+                                      onCodeChange: canEditStudent
+                                          ? (index, code) => room.editStudentCode?.(selectedStudent.id, index, code)
+                                          : undefined,
+                                      editError: room.codeEditError?.(selectedStudent.id, room.currentQuestion),
                                       emptyMessage: codingProgress
                                           ? "This student hasn't run this code yet."
                                           : "This student hasn't written any code yet.",

@@ -95,6 +95,7 @@ function StudentRoomScreen({ session, waiting }: { session: Session; waiting: bo
                             outputs={room.codeOutputs}
                             run={room.run}
                             onCodeChange={room.setCode}
+                            editError={room.codeEditError?.(null, room.currentQuestion)}
                             onRun={room.runCode}
                             onCancel={room.cancelRun}
                         />
