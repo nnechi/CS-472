@@ -25,7 +25,7 @@ export const LANGUAGE_SPECS: Readonly<Record<CompileLanguage, LanguageSpec>> = {
   },
   c: {
     sourceFile: "main.c",
-    compile: { executable: "gcc", args: ["main.c", "-o", "program"] },
+    compile: { executable: "gcc", args: ["main.c", "-std=c17", "-o", "program"] },
     run: { executable: "./program", args: [] },
   },
   cpp: {
@@ -39,8 +39,13 @@ export const LANGUAGE_SPECS: Readonly<Record<CompileLanguage, LanguageSpec>> = {
   java: {
     // Java submissions should declare a Main class.
     sourceFile: "Main.java",
-    compile: { executable: "javac", args: ["Main.java"] },
-    run: { executable: "java", args: ["-cp", ".", "Main"] },
+    compile: { executable: "javac", args: ["-encoding", "UTF-8", "Main.java"] },
+    // Since JDK 18, System.out/err use stdout/stderr.encoding (from the locale),
+    // not file.encoding. Programs run without LANG, so set them explicitly.
+    run: {
+      executable: "java",
+      args: ["-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-cp", ".", "Main"],
+    },
   },
   python: {
     sourceFile: "main.py",

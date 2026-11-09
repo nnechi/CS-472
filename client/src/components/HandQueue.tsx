@@ -1,7 +1,14 @@
+import { useEffect, useRef, useState } from "react";
 import { RaisedHand } from "../types";
-
-const buttonClass =
-  "rounded-lg border border-indigo-600 px-3 py-1.5 text-sm text-indigo-600 cursor-pointer hover:bg-indigo-50";
+import { Check, Hand, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface HandQueueProps {
   queue: RaisedHand[];
@@ -9,41 +16,147 @@ interface HandQueueProps {
   onOpenPrivateChat: (studentId: string) => void;
 }
 
-// Teachers: students needing help, in the order they asked. Click a name once
-// you've helped them, or open a private chat with them.
+// Teachers: students needing help, in the order they asked. Each row can be
+// marked helped (lowers the hand) or opened as a private chat.
 export function HandQueue({ queue, onLowerHand, onOpenPrivateChat }: HandQueueProps) {
+  const needsHelp = queue.length > 0;
+
   return (
-    <div className="border-t border-brand/15 px-6 py-3 text-sm text-brand">
-      <span className="font-semibold">Needs help ({queue.length})</span>
-      {queue.length === 0 ? (
-        <span className="ml-2 text-brand/60">No raised hands</span>
-      ) : (
-        <ol className="mt-1.5 list-decimal pl-6">
-          {queue.map((h) => (
-            <li key={h.id} className="mb-1">
-              <span className="inline-flex items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded-md bg-warn px-2.5 py-1 text-sm font-semibold text-brand cursor-pointer hover:line-through"
-                  title="Click once you've helped this student"
-                  onClick={() => onLowerHand(h.id)}
-                >
-                  {h.username}
-                </button>
-                <button
-                  type="button"
-                  className={buttonClass}
-                  title="Open a private chat with this student"
-                  onClick={() => onOpenPrivateChat(h.id)}
-                >
-                  Private chat
-                </button>
-              </span>
-            </li>
-          ))}
-        </ol>
+    <section
+      aria-label="Students needing help"
+      className={cn(
+        "overflow-hidden rounded-lg border bg-white transition-colors",
+        needsHelp ? "border-2 border-red-400 shadow-sm" : "border border-brand/15 shadow-md"
       )}
-    </div>
+    >
+      <header className="flex items-center gap-2 bg-brand px-4 py-2.5">
+        <Hand className="size-4 text-white" aria-hidden="true" />
+        <h2 className="text-sm font-semibold text-white">Needs help</h2>
+        <span className="ml-auto rounded-full bg-brand-light px-2.5 py-0.5 text-xs font-bold tabular-nums text-brand">
+          {queue.length}
+        </span>
+      </header>
+
+      <div className="p-3">
+        {queue.length === 0 ? (
+          <p className="px-1 py-1.5 text-sm text-brand/60">No hands raised right now.</p>
+        ) : (
+          <ol className="flex flex-col gap-2">
+            {queue.map((h, i) => (
+              <li
+                key={h.id}
+                className="flex flex-wrap items-center gap-3 rounded-r-lg border-l-4 border-red-300 bg-paper px-3 py-2"
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold tabular-nums text-brand"
+                >
+                  {i + 1}
+                </span>
+                <span className="flex-1 truncate text-sm font-semibold text-brand">
+                  {h.username}
+                </span>
+                <TooltipProvider>
+                  <span className="flex items-center gap-2">
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            type="button"
+                            size="icon"
+                            aria-label={`Mark ${h.username} as helped`}
+                            className="size-9 rounded-full bg-pop text-brand shadow-sm hover:bg-pop/80 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                            onClick={() => onLowerHand(h.id)}
+                          >
+                            <Check />
+                          </Button>
+                        }
+                      />
+                      <TooltipContent>Mark as helped</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            type="button"
+                            size="icon"
+                            aria-label={`Open private chat with ${h.username}`}
+                            className="size-9 rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                            onClick={() => onOpenPrivateChat(h.id)}
+                          >
+                            <MessageSquare />
+                          </Button>
+                        }
+                      />
+                      <TooltipContent>Private chat</TooltipContent>
+                    </Tooltip>
+                  </span>
+                </TooltipProvider>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </section>
+  );
+}
+
+interface HandRaiseAlertProps {
+  // How many students currently have a hand raised.
+  count: number;
+}
+
+// Teacher header: a compact, glanceable version of the hand queue above. Not
+// interactive itself (the full queue is always visible in the room below) --
+// it glows red for as long as anyone is waiting (cleared the moment the
+// queue empties), with a single brief pop the moment it first becomes
+// urgent, and always reports the current count to screen readers via its
+// status role.
+export function HandRaiseAlert({ count }: HandRaiseAlertProps) {
+  const [justRaised, setJustRaised] = useState(false);
+  const previousCount = useRef(count);
+  const needsHelp = count > 0;
+
+  useEffect(() => {
+    // Only pop on the empty-to-non-empty transition. Firing it again on every
+    // later raise (2nd student, 3rd student...) would mean flashing
+    // repeatedly through a busy class -- the steady glow and the updating
+    // count already cover those.
+    if (previousCount.current === 0 && count > 0) {
+      setJustRaised(true);
+      const id = setTimeout(() => setJustRaised(false), 1200);
+      previousCount.current = count;
+      return () => clearTimeout(id);
+    }
+    previousCount.current = count;
+  }, [count]);
+
+  const label = needsHelp ? `${count} student${count === 1 ? "" : "s"} need help` : "No students currently need help";
+
+  return (
+    <span className="relative inline-flex">
+      <span
+        role="status"
+        aria-label={label}
+        className={cn(
+          "inline-flex size-11 items-center justify-center rounded-full border-2 transition-colors motion-reduce:transition-none",
+          needsHelp
+            ? "border-red-500 bg-red-50 text-red-600 ring-4 ring-red-100"
+            : "border-brand/40 bg-white text-brand",
+          justRaised && "motion-safe:animate-[pulse_0.6s_ease-in-out_1]"
+        )}
+      >
+        <Hand className="size-5" aria-hidden="true" />
+      </span>
+      {needsHelp && (
+        <span
+          aria-hidden="true"
+          className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-bold leading-5 tabular-nums text-white"
+        >
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -55,16 +168,30 @@ interface RaiseHandButtonProps {
 // Students: click once to ask for help, again to cancel.
 export function RaiseHandButton({ raised, onToggle }: RaiseHandButtonProps) {
   return (
-    <div className="px-6 py-3">
-      <button
-        type="button"
-        className={
-          raised ? `${buttonClass} border-accent bg-accent text-white hover:bg-accent/90` : buttonClass
-        }
-        onClick={onToggle}
-      >
-        {raised ? "Lower hand" : "Raise hand"}
-      </button>
-    </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label={raised ? "Lower Hand" : "Raise Hand"}
+              aria-pressed={raised}
+              className={cn(
+                "size-11 rounded-full border-2 shadow-sm transition-colors",
+                raised
+                  ? "border-green-600 bg-green-600 text-white hover:bg-green-700 hover:text-white"
+                  : "border-brand/40 bg-white text-brand hover:bg-brand/10 hover:text-brand"
+              )}
+              onClick={onToggle}
+            >
+              <Hand className="size-5" />
+            </Button>
+          }
+        />
+        <TooltipContent>{raised ? "Lower Hand" : "Raise Hand"}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

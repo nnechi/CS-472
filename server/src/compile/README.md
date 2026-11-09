@@ -14,11 +14,14 @@ Example request:
 `runJavaScript(request, options)` runs JavaScript in a temporary working
 directory. `runTypeScript(request, options)` type-checks and compiles a
 TypeScript file there, then runs the emitted JavaScript if compilation succeeds.
-Both return collected `stdout` and `stderr` and call `onUpdate` as text arrives,
+`runPython(request, options)` executes a single Python file using `python3`
+with unbuffered output. `runJava(request, options)` compiles `Main.java` with
+`javac`, then runs `Main` if compilation succeeds. `runC(request, options)` compiles `main.c` as C17 with `gcc`, then runs the
+resulting program if compilation succeeds. All five runners return collected `stdout` and `stderr` and call `onUpdate` as text arrives,
 which can later forward each update to the requesting WebSocket client:
 
 ```ts
-import { runJavaScript, runTypeScript } from "./compile";
+import { runJavaScript, runTypeScript, runPython, runJava, runC } from "./compile";
 
 const result = await runJavaScript(
   { language: "javascript", code: "console.log('hello')" },
@@ -31,33 +34,36 @@ const tsResult = await runTypeScript(
   { onUpdate: (update) => console.log(update) }
 );
 console.log(tsResult.stdout); // "42\n"
+
+const pyResult = await runPython({ language: "python", code: "print(input())", stdin: "hello\n" });
+console.log(pyResult.stdout); // "hello\n"
+
+const javaResult = await runJava({
+  language: "java",
+  code: 'public class Main { public static void main(String[] args) { System.out.println("hello"); } }',
+});
+console.log(javaResult.stdout); // "hello\n"
+
+const cResult = await runC({
+  language: "c",
+  code: '#include <stdio.h>\nint main(void) { puts("hello"); return 0; }',
+});
+console.log(cResult.stdout); // "hello\n"
 ```
 
 `CompileUpdate` includes status, stdout/stderr chunks, completion, and errors.
 Use `executionId` to associate updates with their request. To cancel a running
 job, pass an `AbortController` signal and call `abort()` on disconnect or on a
 client cancellation request. The default run timeout is 5 seconds, the
-TypeScript compile timeout is 10 seconds, and the combined output limit is
+TypeScript, Java, and C compile timeout is 10 seconds, and the combined output limit is
 256 KiB. These can be adjusted in the run options. TypeScript diagnostics are
 streamed as output; a failed compile never starts the program. The TypeScript
 runner currently accepts a single source file named `main.ts`.
 
-The student room sends `{ language, code }` over the existing Socket.IO
-connection with `code:submit`. The server checks that the socket joined as a
-student, validates the code, then runs JavaScript or TypeScript. Its
-acknowledgement contains the language, UTF-8 byte count, exit code, and stop
-reason flags. It does not send stdout, stderr, compiler diagnostics, or other
-program output to the browser. The room shows only the completion status.
-Only one run per socket and two runs across the server can be active at once;
-a disconnect cancels that socket's run.
-
-Basic submission guards: only `language` and `code` fields are accepted, source
-must be nonempty and at most 64 KiB in UTF-8, NUL characters are rejected,
-and Socket.IO messages are capped at 128 KiB. A socket can start up to five
-runs in a rolling minute. User programs also get a 128 MiB V8 heap limit.
-Source code is not rewritten or stripped, since that would change what the
-student wrote. The per-socket rate limit resets on reconnect, and the V8 heap
-limit is not a total process memory limit.
+Room runs use the shared execution queue and stream output over the room socket.
+The runner checks that source is nonempty, at most 64 KiB in UTF-8, and free of
+NUL characters. Student sockets can request up to five runs in a rolling minute.
+JavaScript and emitted TypeScript programs get a 128 MiB V8 heap limit.
 
 Install server dependencies once from the `server` directory:
 
@@ -74,15 +80,31 @@ After installation, from the repository root you can run
 repository root looks for `tsx` at the root and fails with
 `ERR_MODULE_NOT_FOUND`; use the npm script above instead.
 
-The other four languages still have command definitions only. Their runners
-have not been implemented. Future work should:
+Python requires `python3` on the system executable search path. Python syntax
+and runtime errors are streamed on stderr and return a nonzero exit code.
 
-1. Add runners for C, C++, Java, and Python.
-2. Add isolated execution with operating-system memory and process limits.
-3. Wire the output callback to the WebSocket layer when output streaming is ready.
+Java requires a JDK (Java 21 is installed in the Docker image), with `javac`
+and `java` available on PATH. Submit a single source file declaring `Main`
+with `public static void main(String[] args)` and no package declaration.
+Source and output use UTF-8. Compile diagnostics and runtime exceptions
+are streamed on stderr; compilation failure prevents the run stage.
+Both stages support cancellation, timeouts, and the shared output cap.
 
-The current server image has Node but does not install Python, Java, GCC, or
-G++. `tsc` is supplied by the server's TypeScript dependency. These runners are
+C requires `gcc` and standard C headers on the host (Apple Clang through the
+`gcc` command also works on macOS). Submit a single source file with a `main`
+function. Compiler diagnostics go to stderr; a failed compile never runs the
+program. C output uses normal stdio buffering; use `fflush(stdout)` when
+prompt output must arrive before the program exits.
+
+`runCpp(request, options)` compiles a single `main.cpp` as C++17 with `g++`,
+then executes it when compilation succeeds. It uses the same cancellation,
+timeout, streaming, and output limits as C. Teachers select `c++` for activities;
+the editor and execution API use `cpp`.
+
+Room runs use the sandboxed runner service when RUNNER_URL is configured.
+
+The current server image includes Node, Python, a Java 21 JDK, GCC, and libc headers,
+and G++. `tsc` is supplied by the server's TypeScript dependency. These runners are
 suitable for local development; the temporary directory,
 timeout, and output cap do not isolate untrusted code from the server's files
 or network.

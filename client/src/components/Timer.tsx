@@ -1,4 +1,20 @@
-import { useState, useEffect } from "react"
+import { FormEvent, useEffect, useId, useRef, useState } from "react"
+import { Play, Pause, RotateCcw } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 
 // Matches the server's default: every room starts with 15 minutes.
 export const DEFAULT_TIMER_MS = 15 * 60 * 1000
@@ -20,8 +36,8 @@ interface TimerProps {
 const MIN_MINUTES = 1
 const MAX_MINUTES = 60
 
-const buttonClass =
-  "rounded-lg border border-indigo-600 px-3 py-1.5 text-sm text-indigo-600 cursor-pointer hover:bg-indigo-50"
+// At or under this, the timer is "running low" for both roles.
+const LOW_TIME_THRESHOLD_MS = 10_000
 
 // Shows mm:ss. Rounds up so 15:00 shows until the first second has passed.
 function formatTime(ms: number): string {
@@ -44,10 +60,27 @@ export default function Timer({
   const [remaining, setRemaining] = useState(remainingMs)
   // What the teacher is typing. Follows the server's length unless they are editing.
   const [minutesInput, setMinutesInput] = useState(String(durationMs / 60000))
+  // The "change length" popover, opened from the time display itself.
+  const [setOpen, setSetOpen] = useState(false)
+  // A one-time pop the moment the countdown crosses into its last 10 seconds,
+  // so it still catches the eye without a continuous flash for the whole
+  // window (which would risk both distraction and a WCAG flash-rate issue).
+  const [justEnteredLowTime, setJustEnteredLowTime] = useState(false)
+  const wasLowTime = useRef(false)
+  const minutesFieldId = useId()
+  const minutesErrorId = useId()
+  const triggerDescriptionId = useId()
 
   useEffect(() => {
     setMinutesInput(String(durationMs / 60000))
   }, [durationMs])
+
+  // Changing the length only makes sense while paused. If the timer starts
+  // running while the popover happens to be open, close it rather than leave
+  // a now-invalid form on screen.
+  useEffect(() => {
+    if (running) setSetOpen(false)
+  }, [running])
 
   const typedMinutes = Number(minutesInput)
   const validMinutes =
@@ -70,64 +103,177 @@ export default function Timer({
     return () => clearInterval(id)
   }, [remainingMs, running])
 
-  const status = running ? "Running" : remaining === 0 ? "Time's up" : "Paused"
+  const expired = !running && remaining === 0
+  // Based on the time left, not on running/paused -- a paused timer with 8
+  // seconds on the clock should still read as urgent the moment you glance
+  // at it, not only while it happens to be counting down.
+  const lowTime = !expired && remaining > 0 && remaining <= LOW_TIME_THRESHOLD_MS
+
+  useEffect(() => {
+    if (!wasLowTime.current && lowTime) {
+      setJustEnteredLowTime(true)
+      const id = setTimeout(() => setJustEnteredLowTime(false), 700)
+      wasLowTime.current = lowTime
+      return () => clearTimeout(id)
+    }
+    wasLowTime.current = lowTime
+  }, [lowTime])
+
+  // Only changes at an actual state transition (running starts/stops, crosses
+  // into its last 10 seconds, or hits zero) rather than every tick, so a
+  // screen reader announces it once instead of flooding the user every second.
+  const status = expired
+    ? "Time's up"
+    : lowTime
+      ? "10 seconds or less remaining"
+      : running
+        ? "Timer running"
+        : "Timer paused"
+
+  const playPauseLabel = running
+    ? "Pause timer"
+    : expired
+      ? "Restart and start timer"
+      : remaining === durationMs
+        ? "Start timer"
+        : "Resume timer"
+
+  function handleSetMinutes(e: FormEvent) {
+    e.preventDefault()
+    if (!validMinutes) return
+    onSetMinutes(typedMinutes)
+    setSetOpen(false)
+  }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 text-sm text-brand">
-      <span className="flex items-baseline gap-2">
-        <span className="font-semibold">Timer</span>
-        <span className="font-mono text-2xl font-bold tabular-nums" aria-live="off">
-          {formatTime(remaining)}
-        </span>
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-            running ? "bg-pop text-white" : remaining === 0 ? "bg-warn text-brand" : "bg-white text-brand/70 ring-1 ring-brand/20"
-          }`}
-        >
-          {status}
-        </span>
-      </span>
+    <div className="flex items-center justify-center">
+      <div
+        role="group"
+        aria-label="Activity timer"
+        className={cn(
+          "inline-flex items-center gap-2 rounded-full border bg-white px-2.5 py-2 shadow-sm transition-colors sm:gap-3 sm:px-3",
+          expired && "border-red-500 bg-red-50 ring-2 ring-red-200",
+          lowTime && "border-accent bg-accent/10 ring-2 ring-accent/30",
+          !expired && !lowTime && running && "border-pop/70 ring-1 ring-pop/30",
+          !expired && !lowTime && !running && "border-brand/15",
+          justEnteredLowTime && "motion-safe:animate-[pulse_0.7s_ease-in-out_1]"
+        )}
+      >
+        {isTeacher && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    size="icon"
+                    aria-label={playPauseLabel}
+                    className="size-11 shrink-0 rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    onClick={running ? onPause : onPlay}
+                  >
+                    {running ? <Pause /> : <Play />}
+                  </Button>
+                }
+              />
+              <TooltipContent>{running ? "Pause" : "Play"}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
 
-      {isTeacher && (
-        <span className="flex flex-wrap items-center gap-2">
-          {/* Length can only change while paused, so pause first. */}
-          <label className="flex items-center gap-1 text-brand/70">
-            Minutes
-            <input
-              type="number"
-              min={MIN_MINUTES}
-              max={MAX_MINUTES}
-              step={1}
-              className="w-16 rounded-md border border-brand/30 bg-white px-2 py-1 text-brand focus:border-brand focus:outline-none disabled:bg-paper disabled:text-brand/50"
-              value={minutesInput}
+        {isTeacher ? (
+          <Popover open={setOpen} onOpenChange={setSetOpen}>
+            <span id={triggerDescriptionId} className="sr-only">
+              {running
+                ? "Pause the timer to change its length."
+                : `Opens a popover to set the timer's length, from ${MIN_MINUTES} to ${MAX_MINUTES} minutes.`}
+            </span>
+            <PopoverTrigger
               disabled={running}
-              onChange={(e) => setMinutesInput(e.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={running || !validMinutes}
-            className={`${buttonClass} disabled:cursor-not-allowed disabled:opacity-50`}
-            onClick={() => onSetMinutes(typedMinutes)}
+              aria-describedby={triggerDescriptionId}
+              aria-live="off"
+              className={cn(
+                "rounded-md px-1.5 font-mono text-2xl font-bold tabular-nums outline-none transition-colors hover:bg-brand/5 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-default disabled:hover:bg-transparent sm:text-3xl",
+                expired ? "text-red-600" : "text-brand"
+              )}
+            >
+              {formatTime(remaining)}
+            </PopoverTrigger>
+            <PopoverContent>
+              <PopoverTitle>Timer length</PopoverTitle>
+              <PopoverDescription className="mt-1">
+                Only while the timer is paused.
+              </PopoverDescription>
+              <form onSubmit={handleSetMinutes} className="mt-3 flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor={minutesFieldId} className="text-sm font-medium text-brand">
+                    Minutes
+                  </label>
+                  <input
+                    id={minutesFieldId}
+                    type="number"
+                    inputMode="numeric"
+                    min={MIN_MINUTES}
+                    max={MAX_MINUTES}
+                    step={1}
+                    value={minutesInput}
+                    onChange={(e) => setMinutesInput(e.target.value)}
+                    aria-invalid={!validMinutes}
+                    aria-describedby={!validMinutes ? minutesErrorId : undefined}
+                    className="w-full rounded-md border border-brand/30 bg-white px-3 py-2 text-brand focus:border-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  />
+                  {!validMinutes && (
+                    <p id={minutesErrorId} role="alert" className="text-sm text-red-600">
+                      Enter a whole number between {MIN_MINUTES} and {MAX_MINUTES}.
+                    </p>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  disabled={!validMinutes}
+                  className="w-full bg-brand text-white hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                >
+                  Set
+                </Button>
+              </form>
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <span
+            aria-live="off"
+            className={cn(
+              "rounded-md px-1.5 font-mono text-2xl font-bold tabular-nums sm:text-3xl",
+              expired ? "text-red-600" : "text-brand"
+            )}
           >
-            Set
-          </button>
-          <button
-            type="button"
-            className={
-              running
-                ? `${buttonClass} bg-brand text-white hover:bg-brand/90`
-                : buttonClass
-            }
-            onClick={running ? onPause : onPlay}
-          >
-            {running ? "Pause" : "Play"}
-          </button>
-          <button type="button" className={buttonClass} onClick={onRestart}>
-            Restart
-          </button>
-        </span>
-      )}
+            {formatTime(remaining)}
+          </span>
+        )}
+
+        {isTeacher && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    size="icon"
+                    aria-label="Restart timer"
+                    className="size-11 shrink-0 rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    onClick={onRestart}
+                  >
+                    <RotateCcw />
+                  </Button>
+                }
+              />
+              <TooltipContent>Restart</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+
+      <span aria-live="polite" className="sr-only">
+        {status}
+      </span>
     </div>
   )
 }

@@ -8,6 +8,8 @@ import { createExecutionPlan } from "./plan";
 import {
   CommandSpec,
   CompilePhase,
+  CompileLanguage,
+  CompileRequest,
   CompileResult,
   OnCompileUpdate,
   OutputStream,
@@ -18,6 +20,9 @@ export const DEFAULT_COMPILE_TIMEOUT_MS = 10_000;
 export const DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024;
 const MAX_NODE_HEAP_MB = 128;
 
+// Process groups are a POSIX feature; on Windows only the program itself is killed.
+const GROUP_KILL = process.platform !== "win32";
+
 export interface RunOptions {
   onUpdate?: OnCompileUpdate;
   signal?: AbortSignal;
@@ -26,15 +31,18 @@ export interface RunOptions {
   maxOutputBytes?: number;
 }
 
-/** Shared process and output handling for JavaScript and TypeScript. */
-export async function runNodeSubmission(
+// Runs one request. The queue uses defaultRunner (defaultRunner.ts); tests pass a fake.
+export type Runner = (request: CompileRequest, options: RunOptions) => Promise<CompileResult>;
+
+/** Shared process and output handling for supported submission runners. */
+export async function runSubmission(
   input: unknown,
-  expectedLanguage: "javascript" | "typescript",
+  expectedLanguage: CompileLanguage,
   options: RunOptions = {}
 ): Promise<CompileResult> {
   const plan = createExecutionPlan(input);
   if (plan.request.language !== expectedLanguage) {
-    const name = expectedLanguage === "javascript" ? "JavaScript" : "TypeScript";
+    const name = { javascript: "JavaScript", typescript: "TypeScript", python: "Python", java: "Java", c: "C", cpp: "C++" }[expectedLanguage];
     throw new Error(`run${name} only supports ${name}`);
   }
 
@@ -111,9 +119,30 @@ export async function runNodeSubmission(
         cwd: workDir,
         shell: false,
         stdio: ["pipe", "pipe", "pipe"],
+        // Its own process group, so killGroup() also reaches any processes
+        // the program starts. Not on Windows, where this opens a new console.
+        detached: GROUP_KILL,
         // Do not pass server secrets or NODE_OPTIONS into submitted programs.
-        env: {},
+        env: expectedLanguage === "c" || expectedLanguage === "cpp"
+          ? { PATH: process.env.PATH, TMPDIR: workDir }
+          : expectedLanguage === "java" ? { PATH: process.env.PATH } : {},
       });
+
+      // child.kill() signals only the program itself. Processes it forked keep
+      // running and keep the output pipes open, so "close" (and the run)
+      // would wait for them. Kill the whole group instead. SIGKILL because a
+      // program can catch or ignore SIGTERM.
+      const killGroup = () => {
+        if (GROUP_KILL && child.pid !== undefined) {
+          try {
+            process.kill(-child.pid, "SIGKILL");
+            return;
+          } catch {
+            // The group is already gone (ESRCH).
+          }
+        }
+        child.kill("SIGKILL");
+      };
 
       const decoders = {
         stdout: new StringDecoder("utf8"),
@@ -131,7 +160,7 @@ export async function runNodeSubmission(
         }
         if (chunk.length > remaining || outputBytes >= maxOutputBytes) {
           result.outputLimitExceeded = true;
-          child.kill();
+          killGroup();
         }
       };
       child.stdout.on("data", (chunk: Buffer) => onChunk("stdout", chunk));
@@ -141,14 +170,14 @@ export async function runNodeSubmission(
 
       const onAbort = () => {
         result.cancelled = true;
-        child.kill();
+        killGroup();
       };
       options.signal?.addEventListener("abort", onAbort, { once: true });
       if (options.signal?.aborted) onAbort();
 
       const timer = setTimeout(() => {
         result.timedOut = true;
-        child.kill();
+        killGroup();
       }, stageTimeoutMs);
       try {
         child.stdin.end(stdin);
@@ -178,6 +207,9 @@ export async function runNodeSubmission(
         }
       } finally {
         clearTimeout(timer);
+        // The program may have exited but left processes running in the
+        // background (with their output closed). Don't let them outlive the run.
+        killGroup();
         options.signal?.removeEventListener("abort", onAbort);
       }
     };

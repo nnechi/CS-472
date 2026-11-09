@@ -1,14 +1,12 @@
-import { useState, useEffect} from "react"
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
-import StudentActivity from "../../components/activity/StudentActivity"
+import StudentParsons from "../../components/activity/StudentParsons"
 import ChatWidget from "../../components/chat/ChatWidget"
 import RoomLayout from "../../components/chat/RoomLayout"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
-import { socket } from "../../socket"
-import { CodeRunUpdate, CodeSubmissionLanguage, Session } from "../../types"
+import { Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
-import RoomNavbar from "../../components/chat/RoomNavbar"
 import StudentHeader from "../../components/chat/StudentHeader"
+import CodeEditor from "../../components/activity/CodeEditor"
 
 // /rooms/join/:roomCode -- the student's view of a room: the activity, the chat,
 // and the raise-hand button. Students have no account; the name comes from the
@@ -18,47 +16,89 @@ export default function StudentRoom() {
     const location = useLocation()
     const { roomCode } = useParams()
     const room = normalizeRoomCode(roomCode ?? "")
-    const username = (location.state as { username?: string } | null)?.username?.trim()
+    const state = location.state as { username?: string; waiting?: boolean } | null
+    const username = state?.username?.trim()
+    const waiting = state?.waiting ?? false
 
     if (!room || !username) return <Navigate to="/" replace />
 
-    return <StudentRoomScreen session={{ username, role: "student", room }} />
+    return <StudentRoomScreen session={{ username, role: "student", room }} waiting={waiting} />
 }
 
 // The socket is opened here, so it only runs once the name check has passed.
-function StudentRoomScreen({ session }: { session: Session }) {
+function StudentRoomScreen({ session, waiting }: { session: Session; waiting: boolean }) {
     const navigate = useNavigate()
     const room = useRoomSocket(session, {
+        startWaiting: waiting,
         onRoomClosed: () => {
             window.alert("Your teacher ended this room.")
             navigate("/")
         },
         onJoinError: () => {
-            window.alert("This room doesn't exist or it's expired.")
+            window.alert("This room isn't available. Your teacher may not have opened it or it has expired.")
             navigate("/")
         },
     })
 
-    return (
-        <div className="flex h-screen flex-col">
-            {/* Leaving unmounts the chat, which disconnects the socket and
-                drops the student from the teacher's hand queue. */}
-            <RoomNavbar session={session} onLeave={() => navigate("/")} />
-            <StudentHeader session={session} room={room} />
-            <RoomLayout
-                activity={
-                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-                        <StudentActivity
-                        activity={room.activity}
-                        answers={room.studentAnswers}
-                        results={room.studentResults}
-                        feedback={room.studentFeedback}
-                        onChange={room.setStudentAnswer}
-                        onCheck={room.checkAnswer}
-                        onReset={room.resetProblem}
+    // Joined before the teacher opened the room: hold here until "room opened".
+    if (room.waiting) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-white px-4">
+                <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border border-brand bg-white p-9 text-center text-brand shadow-[0_4px_14px_rgba(34,21,116,0.15)]">
+                    <div
+                        className="h-10 w-10 animate-spin rounded-full border-4 border-brand/20 border-t-brand"
+                        aria-hidden="true"
                     />
-                    <CodeSubmissionPanel />
+                    <h1 className="text-2xl font-bold">Waiting for your teacher…</h1>
+                    <p className="text-brand/70">You'll join automatically when the room opens.</p>
+                    <p className="text-sm text-brand/70">Room code</p>
+                    <p className="-mt-3 text-2xl font-bold tracking-widest">{session.room}</p>
+                    <button
+                        type="button"
+                        className="mt-2 rounded-lg border border-brand/30 px-4 py-2 text-brand cursor-pointer hover:bg-brand-light"
+                        onClick={() => navigate("/")}
+                    >
+                        Leave
+                    </button>
                 </div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="flex h-screen flex-col bg-white text-black">
+            {/* Leaving unmounts the chat, which disconnects the socket and
+                drops the student from the teacher's hand queue. The student
+                room has no site-wide navbar — this header is the top of the page. */}
+            <StudentHeader session={session} room={room} onLeave={() => navigate("/")} />
+
+            <RoomLayout
+                activity={room.activity?.type === "parsons" ? 
+                    (
+                        <StudentParsons
+                            activity={room.activity}
+                            currentQuestion={room.currentQuestion}
+                            answers={room.studentAnswers}
+                            results={room.studentResults}
+                            feedback={room.studentFeedback}
+                            onChange={room.setStudentAnswer}
+                            onCheck={room.checkAnswer}
+                            onReset={room.resetProblem}
+                        />
+                    ) :
+                    (
+                        <CodeEditor 
+                            activity={room.activity}
+                            currentQuestion={room.currentQuestion}
+                            role="student"
+                            codes={room.code}
+                            outputs={room.codeOutputs}
+                            run={room.run}
+                            onCodeChange={room.setCode}
+                            onRun={room.runCode}
+                            onCancel={room.cancelRun}
+                        />
+                    )
                 }
                 chat={
                     <ChatWidget
@@ -69,119 +109,5 @@ function StudentRoomScreen({ session }: { session: Session }) {
                 }
             />
         </div>
-    )
-}
-
-function CodeSubmissionPanel() {
-    const [language, setLanguage] = useState<CodeSubmissionLanguage>("javascript")
-    const [code, setCode] = useState("")
-    const [status, setStatus] = useState("")
-    const [output, setOutput] = useState<{ stream: "stdout" | "stderr"; text: string }[]>([])
-    const [sending, setSending] = useState(false)
-
-    //listen for live updates -> show status
-
-     useEffect(() => {
-          function onUpdate(update: CodeRunUpdate) {
-              if (update.type === "status") {
-                  setStatus(update.phase === "compiling" ? "Compiling..." : "Running...")
-              } else if (update.type === "output") {
-                  setOutput((chunks) => [...chunks, { stream: update.stream, text: update.chunk }])
-              } else if (update.type === "error") {
-                  setStatus(update.message)
-              }
-          }
-          socket.on("code:update", onUpdate)
-          return () => {
-              socket.off("code:update", onUpdate)
-          }
-      }, []);
-
-    
-    function submitCode() {
-        if (!code.trim() || sending) return
-        if (new TextEncoder().encode(code).length > 64 * 1024) {
-            setStatus("Code is too large. Keep it under 64 KiB.")
-            return
-        }
-        setSending(true)
-        setOutput([])
-        setStatus("Running code on the server...")
-
-       socket.timeout(20000).emit("code:submit", { language, code }, (error, receipt) => {
-              setSending(false)
-              if (error) {
-                  setStatus("The server did not respond before the run timed out. Try again.")
-                  return
-              }
-              if (!receipt.accepted) {
-                  setStatus(receipt.message)
-                  return
-              }
-             //check acknowledgement
-              const final: { stream: "stdout" | "stderr"; text: string }[] = []
-              if (receipt.stdout) final.push({ stream: "stdout", text: receipt.stdout })
-              if (receipt.stderr) final.push({ stream: "stderr", text: receipt.stderr })
-              setOutput(final)
-              if (receipt.timedOut) {
-                  setStatus("The server stopped the run after its time limit.")
-              } else if (receipt.outputLimitExceeded) {
-                  setStatus("The server stopped the run after its output limit.")
-              } else if (receipt.cancelled) {
-                  setStatus("The run was cancelled.")
-              } else if (receipt.exitCode === null) {
-                  setStatus("The server could not start the program.")
-              } else {
-                  setStatus(`Finished with exit code ${receipt.exitCode}.`)
-              }
-          })
-    }
-
-    return (
-        <section className="shrink-0 border-t border-gray-200 p-4">
-            <div className="mb-2 flex items-center justify-between gap-3">
-                <label htmlFor="student-code" className="text-sm font-semibold">Your code</label>
-                <select
-                    aria-label="Code language"
-                    className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
-                    value={language}
-                    onChange={(event) => setLanguage(event.target.value as CodeSubmissionLanguage)}
-                >
-                    <option value="javascript">JavaScript</option>
-                    <option value="typescript">TypeScript</option>
-                </select>
-            </div>
-            <textarea
-                id="student-code"
-                className="h-40 w-full resize-y rounded-lg border border-gray-300 p-3 font-mono text-sm focus:border-indigo-600 focus:outline-none"
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-                placeholder="Write code here..."
-                maxLength={64 * 1024}
-                spellCheck={false}
-            />
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-                <button
-                    type="button"
-                    className="rounded-lg bg-neutral-900 px-4 py-2 text-white cursor-pointer hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={!code.trim() || sending}
-                    onClick={submitCode}
-                >
-                    {sending ? "Sending..." : "Run code"}
-                </button>
-                <p role="status" className="text-sm text-gray-600">{status}</p>
-            </div>
-            {output.length > 0 && (
-                <pre
-                    aria-label="Program output"
-                    className="mt-2 max-h-48 overflow-auto rounded-lg bg-neutral-900 p-3 font-mono text-sm whitespace-pre-wrap text-gray-100">
-                    {output.map((chunk, i) => (
-                        <span key={i} className={chunk.stream === "stderr" ? "text-red-400" : undefined}>
-                            {chunk.text}
-                        </span>
-                    ))}
-                </pre>
-            )}
-        </section>
     )
 }

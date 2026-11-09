@@ -1,33 +1,24 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { allowCodeRun, MAX_RUNS_PER_MINUTE, receiveCode, RUN_WINDOW_MS } from "./submission";
-
-test("acknowledges the language and UTF-8 size of received code", () => {
-  assert.deepEqual(
-    receiveCode({ language: "javascript", code: "console.log('✓')" }),
-    { language: "javascript", bytes: Buffer.byteLength("console.log('✓')") }
-  );
-});
+import { createExecutionPlan, MAX_CODE_BYTES } from "./plan";
+import { allowCodeRun, MAX_RUNS_PER_MINUTE, RUN_WINDOW_MS } from "./submission";
 
 test("rejects empty, unsupported, and oversized submissions", () => {
-  assert.throws(() => receiveCode({ language: "javascript", code: " " }), /non-empty/);
-  assert.throws(() => receiveCode({ language: "python", code: "print(1)" }), /Only JavaScript/);
+  assert.throws(() => createExecutionPlan({ language: "javascript", code: " " }), /non-empty/);
+  assert.throws(() => createExecutionPlan({ language: "unknown", code: "print(1)" }), /Unsupported language/);
   assert.throws(
-    () => receiveCode({ language: "typescript", code: "x".repeat(64 * 1024 + 1) }),
+    () => createExecutionPlan({ language: "typescript", code: "✓".repeat(MAX_CODE_BYTES) }),
     /size limit/
   );
 });
 
-test("rejects unexpected fields and NUL characters without changing valid source", () => {
+test("rejects NUL characters and preserves valid source", () => {
   assert.throws(
-    () => receiveCode({ language: "javascript", code: "1 + 1", executable: "sh" }),
-    /only language and code/
+    () => createExecutionPlan({ language: "javascript", code: "a\0b" }),
+    /NUL/
   );
-  assert.throws(() => receiveCode({ language: "javascript", code: "a\0b" }), /NUL/);
-  assert.deepEqual(receiveCode({ language: "javascript", code: "\n  1 + 1\n" }), {
-    language: "javascript",
-    bytes: Buffer.byteLength("\n  1 + 1\n"),
-  });
+  const code = "\n  1 + 1\n";
+  assert.equal(createExecutionPlan({ language: "javascript", code }).request.code, code);
 });
 
 test("limits runs per socket to five in a rolling minute", () => {

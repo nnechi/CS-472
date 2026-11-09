@@ -1,26 +1,4 @@
-import type { CompileUpdate } from "./compile"; 
-
-// Two kinds of users.
 export type Role = "student" | "teacher";
-
-export type CodeSubmissionLanguage = "javascript" | "typescript";
-export type CodeSubmissionAck =
-  | {
-      accepted: true;
-      language: CodeSubmissionLanguage;
-      bytes: number;
-      exitCode: number | null;
-      timedOut: boolean;
-      cancelled: boolean;
-      outputLimitExceeded: boolean;
-      executionId : string; 
-      stdout : string; 
-      stderr : string; 
-    }
-  | { accepted: false; message: string };
-
-
-export type CodeRunUpdate = CompileUpdate; 
 
 // The group chat's id. Private chats use the student's socket id instead.
 export const GROUP_CHAT_ID = "group";
@@ -30,7 +8,7 @@ export const ACTIVITY_MAX_LENGTH = 5000;
 // The longest name a teacher can give an activity.
 export const ACTIVITY_NAME_MAX_LENGTH = 100;
 // The languages a teacher can pick for a coding activity.
-export const PROGRAMMING_LANGUAGES = ["python", "c++", "javascript", "other"] as const;
+export const PROGRAMMING_LANGUAGES = ["python", "c++", "javascript", "typescript", "java", "c", "other"] as const;
 // Coding: students write code to match an output. Parsons: students put lines in order.
 export const ACTIVITY_TYPES = ["coding", "parsons"] as const;
 export type ActivityType = typeof ACTIVITY_TYPES[number];
@@ -49,6 +27,8 @@ export interface ChatMessage {
   chatId: string; // GROUP_CHAT_ID, or the id of a private chat
   // The sender's profile picture URL. Only signed-in teachers have one.
   avatarUrl?: string | null;
+  // A student's pup avatar id (for example "corgi"). Teachers have none.
+  pup?: string | null;
 }
 
 // A private chat between the room's teacher and one student. `id` is the
@@ -80,7 +60,7 @@ export interface ParsonsDisplayOptions {
 }
 
 // One question as the server sends it. What is set depends on who gets it:
-// students get only the question, and for Parsons the shuffled lines to arrange.
+// students get the question and correct output, and for Parsons the shuffled lines to arrange.
 // Teachers also get the answer: the output for coding, the solution for Parsons.
 export interface RoomQuestion {
   question: string;
@@ -93,13 +73,14 @@ export interface RoomQuestion {
 
 // The room's activity, with the questions shaped for the person receiving it.
 export interface RoomActivity {
+  name: string;
   type: ActivityType;
+  language: string | null;
   questions: RoomQuestion[];
 }
 
-// A student's work on each Parsons question in their private chat. The
-// teacher sees it. results is null until the student checks an answer, and
-// is reset when the answer changes.
+// A student's work on each Parsons question. The teacher sees it. results is
+// null until the student checks an answer, and is reset when the answer changes.
 export interface AnswerProgress {
   answers: ParsonsLine[][];
   results: (boolean | null)[];
@@ -108,11 +89,159 @@ export interface AnswerProgress {
   marks: (LineMark[] | null)[];
 }
 
+// The feedback for one checked question: messages and the marked lines.
+export interface AnswerFeedback {
+  errors: string[];
+  marks: LineMark[];
+}
+
+// ---------------------------------------------------------------------------
+// Student environments. Keep this block identical in client and server types.
+//
+// Each student has their own workspace: their work on every question, their
+// last run, and what their screen looks like. The student owns it and sends it
+// to the server, and a teacher watching that student renders the same
+// components from it, read-only, to see exactly what the student sees.
+// Everything here must survive JSON: no pixels, Monaco objects, or functions.
+// ---------------------------------------------------------------------------
+
+// Longest code a student can keep for one question.
+export const STUDENT_CODE_MAX_LENGTH = 20000;
+// Longest stdout or stderr kept from one run.
+export const RUN_OUTPUT_MAX_LENGTH = 20000;
+
+// One finished run of a student's code. The raw parts are kept, not the
+// formatted text, so student and teacher format it the same way.
+export interface RunResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+  timedOut: boolean;
+  outputLimitExceeded: boolean;
+  finishedAt: string; // ISO timestamp
+}
+
+// How a run ended. Every run ends exactly once.
+export type RunOutcome =
+  | { type: "finished"; result: RunResult } // ran; check result for timeouts/compile errors
+  | { type: "cancelled" } // stopped by its owner or a disconnect
+  | { type: "replaced" } // still waiting when newer code was queued
+  | { type: "error"; message: string }; // the runner itself failed
+
+// A student's work on one Parsons question.
+export interface ParsonsWork {
+  answer: ParsonsLine[];
+  // null until checked, and reset when the answer changes.
+  result: boolean | null;
+  // Exactly what the student was shown. null when feedback is off or unchecked.
+  feedback: AnswerFeedback | null;
+  // Teachers only: which lines are wrong, even when the student's feedback is off.
+  marks: LineMark[] | null;
+}
+
+// A student's work on one question, whatever its type.
+export interface QuestionWork {
+  code: string; // coding: the editor contents
+  lastRun: RunResult | null; // coding: null until the student runs it
+  parsons: ParsonsWork | null; // Parsons only, null for coding questions
+}
+
+// A line and column in the editor, 1-based like Monaco's.
+export interface EditorPosition {
+  lineNumber: number;
+  column: number;
+}
+
+// What the student's screen looks like right now. Sizes are percentages and
+// scroll is in lines, so it maps onto a teacher's screen of any size.
+export interface EnvironmentViewport {
+  // The coding layout's three resizable groups, each panel as a percentage.
+  panels: {
+    outer: number[]; // question/output column | editor/output column
+    left: number[]; // question | correct output
+    right: number[]; // editor | student output
+  } | null;
+  editorTopLine: number; // first visible line in the editor, 1-based
+  cursor: EditorPosition | null;
+  selection: { start: EditorPosition; end: EditorPosition } | null;
+  // Parsons: how far down the activity is scrolled, 0 to 1.
+  activityScrollRatio: number;
+}
+
+// One student's whole workspace in a room.
+export interface StudentEnvironment {
+  // Stable per student across refreshes (unlike the socket id).
+  studentKey: string;
+  username: string;
+  // The question the student is looking at.
+  questionIndex: number;
+  // One entry per question in the room's activity.
+  questions: QuestionWork[];
+  // True while a run is in progress. Only one run at a time.
+  running: boolean;
+  viewport: EnvironmentViewport;
+  // Goes up by one on every change. Anything older than what's held is ignored.
+  version: number;
+}
+
+// The viewport before the student has scrolled, moved, or resized anything.
+export const EMPTY_VIEWPORT: EnvironmentViewport = {
+  panels: null,
+  editorTopLine: 1,
+  cursor: null,
+  selection: null,
+  activityScrollRatio: 0,
+};
+
+// A fresh environment for a student joining a room with this activity.
+export function emptyStudentEnvironment(
+  studentKey: string,
+  username: string,
+  activityType: ActivityType | null,
+  questionCount: number,
+): StudentEnvironment {
+  const count = Math.max(0, Math.min(questionCount, ACTIVITY_MAX_QUESTIONS));
+  return {
+    studentKey,
+    username,
+    questionIndex: 0,
+    questions: Array.from({ length: count }, () => ({
+      code: "",
+      lastRun: null,
+      parsons: activityType === "parsons"
+        ? { answer: [], result: null, feedback: null, marks: null }
+        : null,
+    })),
+    running: false,
+    viewport: { ...EMPTY_VIEWPORT },
+    version: 0,
+  };
+}
+
+// A student's work on a coding activity: the code they wrote for each question,
+// and the output of their last Run of it (null if not run, or the code changed since).
+export interface CodingProgress {
+  codes: string[];
+  outputs: (string | null)[];
+}
+
+// What the teacher sees of one student's work. The type says which kind of activity it is for.
+export type StudentProgress =
+  | ({ type: "parsons" } & AnswerProgress)
+  | ({ type: "coding" } & CodingProgress);
+
 //raise hand uses id not username incase multiple people pick the same username.
 export interface RaisedHand {
   id: string;
   username: string;
   raisedAt: string; // ISO timestamp
+}
+
+// A student currently connected to the room. id is their socket id, same as
+// RaisedHand -- a student can appear here whether or not they've raised a hand.
+export interface RosterStudent {
+  id: string;
+  username: string;
 }
 
 // The room's countdown timer. remainingMs is the time left right now, and
@@ -123,15 +252,49 @@ export interface TimerState {
   running: boolean;
 }
 
+// A student who joined a room, as saved when the room ended.
+export interface PastStudent {
+  id: string; // the student's socket id during the room
+  username: string;
+  pup: string | null;
+  joinedAt: string; // ISO timestamp
+  hasPrivateChat: boolean; // the teacher opened a private chat with them
+  progress: StudentProgress | null; // null if they never worked on the activity
+  privateMessages: ChatMessage[];
+}
+
+// A room the teacher ran that has ended. Listed under Previous activities.
+export interface PastRoomSummary {
+  code: string;
+  activityName: string | null;
+  activityType: ActivityType | null;
+  startedAt: string; // ISO timestamp, when the teacher opened the room
+  endedAt: string; // ISO timestamp
+  studentCount: number;
+}
+
+// Everything saved about one ended room, for the teacher's read-only view.
+export interface PastRoomDetail {
+  code: string;
+  activityName: string | null;
+  activity: RoomActivity | null; // the teacher's view of the activity, answers included
+  startedAt: string;
+  endedAt: string;
+  students: PastStudent[];
+  messages: ChatMessage[]; // the group chat, oldest first
+}
+
 // What the client is allowed to send to the server.
 export interface ClientToServerEvents {
-  // ack will carry stdout stderr back from server.
-  "code:submit": (
-    payload: { language: CodeSubmissionLanguage; code: string },
-    acknowledge: (response: CodeSubmissionAck) => void
-  ) => void;
   // Sent once, right after connecting.
-  join: (payload: { username: string; role: Role; room: string }) => void;
+  // Students send the studentKey they were given last time in this room, if any.
+  join: (payload: { username: string; role: Role; room: string; pup?: string; studentKey?: string }) => void;
+  // Run this question's code. Queued; results come back as "run ..." events.
+  "run code": (payload: { questionIndex: number; code: string }) => void;
+  // Stop your own queued or running code.
+  "cancel run": () => void;
+  // Students only: change their pup avatar. Later messages use the new pup.
+  "set pup": (payload: { pup: string }) => void;
   // Username, role, and room are remembered server-side, so we only send text.
   "chat message": (payload: { text: string }) => void;
   // Students toggles their own hand up/down.
@@ -145,34 +308,41 @@ export interface ClientToServerEvents {
   "timer restart": () => void;
   // Teachers only: set a new length in whole minutes (1 to 60) and stop the timer.
   "timer set": (payload: { minutes: number }) => void;
+  // Teachers only: pick the question everyone in the room is on.
+  "set question": (payload: { questionIndex: number }) => void;
   // Teachers only: open a private chat with a student who raised a hand.
   "open private chat": (payload: { studentId: string }) => void;
   // Teachers send to any private chat in the room. Students only to their own.
   "private message": (payload: { chatId: string; text: string }) => void;
-  // Students only, while their private chat is open: their arrangement of each Parsons question.
+  // Students only: their arrangement of each Parsons question. Sent as it changes.
   "activity update": (payload: { answers: ParsonsLine[][] }) => void;
   // Students only: check one Parsons question's arrangement against the solution.
   "check answer": (payload: { questionIndex: number; lines: ParsonsLine[] }) => void;
+  // Students only: their code and last Run output for each coding question. Sent as it changes.
+  "code update": (payload: { codes: string[]; outputs: (string | null)[] }) => void;
 }
 
+export interface Participant  { 
+  id : string; 
+  username : string; 
+}
 // What the server sends back to clients.
 export interface ServerToClientEvents {
   "chat message": (message: ChatMessage) => void;
   "chat history": (messages: ChatMessage[]) => void;
   // The room's activity, sent on join. Null when the teacher picked none.
   "room activity": (activity: RoomActivity | null) => void;
-  // A private chat was opened (or sent again on join). Includes its history
-  // and the student's progress on the activity.
-  "private chat opened": (payload: {
-    chat: PrivateChat;
-    messages: ChatMessage[];
-    progress: AnswerProgress;
-  }) => void;
+  // The question the teacher picked, sent on join and on every change.
+  "current question": (questionIndex: number) => void;
+  // A private chat was opened (or sent again on join). Includes its history.
+  // A student's progress comes in "student activity", not here.
+  "private chat opened": (payload: { chat: PrivateChat; messages: ChatMessage[] }) => void;
   // A student left, so their private chat is gone. Sent with the chat id.
   "private chat closed": (chatId: string) => void;
   "private message": (message: ChatMessage) => void;
-  // Teachers only: a student's progress changed in their private chat.
-  "student activity": (payload: { chatId: string; progress: AnswerProgress }) => void;
+  // Teachers only: a student's work changed. Sent for every student who has
+  // progress when a teacher joins, and again on each change.
+  "student activity": (payload: { studentId: string; progress: StudentProgress }) => void;
   // Students only: whether their checked answer is right, and the feedback
   // (messages and marked lines) when the teacher turned feedback on.
   "answer result": (payload: {
@@ -185,13 +355,34 @@ export interface ServerToClientEvents {
   "system message": (text: string) => void;
   // Raised hands in the room, oldest first.
   "hand queue": (queue: RaisedHand[]) => void;
+  // Teachers only: how many students are in the room right now.
+  "student count": (count: number) => void;
+  // Teachers only: everyone currently connected to the room, sent on join
+  // and whenever a student joins or leaves.
+  "room roster": (roster: RosterStudent[]) => void;
   // Sent to a student when their own hand goes up or down.
   "hand status": (raised: boolean) => void;
   // The room's timer, sent on join and on every play/pause.
   "timer state": (timer: TimerState) => void;
   "room closed" : () => void;
   "join error" : () => void;
-  "code:update" : (update : CodeRunUpdate) => void; 
+
+
+  "participants" : (participants : Participant[]) => void; 
+  "room waiting" : () => void; 
+  "room opened" : () => void;
+  // Students only: the key their environment is kept under in this room.
+  // Saved by the client and sent back with "join" so a refresh keeps their work.
+  "student key": (studentKey: string) => void;
+  // Your run is waiting. Sent again whenever its place changes (1 = next).
+  "run queued": (payload: { jobId: string; questionIndex: number; position: number }) => void;
+  "run started": (payload: { jobId: string; questionIndex: number }) => void;
+  // Output as the program produces it.
+  "run output": (payload: { jobId: string; stream: "stdout" | "stderr"; chunk: string }) => void;
+  "run finished": (payload: { jobId: string; questionIndex: number; outcome: RunOutcome }) => void;
+  // The run wasn't queued, with a message to show the student.
+  "run rejected": (payload: { questionIndex: number; reason: string }) => void;
+
 }
 
 //Incase we set up server-to-server events
@@ -204,4 +395,8 @@ export interface SocketData {
   room: string;
   // A signed-in teacher's Google picture, from their login session.
   avatarUrl: string | null;
+  waiting : boolean; 
+  pup: string | null;
+  // Students only: the key of their environment in this room.
+  studentKey: string | null;
 }

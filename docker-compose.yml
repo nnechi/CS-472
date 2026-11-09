@@ -22,6 +22,12 @@ services:
       MONGO_URI: mongodb://mongo:27017/chat
       CLIENT_ORIGIN: http://localhost:5173
       PORT: "3000"
+      # Student code runs in the runner service, never in this container.
+      # "runner" resolves to the runner container on the compose network.
+      RUNNER_URL: http://runner:4000
+      # How many programs run at once; must match the runner's, so both read this one value.
+      MAX_CONCURRENT_RUNS: ${MAX_CONCURRENT_RUNS:-2}
+      RUNNER_TOKEN: ${RUNNER_TOKEN:?Set RUNNER_TOKEN in .env at the repo root (see .env.example)}
     volumes:
       # Mount your source so edits trigger hot reload inside the container.
       # We deliberately DON'T mount node_modules (see the anonymous volume below).
@@ -29,6 +35,39 @@ services:
       - /app/node_modules
     depends_on:
       - mongo # start mongo first
+      - runner
+
+  # ---------- Sandbox image for student code ----------
+  # Not a long-running service: it's here so "docker compose up --build" builds
+  # the littlepointers-sandbox image the runner starts for each run. The
+  # container itself exits right away.
+  sandbox:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.sandbox
+    image: littlepointers-sandbox # the name the runner's SANDBOX_IMAGE refers to
+    entrypoint: ["true"]
+    restart: "no"
+
+  # ---------- Code runner ----------
+  # Starts one locked-down sandbox container per code run (see
+  # runner/src/index.ts). It has the Docker socket, which is root on the host,
+  # so it has NO "ports:" entry and can't be reached from outside. Every service
+  # on the compose network can still reach runner:4000, so RUNNER_TOKEN is what
+  # keeps anything but the server from running code through it.
+  runner:
+    build: ./runner
+    environment:
+      PORT: "4000"
+      SANDBOX_IMAGE: littlepointers-sandbox
+      # How many programs run at once. The server gets the same value below.
+      MAX_CONCURRENT_RUNS: ${MAX_CONCURRENT_RUNS:-2}
+      RUNNER_TOKEN: ${RUNNER_TOKEN:?Set RUNNER_TOKEN in .env at the repo root (see .env.example)}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      sandbox:
+        condition: service_completed_successfully # image built before the first run
 
   # ---------- React + Vite dev server (the "R") ----------
   client:
