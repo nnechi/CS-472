@@ -26,7 +26,7 @@ interface RoomSocketOptions {
   startWaiting?: boolean;
 }
 
-// How long a student's arrangement or code waits before it is sent to the teacher.
+// How long a student's Parsons arrangement waits before it is sent to the teacher.
 const PROGRESS_SYNC_DELAY_MS = 300;
 
 export type { RunState } from "./roomView";
@@ -108,9 +108,12 @@ export function useRoomSocket(
   // changes, and their latest run from the server's execution queue.
   const [code, setCode] = useState<string[]>([]);
   const [run, setRun] = useState<RunState>(IDLE_RUN);
-  // The output of the last finished run of each question, or null if it hasn't
-  // been run since its code last changed. Students send it to the teacher.
+  // The output of the last finished run of each question.
   const [codeOutputs, setCodeOutputs] = useState<(string | null)[]>([]);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [editErrors, setEditErrors] = useState<Record<string, string | undefined>>({});
+  const pendingEdits = useRef(new Map<string, { code: string; count: number }>());
+  const runSource = useRef("");
   // Students: whether they changed their work since the activity loaded. Until
   // then nothing is sent, so the teacher sees "no work yet".
   const touchedRef = useRef(false);
@@ -119,7 +122,6 @@ export function useRoomSocket(
   // 300 ms before the teacher ends the room cannot be saved, because the server
   // has already closed the room by the time they are sent.
   const pendingAnswersRef = useRef<{ answers: ParsonsLine[][] } | null>(null);
-  const pendingCodesRef = useRef<{ codes: string[]; outputs: (string | null)[] } | null>(null);
   // The JSON of the last activity received. After a reconnect the server sends
   // the activity again; if it is the same one, the student's work is kept.
   const lastActivityJsonRef = useRef<string | null>(null);
@@ -207,8 +209,14 @@ export function useRoomSocket(
     };
 
     // Teachers only: a student's work changed (or was sent on join).
-    const onStudentProgress = ({ studentId, progress }: { studentId: string; progress: StudentProgress }) =>
-      setStudentProgress((prev) => ({ ...prev, [studentId]: progress }));
+    const onStudentProgress = ({ studentId, progress }: { studentId: string; progress: StudentProgress }) => {
+      if (session.role === "student" && progress.type === "coding") {
+        setCode(progress.codes);
+        setCodeOutputs(progress.outputs);
+      } else {
+        setStudentProgress((prev) => ({ ...prev, [studentId]: progress }));
+      }
+    };
 
     // The room's activity, sent on join (and again on every rejoin after a
     // reconnect). Students start with nothing arranged, but a rejoin with the
@@ -228,7 +236,9 @@ export function useRoomSocket(
       touchedRef.current = false;
       // Unsent work belonged to the previous activity.
       pendingAnswersRef.current = null;
-      pendingCodesRef.current = null;
+      pendingEdits.current.clear();
+      setDrafts({});
+      setEditErrors({});
     };
 
     const onAnswerResult = ({
@@ -291,8 +301,7 @@ export function useRoomSocket(
       outcome: RunOutcome;
     }) => {
       // Only a run that actually finished has output worth keeping for its question.
-      if (outcome.type === "finished") {
-        touchedRef.current = true;
+      if (session.role === "teacher" && outcome.type === "finished") {
         setCodeOutputs((prev) =>
           prev.map((o, i) => (i === questionIndex ? formatRunOutput(outcome, "") : o))
         );
@@ -372,9 +381,10 @@ export function useRoomSocket(
       // or disconnecting. Edits made in the last 300 ms before the room ends
       // cannot be saved: the server has already closed the room.
       if (pendingAnswersRef.current) socket.emit("activity update", pendingAnswersRef.current);
-      if (pendingCodesRef.current) socket.emit("code update", pendingCodesRef.current);
       pendingAnswersRef.current = null;
-      pendingCodesRef.current = null;
+      pendingEdits.current.clear();
+      setDrafts({});
+      setEditErrors({});
       socket.disconnect();
       setMessages({});
       setPrivateChats([]);
@@ -416,17 +426,6 @@ export function useRoomSocket(
     return () => clearTimeout(id);
   }, [studentAnswers, isStudent, activityType]);
 
-  useEffect(() => {
-    if (!isStudent || activityType !== "coding" || !touchedRef.current) return;
-    const payload = { codes: code, outputs: codeOutputs };
-    pendingCodesRef.current = payload;
-    const id = setTimeout(() => {
-      socket.emit("code update", payload);
-      if (pendingCodesRef.current === payload) pendingCodesRef.current = null;
-    }, PROGRESS_SYNC_DELAY_MS);
-    return () => clearTimeout(id);
-  }, [code, codeOutputs, isStudent, activityType]);
-
   // Student: change the lines in one question. A changed answer has no result or feedback yet.
   const setStudentAnswer = (questionIndex: number, lines: ParsonsLine[]) => {
     touchedRef.current = true;
@@ -435,12 +434,45 @@ export function useRoomSocket(
     setStudentFeedback((prev) => prev.map((feedback, i) => (i === questionIndex ? null : feedback)));
   };
 
-  // Change this person's code for one question. Its last output no longer
-  // matches the code, so it is cleared.
+  const editKey = (studentId: string | null, index: number) => `${studentId ?? ""}:${index}`;
+  const shareCode = (studentId: string | null, questionIndex: number, next: string, shared: string) => {
+    const key = editKey(studentId, questionIndex);
+    if (!socket.connected) {
+      setEditErrors((prev) => ({ ...prev, [key]: "Reconnecting to the room. Try again when connected." }));
+      return;
+    }
+    const pending = pendingEdits.current.get(key) ?? { code: shared, count: 0 };
+    const before = pending.code;
+    if (before === next) return;
+    pending.code = next;
+    pending.count++;
+    pendingEdits.current.set(key, pending);
+    setDrafts((prev) => ({ ...prev, [key]: next }));
+    if (pending.count === 1) setEditErrors((prev) => ({ ...prev, [key]: undefined }));
+    socket.timeout(5000).emit("edit student code", { studentId, questionIndex, before, code: next }, (timeout, error) => {
+      if (pendingEdits.current.get(key) !== pending) return;
+      const message = timeout ? "The room didn't confirm this edit. Check the shared code and try again." : error;
+      if (message) setEditErrors((prev) => ({ ...prev, [key]: message }));
+      if (--pending.count > 0) return;
+      pendingEdits.current.delete(key);
+      setDrafts((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    });
+  };
+
   const setCodeAt = (questionIndex: number, next: string) => {
-    touchedRef.current = true;
+    if (isStudent) return shareCode(null, questionIndex, next, code[questionIndex] ?? "");
     setCode((prev) => prev.map((c, i) => (i === questionIndex ? next : c)));
     setCodeOutputs((prev) => prev.map((o, i) => (i === questionIndex ? null : o)));
+  };
+
+  const visibleCode = code.map((value, i) => drafts[editKey(null, i)] ?? value);
+  const codingProgress = (studentId: string) => {
+    const progress = studentProgress[studentId];
+    return progress?.type === "coding" ? progress : null;
   };
 
   // Student: ask the server whether this question's arrangement is right.
@@ -506,7 +538,20 @@ export function useRoomSocket(
     setStudentAnswer,
     checkAnswer,
     resetProblem,
-    studentProgress: (studentId: string) => studentProgress[studentId] ?? null,
+    studentProgress: (studentId: string) => {
+      const progress = studentProgress[studentId] ?? null;
+      if (activityType !== "coding") return progress;
+      const shared = codingProgress(studentId);
+      const codes = (activity?.questions ?? []).map((_, i) => drafts[editKey(studentId, i)] ?? shared?.codes[i] ?? "");
+      return shared || codes.some(Boolean) ? {
+        type: "coding",
+        codes,
+        outputs: codes.map((value, i) => value === shared?.codes[i] ? shared.outputs[i] ?? null : null),
+      } : null;
+    },
+    editStudentCode: (studentId, index, next) =>
+      shareCode(studentId, index, next, codingProgress(studentId)?.codes[index] ?? ""),
+    codeEditError: (studentId, index) => editErrors[editKey(studentId, index)],
     selectChat,
     sendMessage,
     openPrivateChat,
@@ -514,11 +559,15 @@ export function useRoomSocket(
     lowerHand: (id: string) => socket.emit("lower hand", { id }),
     // This person's code for each question, their latest run, and the
     // actions to edit, start, or stop it. Students and teachers alike.
-    code,
-    codeOutputs,
+    code: visibleCode,
+    codeOutputs: codeOutputs.map((value, i) => visibleCode[i] === code[i] ? value : null),
     setCode: setCodeAt,
-    run,
-    runCode: (questionIndex: number, code: string) => socket.emit("run code", { questionIndex, code }),
+    run: run.status === "idle" && run.questionIndex !== null && visibleCode[run.questionIndex] !== runSource.current
+      ? IDLE_RUN : run,
+    runCode: (questionIndex: number, code: string) => {
+      runSource.current = code;
+      socket.emit("run code", { questionIndex, code });
+    },
     cancelRun: () => socket.emit("cancel run"),
     ended: false,
   };

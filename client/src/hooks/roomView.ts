@@ -73,6 +73,8 @@ export interface RoomView {
   cancelRun: () => void;
   // Teachers: one student's work, or null when they have not started.
   studentProgress: (studentId: string) => StudentProgress | null;
+  editStudentCode?: (studentId: string, questionIndex: number, code: string) => void;
+  codeEditError?: (studentId: string | null, questionIndex: number) => string | undefined;
   selectChat: (chatId: string) => void;
   sendMessage: (chatId: string, text: string) => void;
   openPrivateChat: (studentId: string) => void;

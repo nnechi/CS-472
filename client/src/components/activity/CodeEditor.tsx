@@ -1,4 +1,5 @@
 import Editor, { OnMount } from "@monaco-editor/react";
+import { useLayoutEffect, useRef } from "react";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -6,6 +7,7 @@ import {
 } from "@/components/ui/resizable"
 import type { RoomActivity } from "../../types"
 import type { RunState } from "../../hooks/useRoomSocket"
+import { bindCodeCompletions } from "./codeCompletions"
 import { PlayIcon, StopIcon } from "../ActivitySVGs"
 
 // The activity languages that have a runner on the server.
@@ -40,6 +42,7 @@ interface CodeEditorProps {
     // Shown instead of the output placeholder when read-only, e.g. a student
     // who hasn't started yet.
     emptyMessage?: string;
+    editError?: string;
 
     // Left out to make the editor read-only, e.g. when showing someone else's work.
     onCodeChange?: (questionIndex: number, code: string) => void;
@@ -73,7 +76,7 @@ function runStatus(run: RunState): string | null {
 // resizable quadrants - question area, code area, correct output, student output.
 // Used by both student room and teacher room. It keeps no state of its own: the
 // code and the run come in as props and changes go out through the callbacks,
-// so it can show someone's own work or, read-only, someone else's.
+// so it can show independent, shared, or read-only work.
 export default function CodeEditor({
     activity,
     currentQuestion,
@@ -82,13 +85,60 @@ export default function CodeEditor({
     run,
     outputs = [],
     emptyMessage,
+    editError,
     onCodeChange,
     onRun,
     onCancel,
 }: CodeEditorProps){
     const readOnly = !onCodeChange;
-    const language = activity?.language === "c++" ? "cpp" : activity?.language;
+    const language = activity?.language === "c++" || activity?.language === "c" ? "cpp" : activity?.language;
     const canRun = !!activity?.language && RUNNABLE.includes(activity.language);
+    const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+    const applyingSharedCode = useRef(false);
+    const questionCount = activity?.questions.length ?? 0;
+    const index = Math.min(currentQuestion, questionCount - 1);
+    const code = codes[index] ?? "";
+    const latestCode = useRef(code);
+
+    useLayoutEffect(() => {
+        latestCode.current = code;
+        const editor = editorRef.current;
+        const model = editor?.getModel();
+        if (!editor || !model) return;
+        const previous = model.getValue();
+        if (previous === code) return;
+
+        applyingSharedCode.current = true;
+        try {
+            if (readOnly) {
+                model.setValue(code);
+                return;
+            }
+            // Replace only the changed range so remote edits leave the local
+            // selection and cursor alone when they're elsewhere in the code.
+            let start = 0;
+            while (start < Math.min(previous.length, code.length) && previous[start] === code[start]) start++;
+            let end = previous.length;
+            let newEnd = code.length;
+            while (end > start && newEnd > start && previous[end - 1] === code[newEnd - 1]) {
+                end--;
+                newEnd--;
+            }
+            const from = model.getPositionAt(start);
+            const to = model.getPositionAt(end);
+            editor.pushUndoStop();
+            editor.executeEdits("shared-code", [{
+                range: {
+                    startLineNumber: from.lineNumber, startColumn: from.column,
+                    endLineNumber: to.lineNumber, endColumn: to.column,
+                },
+                text: code.slice(start, newEnd),
+            }]);
+            editor.pushUndoStop();
+        } finally {
+            applyingSharedCode.current = false;
+        }
+    }, [code, index, readOnly]);
 
     // Display a message when there is no activity currently selected or the activity has no questions
     // Realistically this shouldn't appear
@@ -100,14 +150,8 @@ export default function CodeEditor({
         );
     }
 
-    // The index in the questions array of the current question
-    const index = Math.min(currentQuestion, activity.questions.length - 1);
-
     // The current question itself, pulled from the questions array
     const question = activity.questions[index];
-
-    // This question's code.
-    const code = codes[index] ?? "";
 
     // The run only belongs on screen if it was started from this question.
     const runHere = run && run.questionIndex === index ? run : undefined;
@@ -125,7 +169,18 @@ export default function CodeEditor({
     const output = runHere ? runHere.output : outputs[index] ?? "";
 
     // Function for Monaco editor to set editor options on mount
-    const handleMount: OnMount = (editor, _monaco) => {
+    const handleMount: OnMount = (editor, monaco) => {
+        editorRef.current = editor;
+        const model = editor.getModel();
+        if (model) bindCodeCompletions(monaco, model, activity.language);
+        if (editor.getValue() !== latestCode.current) {
+            applyingSharedCode.current = true;
+            try {
+                editor.setValue(latestCode.current);
+            } finally {
+                applyingSharedCode.current = false;
+            }
+        }
         if (readOnly) return;
         editor.setPosition({ lineNumber: 2, column: 1 });
         editor.focus();
@@ -160,6 +215,7 @@ export default function CodeEditor({
                     </div>
                 )}
             </div>
+            {editError && <p role="alert" className="text-sm text-red-700">{editError}</p>}
             {!canRun && !readOnly && <p className="text-sm text-gray-600">{activity.language ? `Execution is not available for this activity’s language (${activity.language}).` : "The teacher needs to set a programming language for this activity."}</p>}
             {/* 4 quadrants */}
             <ResizablePanelGroup
@@ -193,10 +249,18 @@ export default function CodeEditor({
                 {/* Quadrant 2 - Code area */}
                 <ResizablePanel defaultSize="75%">
                     <Editor
+                        key={`${activity.language}:${index}`}
                         language={language === "other" || !language ? "plaintext" : language}
-                        value={code}
-                        onChange={(value) => onCodeChange?.(index, value ?? "")}
-                        options={{ fontSize: 18, readOnly, automaticLayout: true }}
+                        defaultValue={code}
+                        onChange={(value) => {
+                            if (!applyingSharedCode.current) onCodeChange?.(index, value ?? "");
+                        }}
+                        options={{
+                            fontSize: 18,
+                            readOnly,
+                            automaticLayout: true,
+                            quickSuggestions: { other: true, comments: false, strings: false },
+                        }}
                         onMount={handleMount}
                     />
                 </ResizablePanel>
