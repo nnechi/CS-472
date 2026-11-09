@@ -35,15 +35,15 @@ export default function StudentSelector({ students, selectedId, onSelect }: Stud
                 ...students.map((s) => ({ value: s.id, label: s.username })),
             ]}
         >
-            <SelectTrigger aria-label="Select a student">
+            <SelectTrigger aria-label="Select a student" className="cursor-pointer">
                 <Users className="size-4 shrink-0 text-brand/60" aria-hidden="true" />
                 <SelectValue placeholder={hasStudents ? "Select a student" : "No students yet"} />
                 <SelectIcon />
             </SelectTrigger>
             <SelectContent aria-label="Students in this room">
-                <SelectItem value={CLASS_ACTIVITY}>Class activity</SelectItem>
+                <SelectItem value={CLASS_ACTIVITY} className="data-highlighted:bg-[#ccc9f7]">Class activity</SelectItem>
                 {students.map((student) => (
-                    <SelectItem key={student.id} value={student.id}>
+                    <SelectItem key={student.id} value={student.id} className="data-highlighted:bg-[#ccc9f7]">
                         {student.username}
                     </SelectItem>
                 ))}

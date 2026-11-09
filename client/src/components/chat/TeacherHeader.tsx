@@ -49,6 +49,10 @@ interface TeacherHeaderProps {
 
     // Saved room: a short label shown next to the room code, e.g. when it ended.
     statusLabel?: string
+
+    // Whether the Needs help box is open, and the click that opens or closes it (the raise-hand icon).
+    handQueueOpen: boolean
+    onToggleHandQueue: () => void
 }
 
 // The teacher's room header: one consolidated bar (this replaced two separate
@@ -67,6 +71,8 @@ export default function TeacherHeader({
     onSelectStudent,
     onLeave,
     statusLabel,
+    handQueueOpen,
+    onToggleHandQueue,
 }: TeacherHeaderProps) {
     const { auth } = useAuth()
     // Picking a question moves every student in the room to it (in a saved
@@ -80,7 +86,7 @@ export default function TeacherHeader({
         <div className="border-b border-brand bg-brand-light text-brand">
             <div className="flex flex-col gap-3 px-4 py-3 sm:px-8 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
                 <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
-                    <img src={shortLogo} alt="LittlePointers" className="h-8 w-auto shrink-0" />
+                    <img src={shortLogo} alt="LittlePointers" className="h-14 w-14 shrink-0" />
                     <RoomCodeBadge
                         code={session.room}
                         hint={room.ended ? undefined : "Share this with your students"}
@@ -108,7 +114,7 @@ export default function TeacherHeader({
                 </div>
 
                 <div className="flex min-w-0 flex-wrap items-center justify-end gap-3 sm:gap-4">
-                    {!room.ended && <HandRaiseAlert count={room.handQueue.length} />}
+                    {!room.ended && <HandRaiseAlert count={room.handQueue.length} open={handQueueOpen} onToggle={onToggleHandQueue} />}
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger
@@ -131,7 +137,7 @@ export default function TeacherHeader({
                             type="button"
                             variant="outline"
                             onClick={onLeave}
-                            className="rounded-full border-brand/40 bg-white text-brand shadow-sm hover:bg-brand/10"
+                            className="cursor-pointer rounded-full border-brand/40 bg-white text-brand shadow-sm hover:bg-brand/10"
                         >
                             <ArrowLeft />
                             Back to previous activities

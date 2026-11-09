@@ -168,7 +168,7 @@ export default function Timer({
                     type="button"
                     size="icon"
                     aria-label={playPauseLabel}
-                    className="size-11 shrink-0 rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    className="size-11 shrink-0 cursor-pointer rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                     onClick={running ? onPause : onPlay}
                   >
                     {running ? <Pause /> : <Play />}
@@ -192,7 +192,7 @@ export default function Timer({
               aria-describedby={triggerDescriptionId}
               aria-live="off"
               className={cn(
-                "rounded-md px-1.5 font-mono text-2xl font-bold tabular-nums outline-none transition-colors hover:bg-brand/5 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-default disabled:hover:bg-transparent sm:text-3xl",
+                "cursor-pointer rounded-md px-1.5 font-mono text-2xl font-bold tabular-nums outline-none transition-colors hover:bg-brand/5 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-default disabled:hover:bg-transparent sm:text-3xl",
                 expired ? "text-red-600" : "text-brand"
               )}
             >
@@ -230,7 +230,7 @@ export default function Timer({
                 <Button
                   type="submit"
                   disabled={!validMinutes}
-                  className="w-full bg-brand text-white hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                  className="w-full bg-brand text-white enabled:cursor-pointer hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                 >
                   Set
                 </Button>
@@ -258,7 +258,7 @@ export default function Timer({
                     type="button"
                     size="icon"
                     aria-label="Restart timer"
-                    className="size-11 shrink-0 rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    className="size-11 shrink-0 cursor-pointer rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                     onClick={onRestart}
                   >
                     <RotateCcw />
