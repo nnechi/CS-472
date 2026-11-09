@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/resizable"
 import type { RoomActivity } from "../../types"
 import type { RunState } from "../../hooks/useRoomSocket"
+import { bindCodeCompletions } from "./codeCompletions"
 
 // The activity languages that have a runner on the server.
 const RUNNABLE = ["python", "javascript", "typescript", "java", "c", "c++"];
@@ -79,7 +80,7 @@ export default function CodeEditor({
     onCancel,
 }: CodeEditorProps){
     const readOnly = !onCodeChange;
-    const language = activity?.language === "c++" ? "cpp" : activity?.language;
+    const language = activity?.language === "c++" || activity?.language === "c" ? "cpp" : activity?.language;
     const canRun = !!activity?.language && RUNNABLE.includes(activity.language);
     const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
     const applyingSharedCode = useRef(false);
@@ -149,8 +150,10 @@ export default function CodeEditor({
     const output = runHere ? runHere.output : outputs[index] ?? "";
 
     // Function for Monaco editor to set editor options on mount
-    const handleMount: OnMount = (editor) => {
+    const handleMount: OnMount = (editor, monaco) => {
         editorRef.current = editor;
+        const model = editor.getModel();
+        if (model) bindCodeCompletions(monaco, model, activity.language);
         if (editor.getValue() !== latestCode.current) {
             applyingSharedCode.current = true;
             try {
@@ -219,13 +222,18 @@ export default function CodeEditor({
                 {/* Quadrant 2 - Code area */}
                 <ResizablePanel defaultSize="75%">
                     <Editor
-                        key={index}
+                        key={`${activity.language}:${index}`}
                         language={language === "other" || !language ? "plaintext" : language}
                         defaultValue={code}
                         onChange={(value) => {
                             if (!applyingSharedCode.current) onCodeChange?.(index, value ?? "");
                         }}
-                        options={{ fontSize: 18, readOnly, automaticLayout: true }}
+                        options={{
+                            fontSize: 18,
+                            readOnly,
+                            automaticLayout: true,
+                            quickSuggestions: { other: true, comments: false, strings: false },
+                        }}
                         onMount={handleMount}
                     />
                 </ResizablePanel>
