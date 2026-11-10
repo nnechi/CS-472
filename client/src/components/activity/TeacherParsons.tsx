@@ -1,5 +1,5 @@
 import { AnswerProgress, RoomActivity } from "../../types";
-import LineBox, { ANSWER_FRAME_STYLE, lineStates } from "./LineBox";
+import LineBox, { ANSWER_FRAME_STYLE, TRASH_FRAME_STYLE, lineStates } from "./LineBox";
 
 interface TeacherParsonsProps {
   // "Class activity", or "<name>'s work" when a student is selected.
@@ -54,8 +54,8 @@ export default function TeacherParsons({
 
         <>
           <div>
-            <h3 className="text-xs font-semibold text-gray-600">Solution, in order</h3>
-            <div className="px-2 pb-2" style={ANSWER_FRAME_STYLE.neutral}>
+            <h3 className="text-xs font-semibold text-gray-600">Solution</h3>
+            <div className="px-2 pb-2" style={TRASH_FRAME_STYLE}>
               {(question.solution ?? []).map((line, i) => (
                 <LineBox key={i} code={line.code} indent={line.indent} xIndent={xIndent} />
               ))}
@@ -65,7 +65,7 @@ export default function TeacherParsons({
           {(question.distractors?.length ?? 0) > 0 && (
             <div>
               <h3 className="text-xs font-semibold text-gray-600">Extra lines (not in the answer)</h3>
-              <div className="px-2 pb-2" style={ANSWER_FRAME_STYLE.neutral}>
+              <div className="px-2 pb-2" style={TRASH_FRAME_STYLE}>
                 {(question.distractors ?? []).map((code, i) => (
                   <LineBox key={i} code={code} indent={0} xIndent={xIndent} />
                 ))}
