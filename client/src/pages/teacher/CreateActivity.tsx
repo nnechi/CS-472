@@ -1,10 +1,13 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
+import { ChevronDown, Code, ListOrdered, X } from "lucide-react"
 import { ActivityInput, ActivityQuestionInput, createActivity } from "../../api"
 import CodingQuestion from "../../components/activity/CodingQuestion"
 import ParsonsQuestion from "../../components/activity/ParsonsQuestion"
 import { codeLines, effectiveRequireDragging, UPLOAD_LIMIT } from "../../components/activity/questionCode"
 import useAuth from "../../hooks/useAuth"
+import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
+import UserAvatar from "../../components/UserAvatar"
 import {
     ACTIVITY_MAX_LENGTH,
     ACTIVITY_MAX_QUESTIONS,
@@ -24,6 +27,17 @@ const EMPTY_QUESTION : ActivityQuestion = {
     code: "",
     distractors: "",
     settings: DEFAULT_PARSONS_SETTINGS,
+}
+
+// How each language is shown in the dropdown. The lowercase value is what gets saved.
+const LANGUAGE_LABELS : Record<ProgrammingLanguage, string> = {
+    python: "Python",
+    "c++": "C++",
+    javascript: "JavaScript",
+    typescript: "TypeScript",
+    java: "Java",
+    c: "C",
+    other: "Other",
 }
 
 const TYPE_LABELS : Record<ActivityType, string> = {
@@ -131,259 +145,282 @@ export default function CreateActivity(){
     const current = questions[selected]
 
     return (
-        <form
-            className="mt-2 flex w-full flex-col text-brand"
-            onSubmit={handleSubmit}
-        >
-            {/* Header */}
-            <div className="flex items-start justify-between gap-4 border-b border-brand/10 pb-6">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-3xl font-bold tracking-tight">Create an activity</h1>
-                    <p className="text-sm text-brand/70">
-                        Set up the activity, then add the questions your students will answer.
-                    </p>
+        // On desktop the page is exactly the window's height, and the questions
+        // section takes whatever space is left, so nothing scrolls off the bottom.
+        <div className="flex flex-col md:h-dvh">
+            <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-8 gap-y-3 bg-brand-light py-3 pr-4 sm:h-20 sm:py-0 sm:pr-8">
+                <div className="ml-4 flex h-14 items-center gap-0 sm:ml-8">
+                    {/* Short logo at every screen size. It goes back to the dashboard. */}
+                    <Link to="/dashboard" aria-label="LittlePointers dashboard">
+                        <img src={shortLogo} alt="" className="h-14 w-14" />
+                    </Link>
                 </div>
-                <button
-                    type="button"
-                    className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-brand/5 text-brand/80 hover:bg-pop/60 hover:text-brand"
-                    onClick={() => navigate("/dashboard/activities")}
-                    aria-label="Cancel"
-                    title="Cancel"
-                >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden="true">
-                        <path d="M18 6 6 18M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
 
-            <div className="flex flex-col gap-8 py-8">
-                {/* Section 1: activity details */}
-                <section className="flex flex-col gap-5">
-                    <h2 className="flex items-center gap-3 text-lg font-bold">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-xs text-white">1</span>
-                        Activity details
-                    </h2>
+                {auth && (
+                    <span className="flex items-center gap-6 text-xl text-brand">
+                        {/* The profile picture goes to the settings page. */}
+                        <Link to="/dashboard/settings" aria-label="Go to settings" className="rounded-full">
+                            <UserAvatar name={auth.user.name} picture={auth.user.picture} />
+                        </Link>
+                    </span>
+                )}
+            </header>
 
-                    <div className="flex flex-col gap-5 md:flex-row">
-                        <label className="flex flex-1 flex-col gap-2 text-sm font-semibold">
-                            Name
-                            <input
-                                className="rounded-lg border border-brand/20 bg-white px-4 py-3 text-base font-normal text-brand placeholder:text-brand/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-pop"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="Name your activity..."
-                                maxLength={ACTIVITY_NAME_MAX_LENGTH}
-                                required
-                            />
-                        </label>
-
-                        {type === "coding" && (
-                            <label className="flex flex-col gap-2 text-sm font-semibold md:w-96">
-                                Programming language
-                                <div className="relative">
-                                    <select
-                                        className="w-full cursor-pointer appearance-none rounded-lg border border-brand/20 bg-white py-3 pl-4 pr-10 text-base font-normal text-brand focus:border-brand focus:outline-none focus:ring-2 focus:ring-pop"
-                                        value={language}
-                                        onChange={(e) => setLanguage(e.target.value as ProgrammingLanguage)}
-                                        required
-                                    >
-                                        <option value="" disabled>Choose a language</option>
-                                        {PROGRAMMING_LANGUAGES.filter((lang) => lang !== "other").map((lang) => (
-                                            <option key={lang} value={lang}>{lang}</option>
-                                        ))}
-                                    </select>
-                                    <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                        <path d="m6 9 6 6 6-6" />
-                                    </svg>
-                                </div>
-                            </label>
-                        )}
+            <form
+                className="mt-6 flex w-full flex-col px-4 text-brand sm:px-8 md:min-h-0 md:flex-1"
+                onSubmit={handleSubmit}
+            >
+                {/* Header */}
+                <div className="flex items-start justify-between gap-4 border-b border-brand/10 pb-6">
+                    <div className="flex flex-col gap-3">
+                        <h1 className="text-5xl font-bold tracking-tight">Create Activity</h1>
+                        <p className="text-2xl text-brand/70">
+                            Set up the activity, then add the questions your students will answer.
+                        </p>
                     </div>
+                </div>
 
-                    <fieldset className="flex flex-col gap-2">
-                        <legend className="mb-2 text-sm font-semibold">Activity type</legend>
-                        <div className="grid gap-4 md:grid-cols-2">
-                            {ACTIVITY_TYPES.map((option) => {
-                                const [title, description] = TYPE_LABELS[option].split(": ")
-                                return (
-                                    <label
-                                        key={option}
-                                        className="relative flex cursor-pointer items-start gap-4 rounded-xl border border-brand/15 bg-white p-4 pr-12 hover:border-brand/40 has-[:checked]:border-2 has-[:checked]:border-brand has-[:checked]:bg-pop/25 has-[:checked]:p-[15px] has-[:checked]:pr-[47px] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-pop"
-                                    >
-                                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-pop/60">
-                                            {option === "coding" ? (
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                                    <path d="m8 7-5 5 5 5M16 7l5 5-5 5" />
-                                                </svg>
-                                            ) : (
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                                    <path d="M3 8h11M3 13h14M3 18h7M18 9V3m0 0-2.5 2.5M18 3l2.5 2.5" />
-                                                </svg>
-                                            )}
-                                        </span>
-                                        <span className="flex flex-col gap-1">
-                                            <span className="text-base font-bold">{title}</span>
-                                            <span className="text-sm text-brand/70">
-                                                {description.charAt(0).toUpperCase() + description.slice(1)}.
-                                            </span>
-                                        </span>
-                                        <input
-                                            type="radio"
-                                            name="activity-type"
-                                            value={option}
-                                            checked={type === option}
-                                            onChange={() => setType(option)}
-                                            className="absolute right-4 top-4 h-[18px] w-[18px] cursor-pointer accent-brand"
-                                        />
-                                    </label>
-                                )
-                            })}
+                <div className="flex flex-col gap-6 py-6 md:min-h-0 md:flex-1">
+                    {/* Section 1: activity details */}
+                    <section className="flex flex-col gap-5">
+                        <h2 className="flex items-center gap-3 text-3xl font-bold">
+                            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-2xl text-white">1</span>
+                            Activity Details
+                        </h2>
+
+                        <div className="flex flex-col gap-5 md:flex-row">
+                            <label className="flex flex-1 flex-col gap-2 text-2xl font-semibold">
+                                Name
+                                <input
+                                    className="rounded-lg border border-brand/20 bg-white px-4 py-3 text-xl font-normal text-brand placeholder:text-brand/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-pop"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Name your activity..."
+                                    maxLength={ACTIVITY_NAME_MAX_LENGTH}
+                                    required
+                                />
+                            </label>
+
+                            {type === "coding" && (
+                                <label className="flex flex-col gap-2 text-2xl font-semibold md:w-96">
+                                    Programming Language
+                                    <div className="relative">
+                                        <select
+                                            // appearance:base-select lets the open list use the page's font and styles
+                                            // (Chrome/Edge). Other browsers ignore it and show their own menu.
+                                            className="w-full cursor-pointer appearance-none rounded-lg border border-brand/20 bg-white py-3 pl-4 pr-10 text-xl font-normal text-brand focus:border-brand focus:outline-none focus:ring-2 focus:ring-pop supports-[appearance:base-select]:[appearance:base-select] [&::picker-icon]:hidden [&::picker(select)]:[appearance:base-select] [&::picker(select)]:mt-1 [&::picker(select)]:rounded-lg [&::picker(select)]:border [&::picker(select)]:border-brand/20 [&::picker(select)]:bg-white [&::picker(select)]:p-1 [&::picker(select)]:shadow-lg [&_option]:cursor-pointer [&_option]:rounded-md [&_option]:px-3 [&_option]:py-2 [&_option]:text-xl [&_option]:text-brand [&_option:checked]:bg-pop/50 [&_option:disabled]:text-brand/50 [&_option:hover]:bg-pop/40 [&_option::checkmark]:hidden"
+                                            value={language}
+                                            onChange={(e) => setLanguage(e.target.value as ProgrammingLanguage)}
+                                            required
+                                        >
+                                            <option value="" disabled>Choose a language</option>
+                                            {PROGRAMMING_LANGUAGES.filter((lang) => lang !== "other").map((lang) => (
+                                                <option key={lang} value={lang}>{LANGUAGE_LABELS[lang]}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2" size={18} strokeWidth={2.5} aria-hidden="true" />
+                                    </div>
+                                </label>
+                            )}
                         </div>
-                    </fieldset>
-                </section>
 
-                <hr className="border-brand/10" />
-
-                {/* Section 2: questions */}
-                <section className="flex flex-col gap-5">
-                    <h2 className="flex items-center gap-3 text-lg font-bold">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-xs text-white">2</span>
-                        Questions
-                        <span className="rounded-full bg-pop/50 px-2.5 py-0.5 text-xs font-semibold">
-                            {questions.length} {questions.length === 1 ? "question" : "questions"}
-                        </span>
-                    </h2>
-
-                    <div className="flex flex-col gap-5 md:flex-row">
-                        <nav aria-label="Question Navigation" className="flex flex-col gap-2 rounded-xl border border-brand/10 bg-brand/[0.03] p-3 md:relative md:w-60 md:shrink-0">
-                            {/* On desktop the nav stretches to the height of the question editor,
-                                so the list scrolls once it reaches the bottom of the editor. */}
-                            <div className="flex flex-col gap-3 md:absolute md:inset-3">
-                                <div ref={listRef} className="flex max-h-80 min-h-0 flex-col gap-2 overflow-y-auto md:max-h-none">
-                                {questions.map((item, index) => (
-                                    <button
-                                        key={index}
-                                        type="button"
-                                        className={`flex shrink-0 cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left ${
-                                            index === selected
-                                                ? "bg-brand text-white"
-                                                : "text-brand hover:bg-pop/40"
-                                        }`}
-                                        onClick={() => setSelected(index)}
-                                        aria-current={index === selected ? "step" : undefined}
-                                    >
-                                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-bold ${
-                                            index === selected ? "bg-white text-brand" : "bg-white text-brand ring-1 ring-brand/15"
-                                        }`}>
-                                            {index + 1}
-                                        </span>
-                                        <span className="flex min-w-0 flex-col">
-                                            <span className="text-sm font-bold">Question {index + 1}</span>
-                                            <span className={`truncate text-xs ${index === selected ? "text-white/80" : "text-brand/60"}`}>
-                                                {item.question.trim() || "Not written yet"}
+                        <fieldset className="flex flex-col gap-2">
+                            <legend className="mb-2 text-2xl font-semibold">Activity Type</legend>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                {ACTIVITY_TYPES.map((option) => {
+                                    const [title, description] = TYPE_LABELS[option].split(": ")
+                                    return (
+                                        <label
+                                            key={option}
+                                            className="relative flex cursor-pointer items-start gap-4 rounded-xl border border-brand/15 bg-white p-4 pr-12 hover:border-brand/40 has-[:checked]:border-2 has-[:checked]:border-brand has-[:checked]:bg-pop/25 has-[:checked]:p-[15px] has-[:checked]:pr-[47px] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-pop"
+                                        >
+                                            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-pop/60">
+                                                {option === "coding" ? (
+                                                    <Code size={26} strokeWidth={2.25} aria-hidden="true" />
+                                                ) : (
+                                                    <ListOrdered size={26} strokeWidth={2.25} aria-hidden="true" />
+                                                )}
                                             </span>
-                                        </span>
-                                    </button>
-                                ))}
-                                </div>
-
-                                <button
-                                    type="button"
-                                    className="flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-brand/40 px-3 py-2.5 text-sm font-semibold text-brand hover:bg-pop/40 disabled:cursor-not-allowed disabled:opacity-50"
-                                    onClick={addQuestion}
-                                    disabled={questions.length >= ACTIVITY_MAX_QUESTIONS}
-                                    aria-label="Add another question"
-                                >
-                                    <span aria-hidden="true" className="text-base leading-none">+</span>
-                                    Question
-                                </button>
+                                            <span className="flex flex-col gap-1">
+                                                <span className="text-xl font-bold">{title}</span>
+                                                <span className="text-lg text-brand/70">
+                                                    {description.charAt(0).toUpperCase() + description.slice(1)}.
+                                                </span>
+                                            </span>
+                                            <input
+                                                type="radio"
+                                                name="activity-type"
+                                                value={option}
+                                                checked={type === option}
+                                                onChange={() => setType(option)}
+                                                className="absolute right-4 top-4 h-[18px] w-[18px] cursor-pointer accent-brand"
+                                            />
+                                        </label>
+                                    )
+                                })}
                             </div>
-                        </nav>
+                        </fieldset>
+                    </section>
 
-                        {current && (
-                            <section className="flex min-w-0 flex-1 flex-col gap-5 rounded-xl border border-brand/10 bg-white p-6">
-                                <div className="flex items-center justify-between gap-4">
-                                    <h3 className="text-xl font-bold">Question {selected + 1}</h3>
-                                    {questions.length > 1 && (
+                    <hr className="border-brand/10" />
+
+                    {/* Section 2: questions */}
+                    <section className="flex flex-col gap-5 md:min-h-0 md:flex-1">
+                        <h2 className="flex items-center gap-3 text-3xl font-bold">
+                            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-2xl text-white">2</span>
+                            Questions
+                            <span className="ml-3 rounded-full bg-pop/50 px-2.5 py-0.5 text-xl font-semibold">
+                                {questions.length} {questions.length === 1 ? "question" : "questions"}
+                            </span>
+                        </h2>
+
+                        <div className="flex flex-col gap-5 md:min-h-0 md:flex-1 md:flex-row">
+                            <nav aria-label="Question Navigation" className="flex flex-col gap-2 rounded-xl border border-brand/10 bg-brand/[0.03] p-4 md:relative md:w-1/4 md:min-w-64 md:max-w-sm md:shrink-0">
+                                {/* On desktop the nav stretches to the height of the question editor,
+                                    so the list scrolls once it reaches the bottom of the editor. */}
+                                <div className="flex flex-col gap-3 md:absolute md:inset-4">
+                                    <div ref={listRef} className="flex max-h-80 min-h-0 flex-col gap-2 overflow-y-auto md:max-h-none">
+                                    {questions.map((item, index) => (
+                                        // One wrapper per question so the list's children still line up with
+                                        // the questions (the scroll effect above relies on that).
+                                        <div key={index} className="group relative shrink-0">
                                         <button
                                             type="button"
-                                            className="cursor-pointer rounded-md px-2 py-1 text-sm text-red-600 hover:bg-red-50"
-                                            onClick={() => removeQuestion(selected)}
+                                            className={`flex w-full cursor-pointer items-center gap-4 rounded-lg py-3 pl-4 pr-12 text-left ${
+                                                index === selected
+                                                    ? "bg-brand text-white"
+                                                    : "text-brand hover:bg-pop/40"
+                                            }`}
+                                            onClick={() => setSelected(index)}
+                                            aria-current={index === selected ? "step" : undefined}
                                         >
-                                            Remove question
+                                            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-lg font-bold ${
+                                                index === selected ? "bg-white text-brand" : "bg-white text-brand ring-1 ring-brand/15"
+                                            }`}>
+                                                {index + 1}
+                                            </span>
+                                            <span className="flex min-w-0 flex-col">
+                                                <span className="text-xl font-bold">Question {index + 1}</span>
+                                                <span className={`truncate text-base ${index === selected ? "text-white/80" : "text-brand/60"}`}>
+                                                    {item.question.trim() || "Not written yet"}
+                                                </span>
+                                            </span>
                                         </button>
-                                    )}
-                                </div>
-
-                                <label className="flex flex-col gap-2 text-sm font-semibold">
-                                    Question
-                                    <textarea
-                                        className="h-32 resize-none overflow-y-auto rounded-lg border border-brand/20 p-4 text-base font-normal text-brand placeholder:text-brand/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-pop"
-                                        value={current.question}
-                                        onChange={(e) => updateQuestion(selected, { question: e.target.value })}
-                                        placeholder={type === "coding" ? "Write the programming challenge..." : "Write what the finished code should do..."}
-                                        maxLength={ACTIVITY_MAX_LENGTH}
-                                        required
-                                    />
-                                </label>
-
-                                {type === "coding" ? (
-                                    // Styles CodingQuestion's output box as a terminal from here.
-                                    // The label text is 20px tall with an 8px gap, so the box starts 28px down.
-                                    <div className="relative [&_label]:gap-2 [&_label]:text-sm [&_label]:font-semibold [&_label]:text-brand [&_textarea]:min-h-40 [&_textarea]:rounded-lg [&_textarea]:border-0 [&_textarea]:bg-[#16113f] [&_textarea]:px-4 [&_textarea]:pb-4 [&_textarea]:pt-14 [&_textarea]:font-mono [&_textarea]:text-sm [&_textarea]:text-white [&_textarea::placeholder]:text-white/40 [&_textarea:focus]:ring-2 [&_textarea:focus]:ring-pop">
-                                        <span className="pointer-events-none absolute right-0 top-0 text-xs text-brand/70">
-                                            Exactly what the program should print
-                                        </span>
-                                        <div className="pointer-events-none absolute inset-x-0 top-7 flex items-center gap-2 rounded-t-lg border-b border-white/10 bg-[#221a55] px-4 py-2 font-mono text-xs text-white/90">
-                                            <span aria-hidden="true">&gt;_</span> output
+                                        {/* Shows on hover (or keyboard focus). Hidden when only one question is left. */}
+                                        {questions.length > 1 && (
+                                            <button
+                                                type="button"
+                                                className={`absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md opacity-0 group-hover:opacity-100 focus-visible:opacity-100 ${
+                                                    index === selected
+                                                        ? "text-white/80 hover:bg-white/15 hover:text-white"
+                                                        : "text-brand/60 hover:bg-brand/10 hover:text-brand"
+                                                }`}
+                                                onClick={() => removeQuestion(index)}
+                                                aria-label={`Remove question ${index + 1}`}
+                                                title="Remove question"
+                                            >
+                                                <X size={16} strokeWidth={2.5} aria-hidden="true" />
+                                            </button>
+                                        )}
                                         </div>
-                                        <CodingQuestion
+                                    ))}
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        className="flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-brand/40 px-4 py-3 text-xl font-semibold text-brand hover:bg-pop/40 disabled:cursor-not-allowed disabled:opacity-50"
+                                        onClick={addQuestion}
+                                        disabled={questions.length >= ACTIVITY_MAX_QUESTIONS}
+                                        aria-label="Add another question"
+                                    >
+                                        <span aria-hidden="true" className="text-2xl leading-none">+</span>
+                                        Question
+                                    </button>
+                                </div>
+                            </nav>
+
+                            {current && (
+                                <section className="flex min-w-0 flex-1 flex-col gap-5 rounded-xl border border-brand/10 bg-white p-6 md:min-h-0 md:overflow-y-auto">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <h3 className="text-3xl font-bold">Question {selected + 1}</h3>
+                                        {questions.length > 1 && (
+                                            <button
+                                                type="button"
+                                                className="cursor-pointer rounded-md px-3 py-1.5 text-lg text-red-600 hover:bg-red-50"
+                                                onClick={() => removeQuestion(selected)}
+                                            >
+                                                Delete
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <label className="flex flex-col gap-2 text-2xl font-semibold md:flex-1">
+                                        Question
+                                        <textarea
+                                            className="h-48 resize-none md:h-auto md:min-h-48 md:flex-1 overflow-y-auto rounded-lg border border-brand/20 p-4 text-xl font-normal text-brand placeholder:text-brand/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-pop"
+                                            value={current.question}
+                                            onChange={(e) => updateQuestion(selected, { question: e.target.value })}
+                                            placeholder={type === "coding" ? "Write the programming challenge..." : "Write what the finished code should do..."}
+                                            maxLength={ACTIVITY_MAX_LENGTH}
+                                            required
+                                        />
+                                    </label>
+
+                                    {type === "coding" ? (
+                                        // Styles CodingQuestion's output box as a terminal from here.
+                                        // The label text is 32px tall with an 8px gap, so the box starts 40px down.
+                                        <div className="relative flex flex-col md:flex-1 [&_label]:flex-1 [&_label]:gap-2 [&_label]:text-2xl [&_label]:font-semibold [&_label]:text-brand [&_textarea]:min-h-64 [&_textarea]:flex-1 [&_textarea]:resize-none [&_textarea]:rounded-lg [&_textarea]:border-0 [&_textarea]:bg-[#16113f] [&_textarea]:px-4 [&_textarea]:pb-4 [&_textarea]:pt-16 [&_textarea]:font-mono [&_textarea]:text-lg [&_textarea]:text-white [&_textarea::placeholder]:text-white/40 [&_textarea:focus]:ring-2 [&_textarea:focus]:ring-pop">
+                                            <div className="pointer-events-none absolute inset-x-0 top-10 flex items-center gap-2 rounded-t-lg border-b border-white/10 bg-[#221a55] px-4 py-2.5 font-mono text-base text-white/90">
+                                                <span aria-hidden="true">&gt;_</span> output
+                                            </div>
+                                            <CodingQuestion
+                                                item={current}
+                                                onChange={(changes) => updateQuestion(selected, changes)}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <ParsonsQuestion
                                             item={current}
                                             onChange={(changes) => updateQuestion(selected, changes)}
+                                            onSettingsChange={(changes) => updateSettings(selected, changes)}
+                                            onUploadCode={uploadCode}
                                         />
-                                    </div>
-                                ) : (
-                                    <ParsonsQuestion
-                                        item={current}
-                                        onChange={(changes) => updateQuestion(selected, changes)}
-                                        onSettingsChange={(changes) => updateSettings(selected, changes)}
-                                        onUploadCode={uploadCode}
-                                    />
-                                )}
-                            </section>
-                        )}
-                    </div>
-                </section>
+                                    )}
+                                </section>
+                            )}
+                        </div>
+                    </section>
 
-                {error && (
-                    <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {error}
-                    </p>
-                )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex flex-col-reverse items-stretch gap-4 border-t border-brand/10 py-5 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-brand/70">
-                    {TYPE_LABELS[type].split(":")[0]} · {questions.length} {questions.length === 1 ? "question" : "questions"}
-                </p>
-                <div className="flex justify-end gap-3">
-                    <button
-                        type="button"
-                        className="cursor-pointer rounded-lg border border-brand/20 bg-white px-6 py-3 font-semibold text-brand hover:bg-pop/40"
-                        onClick={() => navigate("/dashboard/activities")}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        className="cursor-pointer rounded-lg bg-brand px-6 py-3 font-semibold text-white hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={saving}
-                    >
-                        {saving ? "Saving..." : "Save activity"}
-                    </button>
+                    {error && (
+                        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {error}
+                        </p>
+                    )}
                 </div>
-            </div>
-        </form>
+
+                {/* Footer */}
+                <div className="flex flex-col-reverse items-stretch gap-4 border-t border-brand/10 py-5 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-brand/70">
+                        {TYPE_LABELS[type].split(":")[0]} · {questions.length} {questions.length === 1 ? "question" : "questions"}
+                    </p>
+                    <div className="flex justify-end gap-3">
+                        <button
+                            type="button"
+                            className="cursor-pointer rounded-lg border border-brand/20 bg-white px-6 py-3 font-semibold text-brand hover:bg-pop/40"
+                            onClick={() => navigate("/dashboard/activities")}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            className="cursor-pointer rounded-lg bg-brand px-6 py-3 font-semibold text-white hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={saving}
+                        >
+                            {saving ? "Saving..." : "Finish"}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
     )
 }
