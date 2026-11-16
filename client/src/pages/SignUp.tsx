@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom"
 import React, { useRef, useState, useEffect, type ChangeEvent } from "react"
-import AuthCard from "../components/AuthCard";
+// import AuthCard from "../components/AuthCard";
 
 const USER_REGEX = /^[A-Za-z]+(?:[-'][A-Za-z]+)* [A-Za-z]+(?:[-'][A-Za-z]+)*$/
 const PWD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%]).{8,24}$/
@@ -114,111 +114,113 @@ export default function SignUp() {
     }
 
     return (
-        <AuthCard title="Sign Up">
-            <p
-                ref={errRef}
-                className={errMsg ? "auth-error" : "sr-only"}
-                role="alert"
-                aria-live="assertive"
-            >
-                {errMsg}
-            </p>
+        // <AuthCard title="Sign Up">
+        //     <p
+        //         ref={errRef}
+        //         className={errMsg ? "auth-error" : "sr-only"}
+        //         role="alert"
+        //         aria-live="assertive"
+        //     >
+        //         {errMsg}
+        //     </p>
             
-            <h1>Register</h1>
-                <form onSubmit={handleSubmit}>
-                    <div className="auth-field">
-                        <label htmlFor="usersName">
-                            Name
-                        </label>
-                        <input
-                            type="text"
-                            id="usersName"
-                            name="name"
-                            ref={userRef}
-                            autoComplete="off"
-                            onChange={handleChange}
-                            value={form.name}
-                            required
-                            aria-invalid={validName ? "false" : "true"}
-                            aria-describedby="userNameNote"
-                            onFocus={() => setUserFocus(true)}
-                            onBlur={() => setUserFocus(false)}
-                        />
-                        <p id="userNameNote" className={userFocus && form.name && !validName ? "auth-error" : "sr-only"}>
-                            Enter your first name followed by your last name.<br />
-                            Letters, commas, hyphens allowed.
-                        </p>
-                    </div>
-                    <div className="auth-field">
-                        <label htmlFor="email">
-                            Email
-                        </label>
-                        <input
-                            type="email"
-                            id="email"
-                            name="email"
-                            autoComplete="off"
-                            onChange={handleChange}
-                            value={form.email}
-                            required
-                            aria-describedby="emailNote"
-                        />
+        //     <h1>Register</h1>
+        //         <form onSubmit={handleSubmit}>
+        //             <div className="auth-field">
+        //                 <label htmlFor="usersName">
+        //                     Name
+        //                 </label>
+        //                 <input
+        //                     type="text"
+        //                     id="usersName"
+        //                     name="name"
+        //                     ref={userRef}
+        //                     autoComplete="off"
+        //                     onChange={handleChange}
+        //                     value={form.name}
+        //                     required
+        //                     aria-invalid={validName ? "false" : "true"}
+        //                     aria-describedby="userNameNote"
+        //                     onFocus={() => setUserFocus(true)}
+        //                     onBlur={() => setUserFocus(false)}
+        //                 />
+        //                 <p id="userNameNote" className={userFocus && form.name && !validName ? "auth-error" : "sr-only"}>
+        //                     Enter your first name followed by your last name.<br />
+        //                     Letters, commas, hyphens allowed.
+        //                 </p>
+        //             </div>
+        //             <div className="auth-field">
+        //                 <label htmlFor="email">
+        //                     Email
+        //                 </label>
+        //                 <input
+        //                     type="email"
+        //                     id="email"
+        //                     name="email"
+        //                     autoComplete="off"
+        //                     onChange={handleChange}
+        //                     value={form.email}
+        //                     required
+        //                     aria-describedby="emailNote"
+        //                 />
                        
-                        <p id="emailNote" className= {"sr-only"}> 
-                            {/* print out the errorMsg later???  */}
-                            Enter a valid email address.
-                        </p>
-                    </div>
-                    <div className="auth-field">
-                        <label htmlFor="password">Password</label>
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            onChange={handleChange}
-                            value={form.password}
-                            required
-                            aria-invalid={validPassword ? "false" : "true"}
-                            aria-describedby="passwordNote"
-                            onFocus={() => setPasswordFocus(true)}
-                            onBlur={() => setPasswordFocus(false)}
-                        />
-                        <p id="passwordNote" className={passwordFocus && !validPassword ? "auth-error" : "sr-only"}>
-                            8 to 24 characters.<br />
-                            Must include uppercase and lowercase letters, a number and a special character.<br />
-                            Allowed special characters: <span aria-label="exclamation mark">!</span> <span aria-label="at symbol">@</span> <span aria-label="hashtag">#</span> <span aria-label="dollar sign">$</span> <span aria-label="percent">%</span>
-                        </p>
-                    </div>
-                    <div className="auth-field">
-                        <label htmlFor="confirm_pwd"> Confirm Password</label>
-                        <input
-                            type="password"
-                            id="confirm_pwd"
-                            name="confirmPassword"
-                            onChange={handleChange}
-                            value={form.confirmPassword}
-                            required
-                            aria-invalid={validMatch ? "false" : "true"}
-                            aria-describedby="confirmNote"
-                            onFocus={() => setMatchFocus(true)}
-                            onBlur={() => setMatchFocus(false)}
-                        />
-                        <p id="confirmNote" className={matchFocus && !validMatch ? "auth-error" : "sr-only"}>
-                            Must match the first password input field.
-                        </p>
-                    </div>
-                        <button 
-                            disabled={!validName || !validPassword || !validMatch ? true : false}
-                            className="auth-submit"
-                        >
-                            Sign Up
-                        </button>
+        //                 <p id="emailNote" className= {"sr-only"}> 
+        //                     {/* print out the errorMsg later???  */}
+        //                     Enter a valid email address.
+        //                 </p>
+        //             </div>
+        //             <div className="auth-field">
+        //                 <label htmlFor="password">Password</label>
+        //                 <input
+        //                     type="password"
+        //                     id="password"
+        //                     name="password"
+        //                     onChange={handleChange}
+        //                     value={form.password}
+        //                     required
+        //                     aria-invalid={validPassword ? "false" : "true"}
+        //                     aria-describedby="passwordNote"
+        //                     onFocus={() => setPasswordFocus(true)}
+        //                     onBlur={() => setPasswordFocus(false)}
+        //                 />
+        //                 <p id="passwordNote" className={passwordFocus && !validPassword ? "auth-error" : "sr-only"}>
+        //                     8 to 24 characters.<br />
+        //                     Must include uppercase and lowercase letters, a number and a special character.<br />
+        //                     Allowed special characters: <span aria-label="exclamation mark">!</span> <span aria-label="at symbol">@</span> <span aria-label="hashtag">#</span> <span aria-label="dollar sign">$</span> <span aria-label="percent">%</span>
+        //                 </p>
+        //             </div>
+        //             <div className="auth-field">
+        //                 <label htmlFor="confirm_pwd"> Confirm Password</label>
+        //                 <input
+        //                     type="password"
+        //                     id="confirm_pwd"
+        //                     name="confirmPassword"
+        //                     onChange={handleChange}
+        //                     value={form.confirmPassword}
+        //                     required
+        //                     aria-invalid={validMatch ? "false" : "true"}
+        //                     aria-describedby="confirmNote"
+        //                     onFocus={() => setMatchFocus(true)}
+        //                     onBlur={() => setMatchFocus(false)}
+        //                 />
+        //                 <p id="confirmNote" className={matchFocus && !validMatch ? "auth-error" : "sr-only"}>
+        //                     Must match the first password input field.
+        //                 </p>
+        //             </div>
+        //                 <button 
+        //                     disabled={!validName || !validPassword || !validMatch ? true : false}
+        //                     className="auth-submit"
+        //                 >
+        //                     Sign Up
+        //                 </button>
                    
-                </form>
-                <p>
-                    Already have an account?  
-                    {<Link to="/login" style={{ marginLeft: '5px' }} className="auth-switch">Sign in</Link>} 
-                </p>
-        </AuthCard>
+        //         </form>
+        //         <p>
+        //             Already have an account?  
+        //             {<Link to="/login" style={{ marginLeft: '5px' }} className="auth-switch">Sign in</Link>} 
+        //         </p>
+        // </AuthCard>
+
+        <h1>This is the sign up page</h1>
     )
 }
