@@ -1,9 +1,10 @@
 import { Link, useNavigate } from "react-router-dom"
 import React, { useRef, useState, useEffect, type ChangeEvent } from "react"
-// import AuthCard from "../components/AuthCard";
+import SignupForm from "../components/SignupForm"
+import textLogo from "../assets/LittlePointers Logo/Text Logo.png"
 
 const USER_REGEX = /^[A-Za-z]+(?:[-'][A-Za-z]+)* [A-Za-z]+(?:[-'][A-Za-z]+)*$/
-const PWD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%]).{8,24}$/
+const PWD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,24}$/
 
 type SignUpForm = {
   name: string;
@@ -221,6 +222,13 @@ export default function SignUp() {
         //         </p>
         // </AuthCard>
 
-        <h1>This is the sign up page</h1>
+        <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+            <div className="flex w-full max-w-lg flex-col gap-6">
+                <Link to="/" className="self-center" aria-label="LittlePointers home">
+                    <img src={textLogo} alt="LittlePointers" />
+                </Link>
+                <SignupForm />
+            </div>
+        </div>
     )
 }
