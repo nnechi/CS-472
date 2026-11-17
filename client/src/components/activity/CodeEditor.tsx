@@ -260,6 +260,7 @@ export default function CodeEditor({
                             readOnly,
                             automaticLayout: true,
                             quickSuggestions: { other: true, comments: false, strings: false },
+                            minimap: { enabled: false }
                         }}
                         onMount={handleMount}
                     />
