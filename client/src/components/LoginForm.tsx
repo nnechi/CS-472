@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom"
 import { cn } from "cn"
 
 import { Button } from "@/components/ui/button"
@@ -17,12 +18,13 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
-export default function LoginForm({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+interface LoginFormProps {
+  submitDisabled?: boolean // Whether the Login button should be disabled
+}
+
+export default function LoginForm({ submitDisabled = false }: LoginFormProps){
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn("flex flex-col gap-6")}>
       <Card className="gap-4 text-base [--card-spacing:--spacing(8)]">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl text-[#1F1666]">Log in</CardTitle>
@@ -79,9 +81,9 @@ export default function LoginForm({
                 <Input id="password" type="password" required className="h-11 border-[#5A52A6] px-3 text-base md:text-base" />
               </Field>
               <Field>
-                <Button type="submit" className="h-11 bg-[#1F1666] text-base text-white hover:bg-[#1F1666]/85">Login</Button>
+                <Button type="submit" disabled={submitDisabled} className="h-11 bg-[#1F1666] text-base text-white hover:bg-[#1F1666]/85">Login</Button>
                 <FieldDescription className="text-center text-base">
-                  Don&apos;t have an account? <a href="#">Sign up</a>
+                  Don&apos;t have an account? <Link to="/signup">Sign up</Link>
                 </FieldDescription>
               </Field>
             </FieldGroup>

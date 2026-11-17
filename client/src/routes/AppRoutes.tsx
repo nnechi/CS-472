@@ -59,11 +59,12 @@ export default function AppRoutes() {
                     <Route path="notes" element={<Notes />} />
                     <Route path="previous-activities" element={<PreviousActivities />} />
                     <Route path="settings" element={<Settings />} />
-                    <Route path="create-activity" element={<CreateActivity />} />
+                    {/* <Route path="create-activity" element={<CreateActivity />} /> */}
                     <Route path="search" element={<SearchResults />} />
                     {/* Any other /dashboard/... URL. Rendered inside the dashboard layout. */}
                     <Route path="*" element={<DashboardNotFound />} />
                 </Route>
+                <Route path="create-activity" element={<CreateActivity />} />
 
                 {/* Create a room: its own page, without the dashboard header and menu. */}
                 <Route element={<RoomLayout />}>
