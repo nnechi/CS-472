@@ -145,9 +145,9 @@ export default function CreateActivity(){
     const current = questions[selected]
 
     return (
-        // On desktop the page is exactly the window's height, and the questions
-        // section takes whatever space is left, so nothing scrolls off the bottom.
-        <div className="flex flex-col md:h-dvh">
+        // On desktop the page is at least the window's height and grows past it when
+        // needed. The questions section has a minimum height so it never gets squished.
+        <div className="flex flex-col md:min-h-dvh">
             <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-8 gap-y-3 bg-brand-light py-3 pr-4 sm:h-20 sm:py-0 sm:pr-8">
                 <div className="ml-4 flex h-14 items-center gap-0 sm:ml-8">
                     {/* Short logo at every screen size. It goes back to the dashboard. */}
@@ -265,7 +265,7 @@ export default function CreateActivity(){
                     <hr className="border-brand/10" />
 
                     {/* Section 2: questions */}
-                    <section className="flex flex-col gap-5 md:min-h-0 md:flex-1">
+                    <section className="flex flex-col gap-5 md:h-[70dvh] md:min-h-[40rem]">
                         <h2 className="flex items-center gap-3 text-3xl font-bold">
                             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-2xl text-white">2</span>
                             Questions
