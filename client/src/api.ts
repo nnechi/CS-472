@@ -11,13 +11,13 @@ export async function createRoom(hostID : string) : Promise<string>{
     }); 
 
 
-    if (res.ok){
-        const data = await res.json(); 
-        return data.code; 
-    } 
-     return "";  // dunno what to return here TBD 
-
-
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not create a room."));
+    const data = await res.json();
+    if (typeof data.code !== "string" || !data.code) {
+        throw new Error("Server did not return a room code.");
+    }
+    return data.code;
 }
 
 

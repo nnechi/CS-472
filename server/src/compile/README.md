@@ -60,6 +60,11 @@ TypeScript, Java, and C compile timeout is 10 seconds, and the combined output l
 streamed as output; a failed compile never starts the program. The TypeScript
 runner currently accepts a single source file named `main.ts`.
 
+Room runs use the shared execution queue and stream output over the room socket.
+The runner checks that source is nonempty, at most 64 KiB in UTF-8, and free of
+NUL characters. Student sockets can request up to five runs in a rolling minute.
+JavaScript and emitted TypeScript programs get a 128 MiB V8 heap limit.
+
 Install server dependencies once from the `server` directory:
 
 ```sh
@@ -96,7 +101,7 @@ then executes it when compilation succeeds. It uses the same cancellation,
 timeout, streaming, and output limits as C. Teachers select `c++` for activities;
 the editor and execution API use `cpp`.
 
-Future work includes isolated execution with memory limits.
+Room runs use the sandboxed runner service when RUNNER_URL is configured.
 
 The current server image includes Node, Python, a Java 21 JDK, GCC, and libc headers,
 and G++. `tsc` is supplied by the server's TypeScript dependency. These runners are

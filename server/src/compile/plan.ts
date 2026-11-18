@@ -31,6 +31,9 @@ export function createExecutionPlan(input: unknown): ExecutionPlan {
   if (typeof candidate.code !== "string" || !candidate.code.trim()) {
     throw new InvalidCompileRequestError("Code must be a non-empty string");
   }
+  if (candidate.code.includes("\0")) {
+    throw new InvalidCompileRequestError("Code cannot contain NUL characters");
+  }
   if (Buffer.byteLength(candidate.code, "utf8") > MAX_CODE_BYTES) {
     throw new InvalidCompileRequestError("Code exceeds the size limit");
   }

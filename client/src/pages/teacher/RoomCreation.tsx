@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { createRoom, deleteRoom, saveActivity, markRoomOpen} from '../../api.ts'
+import { createRoom, deleteRoom, saveActivity, markRoomOpen, SERVER_URL, SessionEndedError} from '../../api.ts'
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
 
@@ -22,6 +22,7 @@ export default function RoomCreation() {
     // disabled meanwhile, so the teacher can't open a code that's about to be
     // replaced (and deleted).
     const [busy, setBusy] = useState(true);
+    const [codeError, setCodeError] = useState<Error | null>(null);
 
     const [saving, setSaving] = useState(false);
     const [participants, setParticipants] = useState<Participant[]>([]);
@@ -34,21 +35,7 @@ export default function RoomCreation() {
         if (!auth){
             return ""; // no user found.
         }
-        try {
-           const newCode : string = await createRoom(auth.user.id);
-            if (newCode === ""){
-                throw new Error("Server did not return a room code.");
-            }
-
-           return newCode;
-
-
-        } catch(e) {
-            console.error(e);
-            return "";
-        }
-
-
+        return createRoom(auth.user.id);
     }
 
 
@@ -61,9 +48,13 @@ export default function RoomCreation() {
     useEffect( () => {
         let cancelled = false;
         requestCode().then((newCode) => {
-            if (cancelled) discardCode(newCode)
-            else { setCode(newCode); setBusy(false); }
-    });
+            if (cancelled) discardCode(newCode);
+            else setCode(newCode);
+        }).catch((error: unknown) => {
+            if (!cancelled) setCodeError(error instanceof Error ? error : new Error("Could not create a room."));
+        }).finally(() => {
+            if (!cancelled) setBusy(false);
+        });
 
     return  () => { cancelled = true; }
 }, []);
@@ -104,13 +95,18 @@ export default function RoomCreation() {
         if (busy) return;
         setBusy(true);
         const oldCode = code;
-        const newCode = await requestCode();
-        // Panel closed (X or navigation) while waiting: nobody will use this room.
-        if (!mounted.current) { discardCode(newCode); return; }
-        setBusy(false);
-        if (!newCode) return ;
-        setCode(newCode);
-        discardCode(oldCode);
+        setCodeError(null);
+        try {
+            const newCode = await requestCode();
+            if (!mounted.current) { discardCode(newCode); return; }
+            if (!newCode) return;
+            setCode(newCode);
+            discardCode(oldCode);
+        } catch (error) {
+            if (mounted.current) setCodeError(error instanceof Error ? error : new Error("Could not create a room."));
+        } finally {
+            if (mounted.current) setBusy(false);
+        }
     }
 
     // Navigate into the room
@@ -165,6 +161,14 @@ export default function RoomCreation() {
                 <p className="text-base text-brand/70">Room Code:</p>
 
                 <p className="-mt-2 text-5xl font-bold tracking-widest text-brand">{code}</p>
+
+                {codeError && (
+                    <p role="alert" className="text-sm text-red-700">
+                        {codeError instanceof SessionEndedError ? (
+                            <>Creating a room requires a teacher session. <a className="underline" href={`${SERVER_URL}/auth/google`}>Sign in with Google</a> and try again.</>
+                        ) : codeError.message}
+                    </p>
+                )}
 
                 <div className="flex flex-wrap items-center gap-3">
                     <button

@@ -26,20 +26,20 @@ export default function ParsonsQuestion({ item, onChange, onSettingsChange, onUp
 
     return (
         <>
-            <div className="flex flex-col gap-2 text-sm text-brand/70">
-                <label className="flex flex-col gap-1">
+            <div className="flex flex-col gap-5 text-2xl font-semibold text-brand">
+                <label className="flex flex-col gap-2">
                     Upload code (optional, or paste it below)
                     <input
                         type="file"
                         accept=".py,.js,.ts,.java,.c,.cpp,.h,.txt,text/plain"
                         onChange={onUploadCode}
-                        className="text-sm file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-brand/30 file:bg-white file:px-3 file:py-2 file:font-medium file:text-brand hover:file:bg-brand-light"
+                        className="text-xl font-normal file:mr-4 file:cursor-pointer file:rounded-lg file:border file:border-brand/30 file:bg-white file:px-4 file:py-2.5 file:text-xl file:font-semibold file:text-brand hover:file:bg-brand-light"
                     />
                 </label>
-                <label className="flex flex-col gap-1">
+                <label className="flex flex-col gap-2">
                     Code, one line per row (start a line with spaces to indent it)
                     <textarea
-                        className="min-h-40 whitespace-pre rounded-lg border border-brand/30 p-3 font-mono text-sm text-brand focus:border-brand focus:outline-none"
+                        className="min-h-40 whitespace-pre rounded-lg border border-brand/30 p-4 font-mono text-xl font-normal text-brand focus:border-brand focus:outline-none"
                         value={item.code}
                         onChange={(e) => onChange({ code: e.target.value })}
                         placeholder={"print(\"Hello\")\nprint(\"World\")"}
@@ -48,10 +48,10 @@ export default function ParsonsQuestion({ item, onChange, onSettingsChange, onUp
                         required
                     />
                 </label>
-                <label className="flex flex-col gap-1">
+                <label className="flex flex-col gap-2">
                     Extra lines that aren't part of the answer (optional, one per row)
                     <textarea
-                        className="min-h-20 whitespace-pre rounded-lg border border-brand/30 p-3 font-mono text-sm text-brand focus:border-brand focus:outline-none"
+                        className="min-h-20 whitespace-pre rounded-lg border border-brand/30 p-4 font-mono text-xl font-normal text-brand focus:border-brand focus:outline-none"
                         value={item.distractors}
                         onChange={(e) => onChange({ distractors: e.target.value })}
                         placeholder="Lines that look right but don't belong"
@@ -61,25 +61,25 @@ export default function ParsonsQuestion({ item, onChange, onSettingsChange, onUp
                 </label>
             </div>
 
-            <fieldset className="grid gap-3 rounded-lg border border-brand/30 p-3 text-sm text-brand/70 sm:grid-cols-2">
-                <legend className="px-1 font-semibold">Parsons settings</legend>
+            <fieldset className="grid gap-5 rounded-lg border border-brand/30 p-5 text-xl text-brand/80 sm:grid-cols-2">
+                <legend className="px-2 text-2xl font-semibold text-brand">Parsons settings</legend>
 
-                <label className="flex flex-col gap-1">
+                <label className="flex flex-col gap-2">
                     Max extra lines a student gets
                     <input
                         type="number"
                         min={0}
                         max={60}
-                        className="rounded-md border border-brand/30 px-2 py-1 text-brand"
+                        className="rounded-md border border-brand/30 px-3 py-2 text-xl text-brand"
                         value={item.settings.maxWrongLines}
                         onChange={(e) => onSettingsChange({ maxWrongLines: Number(e.target.value) })}
                     />
                 </label>
 
-                <label className="flex flex-col gap-1">
+                <label className="flex flex-col gap-2">
                     Grader
                     <select
-                        className="rounded-md border border-brand/30 px-2 py-1 text-brand"
+                        className="rounded-md border border-brand/30 px-3 py-2 text-xl text-brand"
                         value="line-based"
                         onChange={() => undefined}
                     >
@@ -91,9 +91,10 @@ export default function ParsonsQuestion({ item, onChange, onSettingsChange, onUp
                     </select>
                 </label>
 
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-3">
                     <input
                         type="checkbox"
+                        className="h-5 w-5 shrink-0 accent-brand"
                         checked={effectiveRequireDragging(item)}
                         disabled={extras > 0 && item.settings.maxWrongLines > 0}
                         onChange={(e) => onSettingsChange({ requireDragging: e.target.checked })}
@@ -101,51 +102,53 @@ export default function ParsonsQuestion({ item, onChange, onSettingsChange, onUp
                     Require dragging (extra lines start in a trash area)
                 </label>
 
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-3">
                     <input
                         type="checkbox"
+                        className="h-5 w-5 shrink-0 accent-brand"
                         checked={!item.settings.canIndent}
                         onChange={(e) => onSettingsChange({ canIndent: !e.target.checked })}
                     />
                     Disable indentation
                 </label>
 
-                <label className="flex flex-col gap-1">
+                <label className="flex flex-col gap-2">
                     Indent size (pixels)
                     <input
                         type="number"
                         min={1}
                         max={500}
                         disabled={!item.settings.canIndent}
-                        className="rounded-md border border-brand/30 px-2 py-1 text-brand disabled:bg-brand-light/30"
+                        className="rounded-md border border-brand/30 px-3 py-2 text-xl text-brand disabled:bg-brand-light/30"
                         value={item.settings.xIndent}
                         onChange={(e) => onSettingsChange({ xIndent: Number(e.target.value) })}
                     />
                 </label>
 
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-3">
                     <input
                         type="checkbox"
+                        className="h-5 w-5 shrink-0 accent-brand"
                         checked={item.settings.showFeedback}
                         onChange={(e) => onSettingsChange({ showFeedback: e.target.checked })}
                     />
                     Show feedback to students
                 </label>
 
-                <label className="flex flex-col gap-1 sm:col-span-2">
+                <label className="flex flex-col gap-2 sm:col-span-2">
                     Execution limit (milliseconds, used by graders that run code)
                     <input
                         type="number"
                         min={100}
                         max={60000}
-                        className="rounded-md border border-brand/30 px-2 py-1 text-brand sm:w-40"
+                        className="rounded-md border border-brand/30 px-3 py-2 text-xl text-brand sm:w-48"
                         value={item.settings.execLimit}
                         onChange={(e) => onSettingsChange({ execLimit: Number(e.target.value) })}
                     />
                 </label>
             </fieldset>
 
-            <p className="text-sm text-brand/50">
+            <p className="text-lg text-brand/60">
                 {lines === 0
                     ? "Add code to see what students will get."
                     : `Students get ${lines} line${lines === 1 ? "" : "s"} of code, plus up to ${Math.min(item.settings.maxWrongLines, extras)} of ${extras} extra line${extras === 1 ? "" : "s"}, in a random order.`}
