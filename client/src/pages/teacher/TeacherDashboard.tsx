@@ -17,7 +17,7 @@ export default function TeacherDashboard() {
     useEffect(() => {
         if (!auth) return
         let cancelled = false
-        listActivities(auth.user.id)
+        listActivities()
             .then((found) => {
                 // Newest first. The server sends them A to Z, so sort them here.
                 const newestFirst = [...found].sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0))

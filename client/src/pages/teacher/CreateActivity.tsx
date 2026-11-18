@@ -134,7 +134,7 @@ export default function CreateActivity(){
         setSaving(true)
         setError("")
         try {
-            await createActivity(auth.user.id, activity)
+            await createActivity(activity)
             navigate("/dashboard/activities")
         } catch (err) {
             setError(err instanceof Error ? err.message : "Could not save the activity.")
