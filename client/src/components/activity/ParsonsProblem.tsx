@@ -117,8 +117,8 @@ const primaryButton =
 const secondaryButton = "rounded-lg border border-gray-300 px-4 py-2 text-gray-900 cursor-pointer hover:bg-neutral-100";
 const toolButton =
   "inline-flex size-7 items-center justify-center rounded-md text-gray-800 cursor-pointer hover:bg-gray-200 focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-35";
-const listLabel = "text-sm font-semibold text-gray-700";
-const emptyHint = "p-2 text-sm text-gray-600";
+const listLabel = "text-m font-semibold text-gray-700";
+const emptyHint = "p-2 text-m text-gray-600";
 // A ring around the whole block while its handle has keyboard focus.
 const blockFocusRing =
   "has-[.parsons-handle:focus-visible]:outline-3 has-[.parsons-handle:focus-visible]:outline-offset-2 has-[.parsons-handle:focus-visible]:outline-brand";
@@ -608,7 +608,7 @@ export default function ParsonsProblem({
 
   return (
     <div ref={rootRef} className="@container mt-3 flex flex-col gap-3">
-      <p className="text-sm text-gray-600">
+      <p className="text-m text-gray-600">
         {requireDragging ? "Drag blocks into your solution" : "Drag the blocks into the right order"}
         {canIndent ? " and drag them sideways to indent them" : ""}. On a touch screen, press and hold a block to pick
         it up.
@@ -699,7 +699,7 @@ export default function ParsonsProblem({
         <div role="status" className={showErrors ? "w-full" : undefined}>
           {result === true && <span className="font-semibold text-green-700">Correct!</span>}
           {showErrors && (
-            <ul className="list-disc pl-6 text-sm text-red-700">
+            <ul className="list-disc pl-6 text-m text-red-700">
               {feedback.errors.map((message, i) => (
                 <li key={i}>{message}</li>
               ))}
