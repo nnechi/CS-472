@@ -56,12 +56,14 @@ export interface ActivityQuestion {
   settings: ParsonsSettings;
 }
 
-// An activity a teacher made, as listed for picking. Its text is not included.
+// An activity a teacher made, as listed for picking. Only each question's text is included, never its answer.
 export interface ActivitySummary {
   id: string;
   name: string;
   type: ActivityType;
+  language: ProgrammingLanguage | null; // only set for coding activities
   questionCount: number;
+  questions: string[]; // each question's text, for the dashboard's hover preview
   createdAt: string; // ISO timestamp
 }
 

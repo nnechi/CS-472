@@ -178,7 +178,7 @@ export function createApp(io : AppServer) {
 
     try {
       const created = await Activity.create(parsed.value);
-      res.status(201).json({ id: String(created._id), name: created.name, type: created.type, questionCount: created.questions.length, createdAt: created.createdAt });
+      res.status(201).json({ id: String(created._id), name: created.name, type: created.type, language: created.language ?? null, questionCount: created.questions.length, questions: created.questions.map((q) => q.question), createdAt: created.createdAt });
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to save the activity." });
@@ -190,13 +190,13 @@ export function createApp(io : AppServer) {
     const teacherId = req.session.user!.id; // from the login, never from the browser
 
     try {
-      // Counts the questions on the server so the whole question list isn't sent just to show a number.
+      // Sends only each question's text, for the dashboard's hover preview. Answers (output) and Parsons solutions (initial) stay on the server.
       const found = await Activity.aggregate([
         { $match: { teacherId } },
         { $sort: { name: 1 } },
-        { $project: { name: 1, type: 1, createdAt: 1, questionCount: { $size: "$questions" } } },
+        { $project: { name: 1, type: 1, language: 1, createdAt: 1, questionCount: { $size: "$questions" }, questions: "$questions.question" } },
       ]);
-      res.status(200).json(found.map((a) => ({ id: String(a._id), name: a.name, type: a.type, questionCount: a.questionCount, createdAt: a.createdAt })));
+      res.status(200).json(found.map((a) => ({ id: String(a._id), name: a.name, type: a.type, language: a.language ?? null, questionCount: a.questionCount, questions: a.questions ?? [], createdAt: a.createdAt })));
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to load activities." });
