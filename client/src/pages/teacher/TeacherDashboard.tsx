@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom"
 import useAuth from "../../hooks/useAuth"
 import { listActivities } from "../../api"
 import type { ActivitySummary } from "../../types"
+import ActiveRooms from "../../components/ActiveRooms"
 
 // /dashboard -- the teacher's home page. Activities and notes are in the ☰ menu.
 export default function TeacherDashboard() {
@@ -60,6 +61,8 @@ export default function TeacherDashboard() {
     return (
         <section className="mt-8 flex flex-col gap-8">
             <h1 className="text-5xl font-bold">Welcome{auth ? `, ${auth.user.name}!` : ""}</h1>
+            {/* Rooms still running (e.g. after closing their tab), to rejoin or end. */}
+            <ActiveRooms />
             <div className="relative w-fit">
                 <button
                     type="button"

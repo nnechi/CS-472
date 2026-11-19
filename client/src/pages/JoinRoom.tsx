@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { ROOM_CODE_MAX_LENGTH, normalizeRoomCode } from "../utils/roomCode"
+import { hasStudentKey } from "../utils/studentKey"
 import { getRoomStatus } from "../api.ts";
 
 // Students land here, enter the room code their teacher shared, and go straight
@@ -31,11 +32,16 @@ export default function JoinRoom() {
         }
         // The name travels in router state, not the URL, so it stays out of links.
 
-        try { 
+        try {
             const status = await getRoomStatus(roomCode);
             if (status === "ok" || status === "not-open") {
                 navigate(`/rooms/join/${roomCode}`, { state: { username, waiting : status ==="not-open"} })
-                
+
+            } else if (hasStudentKey(roomCode, username)) {
+                // Past its hour the room takes no new students, but one who was
+                // already in it (this browser has their seat) can still get back
+                // in while it runs. The room itself decides.
+                navigate(`/rooms/join/${roomCode}`, { state: { username, waiting: false } })
             } else {
                 setError("That room doesn't exist or it has expired.");
             }

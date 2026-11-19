@@ -1,5 +1,5 @@
 import type { RoomView } from "../../hooks/roomView";
-import { PrivateChat } from "../../types";
+import { GROUP_CHAT_ID, PrivateChat } from "../../types";
 import { useState } from "react";
 import ChatPanel from "./ChatPanel";
 import PupAvatar, { PUPS, PupPicker } from "./PupAvatar";
@@ -15,7 +15,10 @@ interface ChatWidgetProps {
 // Clicking it opens the chat window; the number counts messages not seen yet.
 // The socket stays connected while it is closed (useRoomSocket owns it).
 export default function ChatWidget({ room, username, privateLabel }: ChatWidgetProps) {
-  const unreadTotal = Object.values(room.unread).reduce((sum, n) => sum + n, 0);
+  // Only chats that have a tab count, so a chat that closed can't leave a
+  // number nobody can clear.
+  const shownChats = new Set([GROUP_CHAT_ID, ...room.privateChats.map((chat) => chat.id)]);
+  const unreadTotal = Object.entries(room.unread).reduce((sum, [id, n]) => (shownChats.has(id) ? sum + n : sum), 0);
   // Students can open "Choose your pup" from the bar under the header.
   const [pickingPup, setPickingPup] = useState(false);
   const isTeacher = room.role === "teacher";

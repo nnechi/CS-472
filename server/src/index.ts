@@ -4,7 +4,16 @@ import { Server } from "socket.io";
 import cors from "cors";
 
 import { connectToDatabase } from "./db";
-import {AppServer, closeRoom, isLiveRoomCode, isLiveRoomHost, lobbyChannel, registerSocketHandlers } from "./socket";
+import {
+  AppServer,
+  activeRoomsForHost,
+  closeRoom,
+  isLiveRoomCode,
+  isLiveRoomHost,
+  lobbyChannel,
+  markLiveRoomOpened,
+  registerSocketHandlers,
+} from "./socket";
 import { deletePastRoomForHost, pastRoomForHost, pastRoomsForHost } from "./pastRooms";
 
 
@@ -291,12 +300,14 @@ export function createApp(io : AppServer) {
       const updated = await Room.findOneAndUpdate( 
         {code : c, hostID, expiresAt: { $gt: new Date() }, activityId}, { isOpen : true }
       ); 
-      if (updated === null){ 
-        res.status(404).json({error : "Cannot find room!"}); 
+      if (updated === null){
+        res.status(404).json({error : "Cannot find room!"});
 
-      } else { 
-        res.status(200).json({ message : "Opened room."}); 
-        io.to(lobbyChannel(c)).emit("room opened"); 
+      } else {
+        // The room now counts as running (dashboard, saving when it ends).
+        markLiveRoomOpened(c);
+        res.status(200).json({ message : "Opened room."});
+        io.to(lobbyChannel(c)).emit("room opened");
       }
     } catch (e){ 
       console.error(e); 
@@ -312,6 +323,19 @@ export function createApp(io : AppServer) {
   // authenticate(user: string, password: string): boolean
   // Body: { user, password }. TODO: Validate credentials using the auth service.
   app.post("/api/auth/login", notImplemented("authenticate"));
+
+  // The logged-in teacher's rooms that are still running (opened and not
+  // ended), newest first, so the dashboard can offer to rejoin or end them.
+  // A room keeps running when the teacher closes their tab or loses their
+  // connection; only End room (DELETE /api/rooms/:code) or expiry ends it.
+  app.get("/api/active-rooms", requireLogin, async (req, res) => {
+    try {
+      res.status(200).json(await activeRoomsForHost(io, req.session.user!.id));
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load your running rooms." });
+    }
+  });
 
   // Previous activities: the rooms the logged-in teacher ran that have ended,
   // newest first. Uses the session's user id, never one the browser sends.

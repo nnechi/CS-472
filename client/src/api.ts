@@ -1,4 +1,4 @@
-import type { ActivitySummary, ActivityType, ParsonsSettings, PastRoomDetail, PastRoomSummary, ProgrammingLanguage } from "./types"
+import type { ActiveRoomSummary, ActivitySummary, ActivityType, ParsonsSettings, PastRoomDetail, PastRoomSummary, ProgrammingLanguage } from "./types"
 
 export const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
@@ -104,6 +104,17 @@ export class SessionEndedError extends Error {
         super(message);
         this.name = "SessionEndedError";
     }
+}
+
+// This teacher's rooms that are still running, newest first: rooms they opened
+// that haven't been ended, including ones whose tab they closed. Needs a
+// signed-in teacher. Throws with the server's reason if it fails.
+export async function listActiveRooms() : Promise<ActiveRoomSummary[]> {
+    const res = await fetch(`${SERVER_URL}/api/active-rooms`, { credentials: "include" })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not load your running rooms."));
+    return res.json();
 }
 
 // The rooms this teacher ended, newest first. Needs a signed-in teacher. Throws with the server's reason if it fails.
