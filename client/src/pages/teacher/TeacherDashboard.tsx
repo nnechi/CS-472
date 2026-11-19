@@ -3,6 +3,49 @@ import { Link, useNavigate } from "react-router-dom"
 import useAuth from "../../hooks/useAuth"
 import { listActivities } from "../../api"
 import type { ActivitySummary } from "../../types"
+import { activityLanguageLabel } from "../../utils/activityLabels"
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
+
+// How each activity type is shown in the preview.
+const TYPE_LABELS: Record<ActivitySummary["type"], string> = {
+    coding: "Coding",
+    parsons: "Parsons problem",
+}
+
+// What the hover preview shows for one activity: its type, language, size, date, and every question.
+function ActivityPreview({ activity }: { activity: ActivitySummary }) {
+    const language = activityLanguageLabel(activity)
+    // Missing if the list came from a server without the preview change. Rendering must never throw here:
+    // the preview only mounts on hover, and an error would blank the whole page.
+    const questions = Array.isArray(activity.questions) ? activity.questions : null
+    const count = questions?.length ?? activity.questionCount ?? 0
+    const created = new Date(activity.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+
+    return (
+        <div className="flex flex-col gap-3">
+            <div>
+                <PopoverTitle className="text-base break-words">{activity.name}</PopoverTitle>
+                <p className="mt-1 text-sm text-gray-600">
+                    {/* Only the parts that exist, so an activity missing its type (older test data) still reads cleanly */}
+                    {[TYPE_LABELS[activity.type], language, `${count} ${count === 1 ? "question" : "questions"}`].filter(Boolean).join(" · ")}
+                </p>
+                <p className="text-xs text-gray-500">Created {created}</p>
+            </div>
+            {questions === null ? (
+                <p className="text-sm text-gray-600">Refresh the page to see this activity's questions.</p>
+            ) : count === 0 ? (
+                <p className="text-sm text-gray-600">No questions yet.</p>
+            ) : (
+                // Fixed height with its own vertical scroll, so long activities don't run off the page.
+                <ol className="flex max-h-72 list-decimal flex-col gap-2 overflow-y-auto border-t border-brand/15 pt-3 pl-5 pr-1 text-sm text-gray-900">
+                    {questions.map((question, i) => (
+                        <li key={i} className="whitespace-pre-wrap break-words">{question}</li>
+                    ))}
+                </ol>
+            )}
+        </div>
+    )
+}
 
 // /dashboard -- the teacher's home page. Activities and notes are in the ☰ menu.
 export default function TeacherDashboard() {
@@ -45,15 +88,22 @@ export default function TeacherDashboard() {
                 </p>
             )
         }
+        // Hovering (or keyboard-focusing) an activity shows its preview to the right. Clicking still starts the room.
         return activities.map((a) => (
-            <button
-                key={a.id}
-                type="button"
-                className="block w-full rounded-md px-3 py-2 text-left text-brand cursor-pointer hover:bg-[#ccc9f7]"
-                onClick={() => startRoom(a.id)}
-            >
-                {a.name}
-            </button>
+            <Popover key={a.id}>
+                <PopoverTrigger
+                    openOnHover
+                    delay={200}
+                    closeDelay={150}
+                    className="block w-full rounded-md px-3 py-2 text-left text-brand cursor-pointer hover:bg-[#ccc9f7] data-popup-open:bg-[#ccc9f7]"
+                    onClick={() => startRoom(a.id)}
+                >
+                    {a.name}
+                </PopoverTrigger>
+                <PopoverContent side="right" align="start" className="w-96 max-w-[calc(100vw-2rem)]">
+                    <ActivityPreview activity={a} />
+                </PopoverContent>
+            </Popover>
         ))
     }
 
