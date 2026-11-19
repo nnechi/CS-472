@@ -17,7 +17,7 @@ export default function TeacherDashboard() {
     useEffect(() => {
         if (!auth) return
         let cancelled = false
-        listActivities(auth.user.id)
+        listActivities()
             .then((found) => {
                 // Newest first. The server sends them A to Z, so sort them here.
                 const newestFirst = [...found].sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0))
@@ -41,7 +41,7 @@ export default function TeacherDashboard() {
         if (activities.length === 0) {
             return (
                 <p className="px-3 py-2 text-gray-600">
-                    You haven't made any activities yet. <Link to="/dashboard/create-activity" className="underline">Create an activity</Link>
+                    You haven't made any activities yet. <Link to="/dashboard/activities" className="underline">Create an activity</Link>
                 </p>
             )
         }

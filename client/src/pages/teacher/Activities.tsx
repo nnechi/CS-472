@@ -90,7 +90,7 @@ export default function Activities() {
 
         // listActivities is an API call to the server that returns a Promise - this Promise holds an array of ActivitySummary objects
         // Essentially, this function returns the array of activities for a user - passes in the user's id to know which user to look up
-        listActivities(auth.user.id)
+        listActivities()
             // .then() runs when the server responds
             // This calls the setActivities function to change the state of the activities array to match the array from the server (triggers rerender as well)
             .then((found) => { if (!cancelled) setActivities(found) })
@@ -179,7 +179,7 @@ export default function Activities() {
     // If the server request fails, the error is thrown so the Activity component can show it
     async function handleDelete(activityId: string){
         if (!auth) return
-        await deleteActivity(activityId, auth.user.id)
+        await deleteActivity(activityId)
         setActivities((current) => current?.filter((a) => a.id !== activityId) ?? null)
     }
 
