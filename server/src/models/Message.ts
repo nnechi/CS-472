@@ -21,6 +21,10 @@ const messageSchema = new Schema(
   }
 );
 
+// Safety net: MongoDB deletes any chat message 24 hours after it was written.
+// Messages are normally deleted sooner, when their room ends (see socket.ts).
+messageSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 });
+
 // Let TypeScript derive the document type from the schema.
 export type MessageDoc = InferSchemaType<typeof messageSchema>;
 

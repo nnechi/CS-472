@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useId, useRef, useState } from "react"
-import { Play, Pause, RotateCcw } from "lucide-react"
+import { Play, Pause, RotateCcw, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -30,6 +30,9 @@ interface TimerProps {
   onPause: () => void
   onRestart: () => void
   onSetMinutes: (minutes: number) => void
+  // Whether students can see the timer, and the teacher's switch for it.
+  visibleToStudents: boolean
+  onSetVisibleToStudents: (visible: boolean) => void
 }
 
 // Teachers can pick whole minutes from 1 to 60.
@@ -56,6 +59,8 @@ export default function Timer({
   onPause,
   onRestart,
   onSetMinutes,
+  visibleToStudents,
+  onSetVisibleToStudents,
 }: TimerProps) {
   const [remaining, setRemaining] = useState(remainingMs)
   // What the teacher is typing. Follows the server's length unless they are editing.
@@ -266,6 +271,35 @@ export default function Timer({
                 }
               />
               <TooltipContent>Restart</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {isTeacher && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    size="icon"
+                    aria-label={visibleToStudents ? "Hide timer from students" : "Show timer to students"}
+                    aria-pressed={visibleToStudents}
+                    className={cn(
+                      "size-11 shrink-0 cursor-pointer rounded-full shadow-sm focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+                      visibleToStudents
+                        ? "bg-brand text-white hover:bg-brand/90"
+                        : "border border-brand/40 bg-white text-brand hover:bg-brand/10"
+                    )}
+                    onClick={() => onSetVisibleToStudents(!visibleToStudents)}
+                  >
+                    {visibleToStudents ? <Eye /> : <EyeOff />}
+                  </Button>
+                }
+              />
+              <TooltipContent>
+                {visibleToStudents ? "Students can see the timer" : "Hidden from students"}
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         )}

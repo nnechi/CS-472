@@ -29,11 +29,11 @@ export interface ActivityInput {
 
 type ParseResult = { ok: true; value: ActivityInput } | { ok: false; error: string };
 
-// Checks a request to create an activity. Returns the cleaned values to save,
+// Checks a request to create an activity for teacherId, the logged-in teacher
+// (from the session, never from the body). Returns the cleaned values to save,
 // or the reason to show the teacher.
-export function parseActivityInput(body: unknown): ParseResult {
+export function parseActivityInput(body: unknown, teacherId: string): ParseResult {
   const input = (body ?? {}) as Record<string, unknown>;
-  const teacherId = typeof input.teacherId === "string" ? input.teacherId.trim() : "";
   const name = typeof input.name === "string" ? input.name.trim() : "";
   const type = input.type;
   const language = input.language;

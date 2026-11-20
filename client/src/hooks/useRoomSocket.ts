@@ -92,6 +92,7 @@ export function useRoomSocket(
     durationMs: DEFAULT_TIMER_MS,
     remainingMs: DEFAULT_TIMER_MS,
     running: false,
+    visibleToStudents: true,
   });
   // The room's activity, questions shaped for this person's role.
   const [activity, setActivity] = useState<RoomActivity | null>(null);
@@ -395,7 +396,7 @@ export function useRoomSocket(
       setStudentCount(0);
       setHandRaised(false);
       setRoster([]);
-      setTimer({ durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, running: false });
+      setTimer({ durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, running: false, visibleToStudents: true });
       setActivity(null);
       setCurrentQuestion(0);
       setStudentAnswers([]);
