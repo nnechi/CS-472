@@ -41,6 +41,7 @@ import { allowCodeRun } from "./compile/submission";
 
 import { Room } from "./models/Room";
 import { PastRoom } from "./models/PastRoom";
+import { recordRoomLog } from "./roomStats";
 
 // The socket's first HTTP request, with the login session attached
 // (see io.engine.use(sessionMiddleware) in index.ts).
@@ -291,6 +292,15 @@ async function archiveRoom(snapshot: RoomSnapshot): Promise<void> {
     };
     fitArchive(doc);
     await PastRoom.create(doc);
+    // Kept separately for the dashboard stats, so deleting the previous activity leaves them unchanged.
+    await recordRoomLog({
+      code: doc.code,
+      hostID: doc.hostID,
+      activityName: doc.activityName,
+      startedAt: doc.startedAt,
+      endedAt: doc.endedAt,
+      studentCount: doc.students.length,
+    });
     console.log(`[room] ${snapshot.code} saved to previous activities`);
 
     // The chat now lives in the saved room, so delete the originals: exactly the

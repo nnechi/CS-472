@@ -6,6 +6,7 @@ import cors from "cors";
 import { connectToDatabase } from "./db";
 import {AppServer, closeRoom, isLiveRoomCode, isLiveRoomHost, lobbyChannel, registerSocketHandlers } from "./socket";
 import { deletePastRoomForHost, pastRoomForHost, pastRoomsForHost } from "./pastRooms";
+import { backfillRoomLogs, roomStatsForHost } from "./roomStats";
 
 
 import { generateRoomCode } from "./utils/roomCode";
@@ -304,6 +305,17 @@ export function createApp(io : AppServer) {
     }
   });
 
+  // Dashboard stats: every room the logged-in teacher ended. Read from RoomLog, so deleting
+  // a previous activity does not change these.
+  app.get("/api/room-stats", requireLogin, async (req, res) => {
+    try {
+      res.status(200).json(await roomStatsForHost(req.session.user!.id));
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load your room stats." });
+    }
+  });
+
   // One ended room of the logged-in teacher, with every student's saved work and the chats.
   app.get("/api/past-rooms/:roomCode", requireLogin, async (req, res) => {
     try {
@@ -361,6 +373,14 @@ export function createApp(io : AppServer) {
 
 async function main() {
   await connectToDatabase();
+
+  // Copies rooms saved before RoomLog existed. Rooms already copied are skipped.
+  try {
+    const copied = await backfillRoomLogs();
+    if (copied > 0) console.log(`[room-stats] copied ${copied} earlier room(s) into the room log`);
+  } catch (err) {
+    console.error("[room-stats] failed to copy earlier rooms:", err);
+  }
 
 
 const io : AppServer = new Server({ 

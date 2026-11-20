@@ -326,6 +326,16 @@ export interface PastRoomSummary {
   studentCount: number;
 }
 
+// One ended room, as the dashboard stats need it. Kept apart from PastRoomSummary
+// so these stats do not depend on previous activities still existing.
+export interface RoomStatSummary {
+  code: string;
+  activityName: string | null;
+  startedAt: string; // ISO timestamp
+  endedAt: string; // ISO timestamp
+  studentCount: number;
+}
+
 // Everything saved about one ended room, for the teacher's read-only view.
 export interface PastRoomDetail {
   code: string;
