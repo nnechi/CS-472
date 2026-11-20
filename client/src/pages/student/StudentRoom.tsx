@@ -7,11 +7,13 @@ import { Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
 import StudentHeader from "../../components/chat/StudentHeader"
 import CodeEditor from "../../components/activity/CodeEditor"
+import PupAvatar, { PUPS } from "../../components/chat/PupAvatar" 
 
 // /rooms/join/:roomCode -- the student's view of a room: the activity, the chat,
 // and the raise-hand button. Students have no account; the name comes from the
-// home page form via router state. Without a name (e.g. a shared link), send
-// them back to the home page to enter one.
+// Join a Room page via router state. Without a name (e.g. a shared link), send
+// them to the Join a Room page to enter a name and pick a pup.
+// was the home page. Now it's Join a Room with the code filled in.
 export default function StudentRoom() {
     const location = useLocation()
     const { roomCode } = useParams()
@@ -20,7 +22,8 @@ export default function StudentRoom() {
     const username = state?.username?.trim()
     const waiting = state?.waiting ?? false
 
-    if (!room || !username) return <Navigate to="/" replace />
+    if (!room) return <Navigate to="/" replace />
+    if (!username) return <Navigate to={`/joinroom?code=${room}`} replace />
 
     return <StudentRoomScreen session={{ username, role: "student", room }} waiting={waiting} />
 }
@@ -51,6 +54,11 @@ function StudentRoomScreen({ session, waiting }: { session: Session; waiting: bo
                     />
                     <h1 className="text-2xl font-bold">Waiting for your teacher…</h1>
                     <p className="text-brand/70">You'll join automatically when the room opens.</p>
+                    {/* the pup they picked on the Join a Room page. It can't be changed here. */}
+                    <div className="flex items-center gap-3 rounded-xl bg-brand-light/30 px-4 py-3">
+                        <PupAvatar pup={room.pup} size={48} />
+                        <span className="font-bold">{session.username} as a {PUPS[room.pup].label}</span>
+                    </div>
                     <p className="text-sm text-brand/70">Room code</p>
                     <p className="-mt-3 text-2xl font-bold tracking-widest">{session.room}</p>
                     <button

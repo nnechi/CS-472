@@ -19,6 +19,11 @@
   box-sizing: border-box;
 }
 
+/* smooth scrolling when a link jumps to a section */
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   background-color: #fafaf7;
