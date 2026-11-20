@@ -28,6 +28,7 @@ import { parseActivityInput } from "./activityInput";
 import { isObjectIdOrHexString } from "mongoose";
 
 import { sessionMiddleware } from "./auth/session";
+import { accountRouter } from "./auth/account";
 import { authRouter } from "./auth/routes";
 import { requireLogin } from "./auth/requireLogin";
 
@@ -57,6 +58,7 @@ export function createApp(io : AppServer) {
   app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
   app.use(sessionMiddleware);
   app.use(authRouter);
+  app.use(accountRouter);
   // who is logged in?
   app.get("/api/me", requireLogin, (req, res) => {
     res.json({ user: req.session.user });

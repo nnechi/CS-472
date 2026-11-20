@@ -5,6 +5,7 @@ import { User } from "../models/User";
 
 export interface AppUser {
   id: string; // YOUR app's id for this person (the MongoDB _id, as text)
+  authVersion: number;
   googleId: string | null; // Google's "sub", or null for password-only users
   email: string;
   name: string | null;
@@ -23,6 +24,7 @@ type UserDoc = InstanceType<typeof User>;
 function toAppUser(user: UserDoc): AppUser {
   return {
     id: user._id.toString(),
+    authVersion: user.authVersion,
     googleId: user.googleId ?? null,
     email: user.email,
     name: user.name ?? null,

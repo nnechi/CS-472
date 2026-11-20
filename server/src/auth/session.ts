@@ -6,6 +6,7 @@ import { authConfig } from "./config.js";
 // What to store about someone logged-in
 export interface SessionUser {
     id: string;
+    authVersion?: number;
     email: string;
     name: string | null;
     picture: string | null; // Google profile picture URL, if they have one

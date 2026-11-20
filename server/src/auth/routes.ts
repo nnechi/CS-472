@@ -124,7 +124,7 @@ authRouter.get(
 
         // log them in. Brand new session id at login stops session fixation attacks
         await regenerateSession(req);
-        req.session.user = { id: user.id, email: user.email, name: user.name, picture: user.pictureUrl };
+        req.session.user = { id: user.id, authVersion: user.authVersion, email: user.email, name: user.name, picture: user.pictureUrl };
         await saveSession(req);
 
         // send them on, to a clean address without the one-time code
@@ -155,7 +155,7 @@ function asString(value: unknown): string {
 
 // Turn our user into what we keep in the session (same shape the Google login uses).
 function toSessionUser(user: AppUser): SessionUser {
-    return { id: user.id, email: user.email, name: user.name, picture: user.pictureUrl };
+    return { id: user.id, authVersion: user.authVersion, email: user.email, name: user.name, picture: user.pictureUrl };
 }
 
 // Log someone in: brand new session id (stops session fixation), then save.
