@@ -12,13 +12,15 @@ import { cn } from "@/lib/utils";
 
 interface HandQueueProps {
   queue: RaisedHand[];
+  // Students who lost their connection. Their hand stays up until they're helped.
+  awayIds?: Set<string>;
   onLowerHand: (id: string) => void;
   onOpenPrivateChat: (studentId: string) => void;
 }
 
 // Teachers: students needing help, in the order they asked. Each row can be
 // marked helped (lowers the hand) or opened as a private chat.
-export function HandQueue({ queue, onLowerHand, onOpenPrivateChat }: HandQueueProps) {
+export function HandQueue({ queue, awayIds, onLowerHand, onOpenPrivateChat }: HandQueueProps) {
   const needsHelp = queue.length > 0;
 
   return (
@@ -55,6 +57,7 @@ export function HandQueue({ queue, onLowerHand, onOpenPrivateChat }: HandQueuePr
                 </span>
                 <span className="flex-1 truncate text-sm font-semibold text-brand">
                   {h.username}
+                  {awayIds?.has(h.id) && <span className="font-normal text-brand/60"> (away)</span>}
                 </span>
                 <TooltipProvider>
                   <span className="flex items-center gap-2">

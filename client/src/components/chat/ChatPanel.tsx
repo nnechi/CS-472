@@ -26,6 +26,8 @@ export default function ChatPanel({ room, username, privateLabel }: ChatPanelPro
       placeholder={room.activeChatId === GROUP_CHAT_ID ? "Type a message..." : "Type a private message..."}
       onSend={(text) => room.sendMessage(room.activeChatId, text)}
       readOnly={room.ended}
+      // The server ignores messages until it has let this page (back) in.
+      offline={!room.ended && !room.joined}
       aboveInput={
         <ChatTabs
           tabs={tabs}

@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { ROOM_CODE_MAX_LENGTH, normalizeRoomCode } from "../utils/roomCode"
+import { hasStudentKey } from "../utils/studentKey"
 import { getRoomStatus } from "../api.ts";
 import PupAvatar, { PUPS, PUP_IDS, type PupId, loadPupId, randomPupId, savePupId } from "../components/chat/PupAvatar"
 
@@ -43,6 +44,11 @@ export default function JoinRoom() {
                 savePupId(pup)
                 navigate(`/rooms/join/${roomCode}`, { state: { username, waiting : status ==="not-open"} })
 
+            } else if (hasStudentKey(roomCode, username)) {
+                // Past its hour the room takes no new students, but one who was
+                // already in it (this browser has their seat) can still get back
+                // in while it runs. The room itself decides.
+                navigate(`/rooms/join/${roomCode}`, { state: { username, waiting: false } })
             } else {
                 setError("That room doesn't exist or it has expired.");
             }

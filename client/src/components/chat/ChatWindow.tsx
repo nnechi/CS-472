@@ -17,6 +17,8 @@ interface ChatWindowProps {
   aboveInput?: ReactNode;
   // An ended room: the messages can be read, but nothing can be sent.
   readOnly?: boolean;
+  // Not connected to the room right now: typing still works, but sending waits.
+  offline?: boolean;
 }
 
 // One chat on screen: its messages, and the box to write in it.
@@ -27,6 +29,7 @@ export default function ChatWindow({
   onSend,
   aboveInput,
   readOnly = false,
+  offline = false,
 }: ChatWindowProps) {
   const [text, setText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -35,10 +38,11 @@ export default function ChatWindow({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // While offline the message stays in the box, to send once reconnected.
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed || offline) return;
     onSend(trimmed);
     setText("");
   };
@@ -110,14 +114,15 @@ export default function ChatWindow({
           className="h-11 min-w-0 flex-1 rounded-full border border-brand/30 bg-paper px-4 text-sm text-brand placeholder:text-brand/50 focus:border-brand focus:outline-none"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={placeholder}
+          placeholder={offline ? "Reconnecting… you can send once you're back" : placeholder}
           autoComplete="off"
           maxLength={1000}
         />
         <button
           type="submit"
-          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-brand text-white hover:bg-brand/90"
-          aria-label="Send message"
+          disabled={offline}
+          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-brand text-white hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label={offline ? "Send message (waiting to reconnect)" : "Send message"}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M22 2L11 13" />

@@ -137,5 +137,12 @@ export function usePastRoom(roomCode: string): PastRoom {
     raiseHand: doNothing,
     lowerHand: doNothing,
     ended: true,
+    joined: false,
+    reconnecting: false,
+    replaced: false,
+    reclaim: doNothing,
+    teacherAway: false,
+    roomClosesAt: null,
+    leave: () => Promise.resolve(),
   };
 }
