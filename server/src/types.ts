@@ -250,6 +250,8 @@ export interface TimerState {
   durationMs: number; // the length the teacher chose, what Restart returns to
   remainingMs: number;
   running: boolean;
+  // Whether students can see the timer. Teachers always see it.
+  visibleToStudents: boolean;
 }
 
 // A student who joined a room, as saved when the room ended.
@@ -308,6 +310,8 @@ export interface ClientToServerEvents {
   "timer restart": () => void;
   // Teachers only: set a new length in whole minutes (1 to 60) and stop the timer.
   "timer set": (payload: { minutes: number }) => void;
+  // Teachers only: show or hide the timer for students.
+  "timer visibility": (payload: { visible: boolean }) => void;
   // Teachers only: pick the question everyone in the room is on.
   "set question": (payload: { questionIndex: number }) => void;
   // Teachers only: open a private chat with a student who raised a hand.

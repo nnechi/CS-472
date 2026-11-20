@@ -642,10 +642,12 @@ const MAX_TIMER_MINUTES = 60;
 // durationMs is the length the teacher chose (Restart goes back to it).
 // endsAt is set while the timer runs and null while it is paused.
 // expiry fires when a running timer reaches zero.
+// visibleToStudents is the teacher's toggle. Students get no time at all while it is off.
 interface RoomTimer {
   durationMs: number;
   remainingMs: number;
   endsAt: number | null;
+  visibleToStudents: boolean;
   expiry?: ReturnType<typeof setTimeout>;
 }
 
@@ -655,7 +657,7 @@ const timers = new Map<string, RoomTimer>();
 const getTimer = (room: string): RoomTimer => {
   let timer = timers.get(room);
   if (!timer) {
-    timer = { durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, endsAt: null };
+    timer = { durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, endsAt: null, visibleToStudents: true };
     timers.set(room, timer);
   }
   return timer;
@@ -672,15 +674,24 @@ function clearTimer(room: string): void {
 // Only reads: a room without a timer entry (new, or already closed) shows the
 // default, and no entry is stored for it.
 function timerSnapshot(room: string): TimerState {
-  const timer = timers.get(room) ?? { durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, endsAt: null };
+  const timer = timers.get(room) ?? { durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, endsAt: null, visibleToStudents: true };
   if (timer.endsAt === null) {
-    return { durationMs: timer.durationMs, remainingMs: timer.remainingMs, running: false };
+    return { durationMs: timer.durationMs, remainingMs: timer.remainingMs, running: false, visibleToStudents: timer.visibleToStudents };
   }
   return {
     durationMs: timer.durationMs,
     remainingMs: Math.max(0, timer.endsAt - Date.now()),
     running: true,
+    visibleToStudents: timer.visibleToStudents,
   };
+}
+
+// What students get. While the teacher has the timer hidden, the time is left
+// out entirely, so a student cannot read it from the socket either.
+function studentTimerSnapshot(room: string): TimerState {
+  const snapshot = timerSnapshot(room);
+  if (snapshot.visibleToStudents) return snapshot;
+  return { durationMs: 0, remainingMs: 0, running: false, visibleToStudents: false };
 }
 
 export function registerSocketHandlers(
@@ -746,9 +757,10 @@ export function registerSocketHandlers(
   };
 
   // Send the room's timer to everyone in the room. Teachers get the controls
-  // for it; students only ever see the read-only display.
+  // for it; students only ever see the read-only display (or nothing, when hidden).
   const broadcastTimer = (room: string) => {
-    io.to(room).emit("timer state", timerSnapshot(room));
+    io.to(teacherChannel(room)).emit("timer state", timerSnapshot(room));
+    io.to(room).except(teacherChannel(room)).emit("timer state", studentTimerSnapshot(room));
   };
 
   // A student in a live room, by socket id.
@@ -858,6 +870,13 @@ export function registerSocketHandlers(
 
     timer.durationMs = wholeMinutes * 60 * 1000;
     timer.remainingMs = timer.durationMs;
+    broadcastTimer(room);
+  };
+
+  // Show or hide the timer for students. Pausing or changing the time is not affected.
+  const setTimerVisibility = (room: string, visible: boolean) => {
+    const timer = getTimer(room);
+    timer.visibleToStudents = visible;
     broadcastTimer(room);
   };
 
@@ -1130,7 +1149,10 @@ export function registerSocketHandlers(
         }
 
         // Late joiners (either role) see the timer as it is right now.
-        socket.emit("timer state", timerSnapshot(roomCode));
+        socket.emit(
+          "timer state",
+          socket.data.role === "teacher" ? timerSnapshot(roomCode) : studentTimerSnapshot(roomCode)
+        );
       });
 
       // A student changes their pup avatar. Their later messages use it.
@@ -1231,6 +1253,12 @@ export function registerSocketHandlers(
         const { role, room } = socket.data;
         if (!room || role !== "teacher") return;
         setTimerLength(room, minutes);
+      });
+
+      socket.on("timer visibility", ({ visible }) => {
+        const { role, room } = socket.data;
+        if (!room || role !== "teacher") return;
+        setTimerVisibility(room, visible === true);
       });
 
       // Only the teacher can change the question, and everyone in the room follows.
