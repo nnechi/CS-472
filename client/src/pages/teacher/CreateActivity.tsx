@@ -7,7 +7,7 @@ import ParsonsQuestion from "../../components/activity/ParsonsQuestion"
 import { codeLines, effectiveRequireDragging, UPLOAD_LIMIT } from "../../components/activity/questionCode"
 import useAuth from "../../hooks/useAuth"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
-import UserAvatar from "../../components/UserAvatar"
+import AccountMenu from "../../components/AccountMenu"
 import {
     ACTIVITY_MAX_LENGTH,
     ACTIVITY_MAX_QUESTIONS,
@@ -156,14 +156,8 @@ export default function CreateActivity(){
                     </Link>
                 </div>
 
-                {auth && (
-                    <span className="flex items-center gap-6 text-xl text-brand">
-                        {/* The profile picture goes to the settings page. */}
-                        <Link to="/dashboard/settings" aria-label="Go to settings" className="rounded-full">
-                            <UserAvatar name={auth.user.name} picture={auth.user.picture} />
-                        </Link>
-                    </span>
-                )}
+                {/* The profile picture opens a menu with Settings and Log out. */}
+                <AccountMenu />
             </header>
 
             <form
