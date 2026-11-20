@@ -2,6 +2,8 @@ import { Link, useNavigate } from "react-router-dom"
 import React, { useState, useEffect } from "react"
 import SignupForm from "../components/SignupForm"
 import textLogo from "../assets/LittlePointers Logo/Text Logo.png"
+import { SERVER_URL } from "../api"
+import useAuth from "../hooks/useAuth"
 
 // Regex for username and password
 // Rules for username: must use first and last name with a space separating them
@@ -27,6 +29,7 @@ type SignUpValues = {
 // Most error checking is done here
 export default function SignUp() {
     const navigate = useNavigate();
+    const { setAuth } = useAuth();
 
     // The form state contains the information from the form and updates as needed
     const [form, setForm] = useState<SignUpValues>({
@@ -67,7 +70,7 @@ export default function SignUp() {
 
     useEffect(() => {
         setErrMsg('')
-    }, [form.name, form.password, form.confirmPassword])
+    }, [form.name, form.email, form.password, form.confirmPassword])
 
     // Attached to the div around <SignupForm />: the form's submit event bubbles up to it.
     async function handleSubmit(e: React.FormEvent) {
@@ -80,9 +83,11 @@ export default function SignUp() {
             return
         }
 
+        let response: Response
         try {
-            const response = await fetch('/api/auth/signup', {
+            response = await fetch(`${SERVER_URL}/api/auth/signup`, {
                 method: 'POST',
+                credentials: 'include', // lets the browser keep the login cookie the server sends back
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     user: form.name,
@@ -90,16 +95,31 @@ export default function SignUp() {
                     password: form.password
                 })
             })
-
-            if (!response.ok) {
-                const data = await response.json()
-                throw new Error(data.message || 'Unable to create account')
-            }
-
-            navigate('/dashboard')
-        } catch (err) {
-            setErrMsg('Either no server response, username taken, or registration failed')
+        } catch {
+            // fetch only throws when the request never got an answer
+            setErrMsg('No server response. Please try again.')
+            return
         }
+
+        // The server sends { user } on success or { message } on failure
+        const data = await response.json().catch(() => null)
+
+        if (!response.ok || !data?.user) {
+            // 409 = email already used, 400 = invalid input; the server's message says which
+            setErrMsg(data?.message || 'Registration failed. Please try again.')
+            return
+        }
+
+        // The server has already logged them in, so tell the rest of the app
+        setAuth({
+            user: {
+                id: data.user.id,
+                email: data.user.email,
+                name: data.user.name ?? data.user.email,
+                picture: data.user.picture,
+            },
+        })
+        navigate('/dashboard')
     }
 
     return (
@@ -135,6 +155,7 @@ export default function SignUp() {
                         nameError={nameError}
                         confirmPasswordError={confirmPasswordError}
                         submitDisabled={!validName}
+                        errorMessage={errMsg} // e.g. email already used or no server response
                     />
                 </div>
             </div>

@@ -30,10 +30,11 @@ interface SignupFormProps {
   nameError?: string // Error from not satisfying name requirement
   confirmPasswordError?: string // Error from "confirm password" not matching "password" field
   submitDisabled?: boolean // Represents whether the button should be disabled or not
+  errorMessage?: string // Error from submitting (e.g. email already used), shown above the button
 }
 
 // This component represents the design elements of the sign up form. Only does minimal error checking to determine if button should be disabled
-export default function SignupForm({nameError, confirmPasswordError, submitDisabled = false}: SignupFormProps) {
+export default function SignupForm({nameError, confirmPasswordError, submitDisabled = false, errorMessage}: SignupFormProps) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   // The browser's own email check (type="email"), read from the input as the user types.
@@ -128,6 +129,9 @@ export default function SignupForm({nameError, confirmPasswordError, submitDisab
                 )}
               </Field>
               <Field>
+                {errorMessage && (
+                  <p role="alert" className="text-center text-base text-red-600">{errorMessage}</p>
+                )}
                 <Button type="submit" disabled={!canSubmit || submitDisabled} className="h-11 bg-[#1F1666] text-base text-white hover:bg-[#1F1666]/85">Create Account</Button>
                 <FieldDescription className="text-center text-base">
                   Already have an account? <Link to="/login">Sign in</Link>
