@@ -29,15 +29,10 @@ function PreviousRoomScreen({ roomCode, username }: { roomCode: string; username
         return <p className="p-8 text-brand">Loading room…</p>
     }
 
+    // No saved room with this code for this teacher (for example, it was deleted). Send the teacher to a
+    // /dashboard URL that matches no page, so the dashboard's "*" route shows DashboardNotFound inside the menu.
     if (room.status === "missing") {
-        return (
-            <div className="flex flex-col items-start gap-3 p-8 text-brand">
-                <p>This room isn't in your previous activities.</p>
-                <Link to="/dashboard/previous-activities" className="font-semibold underline">
-                    Back to previous activities
-                </Link>
-            </div>
-        )
+        return <Navigate to={`/dashboard/previous-activities/${encodeURIComponent(roomCode)}`} replace />
     }
 
     if (room.status === "error") {
