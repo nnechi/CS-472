@@ -72,6 +72,7 @@ export default function LoginForm({ submitDisabled = false, errorMessage }: Logi
               <Field>
                 <div className="flex items-center">
                   <FieldLabel htmlFor="password" className="text-base text-[#1F1666]">Password</FieldLabel>
+                  {/* NOTE: THIS FORGOT YOUR PASSWORD LINK DOES NOTHING CURRENTLY. Just there for decoration */}
                   <a
                     href="#"
                     className="ml-auto text-base underline-offset-4 hover:underline"
