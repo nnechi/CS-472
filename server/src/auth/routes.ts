@@ -1,10 +1,17 @@
 // Google sign in redirect routes
 
 import { randomBytes } from "node:crypto";
-import { Router, type NextFunction, type Request, type Response } from "express";
+import express, { Router, type NextFunction, type Request, type Response } from "express";
 import { OAuth2Client } from "google-auth-library";
 import { authConfig } from "./config";
-import { findOrCreateUserFromGoogle } from "./users"; 
+import {
+    createPasswordUser,
+    findOrCreateUserFromGoogle,
+    findUserWithPasswordByEmail,
+    type AppUser,
+} from "./users";
+import { DUMMY_HASH_PROMISE, hashPassword, verifyPassword } from "./passwords";
+import type { SessionUser } from "./session";
 
 const googleClient = new OAuth2Client ({
     clientId: authConfig.googleClientId,
@@ -128,6 +135,97 @@ authRouter.get(
         res.status(400).send("Login failed. Please try signing in again.");
     }
 
+    }),
+);
+
+// ---- Email/password sign up and log in ----
+
+// Same rules as the sign-up page (client/src/pages/SignUp.tsx). The browser
+// checks these too, but anyone can skip the browser, so the server checks again.
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,24}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_NAME_LENGTH = 100;
+
+// These routes are mounted before the app-wide express.json(), so they parse JSON themselves.
+const jsonBody = express.json({ limit: "10kb" });
+
+function asString(value: unknown): string {
+    return typeof value === "string" ? value : "";
+}
+
+// Turn our user into what we keep in the session (same shape the Google login uses).
+function toSessionUser(user: AppUser): SessionUser {
+    return { id: user.id, email: user.email, name: user.name, picture: user.pictureUrl };
+}
+
+// Log someone in: brand new session id (stops session fixation), then save.
+async function startSession(req: Request, user: AppUser): Promise<SessionUser> {
+    const sessionUser = toSessionUser(user);
+    await regenerateSession(req);
+    req.session.user = sessionUser;
+    await saveSession(req);
+    return sessionUser;
+}
+
+// Body: { user: string (their name), email: string, password: string }
+authRouter.post(
+    "/api/auth/signup",
+    jsonBody,
+    handle(async (req, res) => {
+        const name = asString(req.body?.user).trim();
+        const email = asString(req.body?.email).trim();
+        const password = asString(req.body?.password);
+
+        if (!name || name.length > MAX_NAME_LENGTH) {
+            res.status(400).json({ message: "Please enter your name." });
+            return;
+        }
+        if (!EMAIL_REGEX.test(email)) {
+            res.status(400).json({ message: "Please enter a valid email address." });
+            return;
+        }
+        if (!PASSWORD_REGEX.test(password)) {
+            res.status(400).json({
+                message: "Password must be 8-24 characters with an uppercase letter, a lowercase letter, and a number.",
+            });
+            return;
+        }
+
+        const user = await createPasswordUser({ email, name, passwordHash: await hashPassword(password) });
+        if (!user) {
+            res.status(409).json({ message: "An account with this email already exists." });
+            return;
+        }
+
+        res.status(201).json({ user: await startSession(req, user) });
+    }),
+);
+
+// Body: { email: string, password: string }
+authRouter.post(
+    "/api/auth/login",
+    jsonBody,
+    handle(async (req, res) => {
+        const email = asString(req.body?.email).trim();
+        const password = asString(req.body?.password);
+
+        if (!email || !password) {
+            res.status(400).json({ message: "Please enter both your email and password." });
+            return;
+        }
+
+        const found = await findUserWithPasswordByEmail(email);
+        // Always run a hash check, even with no user or a Google-only user,
+        // so the response time doesn't reveal which emails have accounts.
+        const ok = await verifyPassword(password, found?.passwordHash ?? (await DUMMY_HASH_PROMISE));
+
+        if (!found || !found.passwordHash || !ok) {
+            // One message for every failure, so it doesn't reveal which emails exist.
+            res.status(401).json({ message: "Invalid email or password." });
+            return;
+        }
+
+        res.status(200).json({ user: await startSession(req, found.user) });
     }),
 );
 
