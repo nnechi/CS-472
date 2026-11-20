@@ -43,7 +43,7 @@ export default function TeacherDashboard() {
         if (activities.length === 0) {
             return (
                 <p className="px-3 py-2 text-gray-600">
-                    You haven't made any activities yet. <Link to="/dashboard/activities" className="underline">Create an activity</Link>
+                    You haven't made any activities yet. <Link to="/create-activity" className="underline">Create an activity</Link>
                 </p>
             )
         }
