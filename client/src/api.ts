@@ -1,4 +1,4 @@
-import type { ActiveRoomSummary, ActivitySummary, ActivityType, ParsonsSettings, PastRoomDetail, PastRoomSummary, ProgrammingLanguage } from "./types"
+import type { ActiveRoomSummary, ActivitySummary, ActivityType, ParsonsSettings, PastRoomDetail, PastRoomSummary, ProgrammingLanguage, RoomStatSummary } from "./types"
 
 export const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
@@ -125,6 +125,16 @@ export async function listPastRooms() : Promise<PastRoomSummary[]> {
 
     if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not load your previous activities."));
+    return res.json();
+}
+
+// The dashboard's room stats: every room this teacher ended, newest first. Unlike listPastRooms,
+// deleting a previous activity does not remove a room from these. Throws with the server's reason if it fails.
+export async function listRoomStats() : Promise<RoomStatSummary[]> {
+    const res = await fetch(`${SERVER_URL}/api/room-stats`, { credentials: "include" })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not load your room stats."));
     return res.json();
 }
 

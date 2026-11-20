@@ -9,6 +9,7 @@ import { Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
 import StudentHeader from "../../components/chat/StudentHeader"
 import CodeEditor from "../../components/activity/CodeEditor"
+import PupAvatar, { PUPS } from "../../components/chat/PupAvatar" 
 
 // /rooms/join/:roomCode -- the student's view of a room: the activity, the chat,
 // and the raise-hand button. Students have no account; the name comes from the
@@ -107,23 +108,30 @@ function StudentRoomScreen({ session, waiting }: { session: Session; waiting: bo
     // Joined before the teacher opened the room: hold here until "room opened".
     if (room.waiting) {
         return (
-            <RoomCard>
-                <div
-                    className="h-10 w-10 animate-spin rounded-full border-4 border-brand/20 border-t-brand"
-                    aria-hidden="true"
-                />
-                <h1 className="text-2xl font-bold">Waiting for your teacher…</h1>
-                <p className="text-brand/70">You'll join automatically when the room opens.</p>
-                <p className="text-sm text-brand/70">Room code</p>
-                <p className="-mt-3 text-2xl font-bold tracking-widest">{session.room}</p>
-                <button
-                    type="button"
-                    className="mt-2 rounded-lg border border-brand/30 px-4 py-2 text-brand cursor-pointer hover:bg-brand-light"
-                    onClick={() => navigate("/")}
-                >
-                    Leave
-                </button>
-            </RoomCard>
+            <div className="flex h-screen items-center justify-center bg-white px-4">
+                <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border border-brand bg-white p-9 text-center text-brand shadow-[0_4px_14px_rgba(34,21,116,0.15)]">
+                    <div
+                        className="h-10 w-10 animate-spin rounded-full border-4 border-brand/20 border-t-brand"
+                        aria-hidden="true"
+                    />
+                    <h1 className="text-2xl font-bold">Waiting for your teacher…</h1>
+                    <p className="text-brand/70">You'll join automatically when the room opens.</p>
+                    {/* the pup they picked on the Join a Room page. It can't be changed here. */}
+                    <div className="flex items-center gap-3 rounded-xl bg-brand-light/30 px-4 py-3">
+                        <PupAvatar pup={room.pup} size={48} />
+                        <span className="font-bold">{session.username} as a {PUPS[room.pup].label}</span>
+                    </div>
+                    <p className="text-sm text-brand/70">Room code</p>
+                    <p className="-mt-3 text-2xl font-bold tracking-widest">{session.room}</p>
+                    <button
+                        type="button"
+                        className="mt-2 rounded-lg border border-brand/30 px-4 py-2 text-brand cursor-pointer hover:bg-brand-light"
+                        onClick={() => navigate("/")}
+                    >
+                        Leave
+                    </button>
+                </div>
+            </div>
         )
     }
 

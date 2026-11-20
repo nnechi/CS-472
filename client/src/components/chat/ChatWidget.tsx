@@ -2,7 +2,7 @@ import type { RoomView } from "../../hooks/roomView";
 import { GROUP_CHAT_ID, PrivateChat } from "../../types";
 import { useState } from "react";
 import ChatPanel from "./ChatPanel";
-import PupAvatar, { PUPS, PupPicker } from "./PupAvatar";
+import PupAvatar, { PUPS } from "./PupAvatar"; // ★ changed: PupPicker removed, the pup is picked on the Join a Room page
 
 interface ChatWidgetProps {
   room: RoomView;
@@ -21,6 +21,7 @@ export default function ChatWidget({ room, username, privateLabel }: ChatWidgetP
   const unreadTotal = Object.entries(room.unread).reduce((sum, [id, n]) => (shownChats.has(id) ? sum + n : sum), 0);
   // Students can open "Choose your pup" from the bar under the header.
   const [pickingPup, setPickingPup] = useState(false);
+  // const unreadTotal = Object.values(room.unread).reduce((sum, n) => sum + n, 0);
   const isTeacher = room.role === "teacher";
 
   if (!room.chatOpen) {
@@ -85,33 +86,16 @@ export default function ChatWidget({ room, username, privateLabel }: ChatWidgetP
         </button>
       </header>
 
-      {/* Students: their name and pup. Clicking it opens "Choose your pup". */}
+      {/* Students: their name and pup. */}
+      {/* ★ changed: was a button that opened "Choose your pup". Now it only shows
+          the pup, which stays the same for the whole session. */}
       {room.role === "student" && (
         <div className="flex items-center justify-between gap-2 border-b border-brand-light bg-brand-light/30 px-4 py-2">
-          <button
-            type="button"
-            className="flex cursor-pointer items-center gap-2 rounded-full border border-brand bg-white py-1 pr-3 pl-1 text-xs font-semibold text-brand hover:bg-brand-light/30"
-            onClick={() => setPickingPup(true)}
-          >
+          <span className="flex items-center gap-2 rounded-full border border-brand bg-white py-1 pr-3 pl-1 text-xs font-semibold text-brand">
             <PupAvatar pup={room.pup} size={28} />
             You: {username} · {PUPS[room.pup].label}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M21.2 6.8a2 2 0 0 0-4-4L3.8 16.2l-1.3 4.3a.5.5 0 0 0 .6.6l4.3-1.3z" />
-            </svg>
-          </button>
+          </span>
         </div>
-      )}
-
-      {pickingPup && (
-        <PupPicker
-          name={username}
-          current={room.pup}
-          onClose={() => setPickingPup(false)}
-          onSave={(next) => {
-            room.setPup(next);
-            setPickingPup(false);
-          }}
-        />
       )}
 
       <ChatPanel room={room} username={username} privateLabel={privateLabel} />

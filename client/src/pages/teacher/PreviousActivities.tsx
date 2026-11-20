@@ -196,7 +196,7 @@ export default function PreviousActivities() {
                         <span aria-hidden="true">{sortOpen ? "▴" : "▾"}</span>
                     </button>
                     {sortOpen && (
-                        <ul role="listbox" aria-labelledby="room-sort" className="absolute left-0 top-full z-20 mt-2 flex w-56 flex-col rounded-lg border border-brand bg-white p-2 shadow-md">
+                        <ul role="listbox" aria-labelledby="room-sort" className="absolute left-0 top-full z-20 mt-2 flex w-56 flex-col rounded-lg border-2 border-brand bg-white p-2 shadow-md">
                             {(Object.keys(SORT_LABELS) as SortOrder[]).map((order) => (
                                 <li
                                     key={order}
