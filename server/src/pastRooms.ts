@@ -71,3 +71,12 @@ export async function pastRoomForHost(code: string, hostID: string): Promise<Pas
     messages: Array.isArray(room.messages) ? (room.messages as ChatMessage[]) : [],
   };
 }
+
+// Deletes one saved room of this teacher. Returns false if the code isn't one of theirs.
+export async function deletePastRoomForHost(code: string, hostID: string): Promise<boolean> {
+  const c = String(code || "").trim().toUpperCase();
+  if (!c) return false;
+
+  const result = await PastRoom.deleteOne({ code: c, hostID });
+  return result.deletedCount === 1;
+}

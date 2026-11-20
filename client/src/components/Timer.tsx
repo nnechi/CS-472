@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useId, useRef, useState } from "react"
-import { Play, Pause, RotateCcw } from "lucide-react"
+import { Play, Pause, RotateCcw, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -30,6 +30,9 @@ interface TimerProps {
   onPause: () => void
   onRestart: () => void
   onSetMinutes: (minutes: number) => void
+  // Whether students can see the timer, and the teacher's switch for it.
+  visibleToStudents: boolean
+  onSetVisibleToStudents: (visible: boolean) => void
 }
 
 // Teachers can pick whole minutes from 1 to 60.
@@ -56,6 +59,8 @@ export default function Timer({
   onPause,
   onRestart,
   onSetMinutes,
+  visibleToStudents,
+  onSetVisibleToStudents,
 }: TimerProps) {
   const [remaining, setRemaining] = useState(remainingMs)
   // What the teacher is typing. Follows the server's length unless they are editing.
@@ -168,7 +173,7 @@ export default function Timer({
                     type="button"
                     size="icon"
                     aria-label={playPauseLabel}
-                    className="size-11 shrink-0 rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    className="size-11 shrink-0 cursor-pointer rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                     onClick={running ? onPause : onPlay}
                   >
                     {running ? <Pause /> : <Play />}
@@ -192,7 +197,7 @@ export default function Timer({
               aria-describedby={triggerDescriptionId}
               aria-live="off"
               className={cn(
-                "rounded-md px-1.5 font-mono text-2xl font-bold tabular-nums outline-none transition-colors hover:bg-brand/5 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-default disabled:hover:bg-transparent sm:text-3xl",
+                "cursor-pointer rounded-md px-1.5 font-mono text-2xl font-bold tabular-nums outline-none transition-colors hover:bg-brand/5 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-default disabled:hover:bg-transparent sm:text-3xl",
                 expired ? "text-red-600" : "text-brand"
               )}
             >
@@ -230,7 +235,7 @@ export default function Timer({
                 <Button
                   type="submit"
                   disabled={!validMinutes}
-                  className="w-full bg-brand text-white hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                  className="w-full bg-brand text-white enabled:cursor-pointer hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                 >
                   Set
                 </Button>
@@ -258,7 +263,7 @@ export default function Timer({
                     type="button"
                     size="icon"
                     aria-label="Restart timer"
-                    className="size-11 shrink-0 rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    className="size-11 shrink-0 cursor-pointer rounded-full bg-brand text-white shadow-sm hover:bg-brand/90 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                     onClick={onRestart}
                   >
                     <RotateCcw />
@@ -266,6 +271,35 @@ export default function Timer({
                 }
               />
               <TooltipContent>Restart</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {isTeacher && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    size="icon"
+                    aria-label={visibleToStudents ? "Hide timer from students" : "Show timer to students"}
+                    aria-pressed={visibleToStudents}
+                    className={cn(
+                      "size-11 shrink-0 cursor-pointer rounded-full shadow-sm focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+                      visibleToStudents
+                        ? "bg-brand text-white hover:bg-brand/90"
+                        : "border border-brand/40 bg-white text-brand hover:bg-brand/10"
+                    )}
+                    onClick={() => onSetVisibleToStudents(!visibleToStudents)}
+                  >
+                    {visibleToStudents ? <Eye /> : <EyeOff />}
+                  </Button>
+                }
+              />
+              <TooltipContent>
+                {visibleToStudents ? "Students can see the timer" : "Hidden from students"}
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         )}

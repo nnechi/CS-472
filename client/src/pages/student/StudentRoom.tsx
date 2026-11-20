@@ -66,7 +66,7 @@ function StudentRoomScreen({ session, waiting }: { session: Session; waiting: bo
     }
 
     return (
-        <div className="flex h-screen flex-col bg-white text-black">
+        <div className="flex min-h-screen flex-col bg-white text-black">
             {/* Leaving unmounts the chat, which disconnects the socket and
                 drops the student from the teacher's hand queue. The student
                 room has no site-wide navbar — this header is the top of the page. */}

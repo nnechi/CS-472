@@ -36,16 +36,21 @@ export default function StudentHeader({ session, room, onLeave } : StudentHeader
                 </div>
 
                 <div className="flex items-center justify-center">
-                    <Timer
-                        durationMs={room.timer.durationMs}
-                        remainingMs={room.timer.remainingMs}
-                        running={room.timer.running}
-                        isTeacher={false}
-                        onPlay={() => {}}
-                        onPause={() => {}}
-                        onRestart={() => {}}
-                        onSetMinutes={() => {}}
-                    />
+                    {/* The teacher can hide the timer; then students see nothing here. */}
+                    {room.timer.visibleToStudents && (
+                        <Timer
+                            durationMs={room.timer.durationMs}
+                            remainingMs={room.timer.remainingMs}
+                            running={room.timer.running}
+                            isTeacher={false}
+                            onPlay={() => {}}
+                            onPause={() => {}}
+                            onRestart={() => {}}
+                            onSetMinutes={() => {}}
+                            visibleToStudents={true}
+                            onSetVisibleToStudents={() => {}}
+                        />
+                    )}
                 </div>
 
                 <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">

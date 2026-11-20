@@ -86,10 +86,10 @@ export default function DashboardLayout() {
                             <span className={labelClass}>Notes</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Notes</span>
                         </NavLink>
-                        <NavLink to="/dashboard/previous-activities" aria-label="Previous activities" className={linkClass}>
+                        <NavLink to="/dashboard/previous-activities" aria-label="Previous Activities" className={linkClass}>
                             <HistoryIcon/>
-                            <span className={labelClass}>Previous activities</span>
-                            <span className={tooltipClass(menuOpen)} aria-hidden="true">Previous activities</span>
+                            <span className={labelClass}>Previous Activities</span>
+                            <span className={tooltipClass(menuOpen)} aria-hidden="true">Previous Activities</span>
                         </NavLink>
                         <NavLink to="/dashboard/settings" aria-label="Settings" className={linkClass}>
                             <SettingsIcon/>

@@ -55,45 +55,47 @@ export interface ActivityInput {
     questions : ActivityQuestionInput[];
 }
 
-// Saves a new activity for a teacher. Throws with the server's reason if it fails.
-export async function createActivity(teacherId : string, activity : ActivityInput) : Promise<ActivitySummary> {
+// Saves a new activity for the signed-in teacher. Throws with the server's reason if it fails.
+export async function createActivity(activity : ActivityInput) : Promise<ActivitySummary> {
     const res = await fetch(`${SERVER_URL}/api/activities`, {
-        method: "POST",
+        method: "POST", credentials: "include",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({teacherId, ...activity})
+        body: JSON.stringify(activity)
     })
 
+    if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not save the activity."));
     return res.json();
 }
 
-// The activities a teacher made, A to Z. Throws with the server's reason if it fails.
-export async function listActivities(teacherId : string) : Promise<ActivitySummary[]> {
-    const res = await fetch(`${SERVER_URL}/api/activities?teacherId=${encodeURIComponent(teacherId)}`)
+// The activities the signed-in teacher made, A to Z. Throws with the server's reason if it fails.
+export async function listActivities() : Promise<ActivitySummary[]> {
+    const res = await fetch(`${SERVER_URL}/api/activities`, { credentials: "include" })
 
+    if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not load your activities."));
     return res.json();
 }
 
-// Deletes one of a teacher's activities. Throws with the server's reason if it fails.
-export async function deleteActivity(activityId : string, teacherId : string) : Promise<void> {
+// Deletes one of the signed-in teacher's activities. Throws with the server's reason if it fails.
+export async function deleteActivity(activityId : string) : Promise<void> {
     const res = await fetch(`${SERVER_URL}/api/activities/${encodeURIComponent(activityId)}`, {
-        method: "DELETE",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({teacherId})
+        method: "DELETE", credentials: "include"
     })
 
+    if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not delete the activity."));
 }
 
 // Sets the activity a room uses. Throws with the server's reason if it fails.
-export async function saveActivity(roomCode : string, hostID : string, activityId : string) : Promise<void> {
+export async function saveActivity(roomCode : string, activityId : string) : Promise<void> {
     const res = await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent(roomCode)}/activity`, {
-        method: "PUT",
+        method: "PUT", credentials: "include",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({hostID, activityId})
+        body: JSON.stringify({activityId})
     })
 
+    if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not save the activity."));
 }
 
@@ -124,7 +126,15 @@ export async function getPastRoom(roomCode : string) : Promise<PastRoomDetail> {
     return res.json();
 }
 
-// determines whether the roomstatus is allowing students to join. 
+// Deletes one ended room this teacher ran. Throws with the server's reason if it fails.
+export async function deletePastRoom(roomCode : string) : Promise<void> {
+    const res = await fetch(`${SERVER_URL}/api/past-rooms/${encodeURIComponent(roomCode)}`, { method: "DELETE", credentials: "include" })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not delete that room."));
+}
+
+// determines whether the roomstatus is allowing students to join.
 export type RoomStatus = "ok" | "not-found" | "not-open";
 
 export async function getRoomStatus(roomCode : string) : Promise<RoomStatus> {
@@ -137,11 +147,12 @@ export async function getRoomStatus(roomCode : string) : Promise<RoomStatus> {
 }
 
 // mark the room open for students to join
-export async function markRoomOpen(roomCode : string, hostID : string, activityId : string) : Promise<void>{ 
+export async function markRoomOpen(roomCode : string, activityId : string) : Promise<void>{ 
      const res = await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent(roomCode)}/open`, { 
-        method: "PUT", 
+        method: "PUT", credentials: "include",
         headers: {"Content-Type":"application/json"},
-        body : JSON.stringify({hostID, activityId}), 
+        body : JSON.stringify({activityId}), 
     })
+    if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not open room.")); 
 }
