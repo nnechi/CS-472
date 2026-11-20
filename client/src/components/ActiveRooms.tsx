@@ -89,9 +89,12 @@ export default function ActiveRooms() {
     if (rooms.length === 0 && !error) return null
 
     return (
+        <>
+        {/* The divider is part of this component so it only shows when there are rooms in progress. */}
+        <div className="h-1 w-full rounded-full bg-brand" aria-hidden="true" />
         <section aria-labelledby="active-rooms-heading" className="flex flex-col gap-3">
             <h2 id="active-rooms-heading" className="flex items-center gap-2 text-2xl font-bold">
-                <Radio className="size-6 text-accent" aria-hidden="true" />
+                <Radio className="size-6 text-[#5a52a6]" aria-hidden="true" />
                 Rooms in progress
             </h2>
             {error && <p role="alert" className="rounded-md bg-warn px-3 py-2 text-brand">{error}</p>}
@@ -159,5 +162,6 @@ export default function ActiveRooms() {
                 })}
             </ul>
         </section>
+        </>
     )
 }

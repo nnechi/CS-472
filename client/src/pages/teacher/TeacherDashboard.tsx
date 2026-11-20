@@ -84,7 +84,6 @@ export default function TeacherDashboard() {
             <div className="flex items-start justify-between gap-6">
                 <div className="min-w-0 flex-1">
                     <h1 className="text-4xl font-bold">Welcome back{firstName ? `, ${firstName}` : ""}!</h1>
-                    <p className="mt-2 text-lg text-[#5a52a6]">Here's your current overview and work history.</p>
                 </div>
                 {/* The menu opens to the left so it stays on screen at the right edge. */}
                 <div className="relative shrink-0">
@@ -104,12 +103,13 @@ export default function TeacherDashboard() {
                     )}
                 </div>
             </div>
-            {/* Spans the full width of the header, under the subtitle and the Start a room button. */}
-            <div className="h-1 w-full rounded-full bg-brand" aria-hidden="true" />
-            </div>
-
+            {/* -mt-2 pulls it up so it sits 8px under the heading, like before (the container's gap is 16px). */}
+            <p className="-mt-2 text-lg text-[#5a52a6]">Here's your current overview and work history.</p>
             {/* Rooms still running (e.g. after closing their tab), to rejoin or end. */}
             <ActiveRooms />
+            {/* Spans the full width of the header, under the active rooms. */}
+            <div className="h-1 w-full rounded-full bg-brand" aria-hidden="true" />
+            </div>
 
             {statsError && <p role="alert" className="rounded-md bg-warn px-3 py-2 text-brand">{statsError}</p>}
             {!statsError && pastRooms === null && <p className="text-gray-600">Loading your room stats...</p>}
