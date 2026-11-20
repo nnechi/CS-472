@@ -17,8 +17,12 @@ const DISTRACTOR_SUFFIX = /#distractor\s*$/;
 const DISTRACTOR_TAG = "#distractor";
 
 // Trims both ends and drops the distractor tag, as ParsonsCodeline does.
+// Everything else is kept exactly as typed. ParsonsCodeline also turns a "\n"
+// written inside a line into a real line break (its way of joining lines into
+// one block), but here teachers paste real code, where "\n" is an escape in a
+// string such as cout << "Done\n"; and must reach students unchanged.
 function codeOf(text: string): string {
-  return text.replace(DISTRACTOR_SUFFIX, "").replace(/^\s*(.*?)\s*$/, "$1").replace(/\\n/g, "\n");
+  return text.replace(DISTRACTOR_SUFFIX, "").replace(/^\s*(.*?)\s*$/, "$1");
 }
 
 // Number of leading whitespace characters. Tabs and spaces both count as one.
