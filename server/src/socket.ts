@@ -132,8 +132,20 @@ export function closeRoom(io : AppServer, room : string, reason: RoomClosedReaso
   io.to([room, lobbyChannel(room)]).emit("room closed", reason);
   io.in([room, lobbyChannel(room)]).disconnectSockets();
 
-  // Rooms that were only created and discarded (never opened by a teacher) aren't saved.
+  // Rooms that were only created and discarded (never opened by a teacher) aren't
+  // saved, so their group chat is deleted instead of being kept forever.
+  // (snapshot is only set on the first call, so a repeat call deletes nothing.)
   if (snapshot?.opened) void archiveRoom(snapshot);
+  else if (snapshot) void deleteRoomMessages(room);
+}
+
+// Deletes a room's group chat. Used for rooms that end without being saved.
+async function deleteRoomMessages(room: string): Promise<void> {
+  try {
+    await Message.deleteMany({ room });
+  } catch (err) {
+    console.error("[socket] failed to delete chat of unsaved room:", err);
+  }
 }
 
 // The teacher left an opened room and hasn't come back for TEACHER_GONE_CLOSE_MS:
@@ -395,9 +407,12 @@ async function archiveRoom(snapshot: RoomSnapshot): Promise<void> {
     const loaded = await loadActivity(snapshot.activityId);
 
     let messages: ChatMessage[] = [];
+    // The ids of the group messages copied into the saved room, deleted once it's saved.
+    let archivedIds: unknown[] = [];
     try {
       const saved = await Message.find({ room: snapshot.code }).sort({ createdAt: 1 }).lean();
       messages = saved.map(toChatMessage);
+      archivedIds = saved.map((m) => m._id);
     } catch (err) {
       console.error("[socket] failed to load group chat for archive:", err);
     }
@@ -425,6 +440,16 @@ async function archiveRoom(snapshot: RoomSnapshot): Promise<void> {
     fitArchive(doc);
     await PastRoom.create(doc);
     console.log(`[room] ${snapshot.code} saved to previous activities`);
+
+    // The chat now lives in the saved room, so delete the originals: exactly the
+    // ones copied above. If the save had failed, we'd never get here, so nothing is lost.
+    if (archivedIds.length > 0) {
+      try {
+        await Message.deleteMany({ _id: { $in: archivedIds } });
+      } catch (err) {
+        console.error("[socket] failed to delete archived chat messages:", err);
+      }
+    }
   } catch (err) {
     console.error("[socket] failed to save ended room:", err);
   }
