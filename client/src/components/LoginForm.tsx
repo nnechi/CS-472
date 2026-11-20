@@ -20,9 +20,10 @@ import { Input } from "@/components/ui/input"
 
 interface LoginFormProps {
   submitDisabled?: boolean // Whether the Login button should be disabled
+  errorMessage?: string // Error from logging in (e.g. wrong password), shown above the button
 }
 
-export default function LoginForm({ submitDisabled = false }: LoginFormProps){
+export default function LoginForm({ submitDisabled = false, errorMessage }: LoginFormProps){
   return (
     <div className={cn("flex flex-col gap-6")}>
       <Card className="gap-4 text-base [--card-spacing:--spacing(8)]">
@@ -81,6 +82,9 @@ export default function LoginForm({ submitDisabled = false }: LoginFormProps){
                 <Input id="password" type="password" required className="h-11 border-[#5A52A6] px-3 text-base md:text-base" />
               </Field>
               <Field>
+                {errorMessage && (
+                  <p role="alert" className="text-center text-base text-red-600">{errorMessage}</p>
+                )}
                 <Button type="submit" disabled={submitDisabled} className="h-11 bg-[#1F1666] text-base text-white hover:bg-[#1F1666]/85">Login</Button>
                 <FieldDescription className="text-center text-base">
                   Don&apos;t have an account? <Link to="/signup">Sign up</Link>
