@@ -15,6 +15,7 @@ const userSchema = new Schema(
     // select: false keeps it out of normal queries; ask for it with .select("+passwordHash").
     passwordHash: { type: String, select: false },
 
+    authVersion: { type: Number, default: 0 },
     name: { type: String, default: null },
     pictureUrl: { type: String, default: null },
   },

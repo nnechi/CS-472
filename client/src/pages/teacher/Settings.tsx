@@ -1,5 +1,7 @@
-import { useId, useRef, useState, type FormEvent } from "react"
+import { useEffect, useId, useRef, useState, type FormEvent } from "react"
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { SERVER_URL } from "../../api"
 import useAuth from "../../hooks/useAuth"
 
 const inputClass = "w-full rounded-lg border border-brand/25 bg-white px-3 py-2.5 text-base text-brand outline-none placeholder:text-gray-400 focus:border-brand focus:ring-2 focus:ring-brand/15"
@@ -26,8 +28,8 @@ function PasswordField({ label, name, newPassword = false }: {
                     required
                     minLength={newPassword ? 8 : undefined}
                     maxLength={newPassword ? 24 : undefined}
-                    pattern={newPassword ? "(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%]).{8,24}" : undefined}
-                    title={newPassword ? "Use 8–24 characters with uppercase and lowercase letters, a number, and one of ! @ # $ %." : undefined}
+                    pattern={newPassword ? "(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,24}" : undefined}
+                    title={newPassword ? "Use 8-24 characters, at least 1 uppercase letter, at least 1 lowercase letter, and at least 1 number." : undefined}
                     aria-describedby={newPassword ? `${id}-help` : undefined}
                     className={`${inputClass} pr-12`}
                 />
@@ -41,14 +43,38 @@ function PasswordField({ label, name, newPassword = false }: {
                     {visible ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
             </div>
-            {newPassword && <p id={`${id}-help`} className="text-sm text-brand/65">Use 8–24 characters with uppercase and lowercase letters, a number, and one of ! @ # $ %.</p>}
+            {newPassword && <p id={`${id}-help`} className="text-sm text-brand/65">Use 8-24 characters, at least 1 uppercase letter, at least 1 lowercase letter, and at least 1 number.</p>}
         </div>
     )
 }
 
-// UI preview; connect these forms when email/password authentication lands.
+// Account settings use the signed-in session; no user id is sent by the browser.
 export default function Settings() {
-    const { auth } = useAuth()
+    const { auth, setAuth } = useAuth()
+    const navigate = useNavigate()
+    const [passwordAccount, setPasswordAccount] = useState<boolean | null>(null)
+    const [accountError, setAccountError] = useState("")
+    const [busy, setBusy] = useState(false)
+    useEffect(() => {
+        let cancelled = false
+        fetch(`${SERVER_URL}/api/account`, { credentials: "include" })
+            .then(async response => {
+                if (!response.ok) throw new Error("Could not load account settings. Please refresh or sign in again.")
+                const data = await response.json()
+                if (!cancelled) setPasswordAccount(data.passwordAccount)
+            }).catch(error => { if (!cancelled) setAccountError(error.message) })
+        return () => { cancelled = true }
+    }, [])
+
+    async function updateAccount(action: string, body: object) {
+        const response = await fetch(`${SERVER_URL}/api/account/${action}`, {
+            method: "POST", credentials: "include",
+            headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        })
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || "Could not update your account.")
+        return data
+    }
     const [emailNotice, setEmailNotice] = useState("")
     const [passwordNotice, setPasswordNotice] = useState("")
     const [passwordError, setPasswordError] = useState("")
@@ -57,18 +83,28 @@ export default function Settings() {
     const emailId = useId()
     const passwordErrorId = useId()
 
-    function previewEmailChange(event: FormEvent<HTMLFormElement>) {
+    async function changeEmail(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
-        const email = event.currentTarget.elements.namedItem("email") as HTMLInputElement
+        const form = event.currentTarget
+        if (busy) return
+        const email = form.elements.namedItem("email") as HTMLInputElement
         if (email.value.trim().toLowerCase() === auth?.user.email.toLowerCase()) {
             email.setCustomValidity("Enter a different email address.")
             email.reportValidity()
             return
         }
-        setEmailNotice("Email changes are coming soon. Your email has not been changed.")
+        setBusy(true)
+        try {
+            const password = form.elements.namedItem("emailPassword") as HTMLInputElement
+            const data = await updateAccount("email", { email: email.value, currentPassword: password.value })
+            setAuth(previous => previous ? { user: { ...previous.user, email: data.user.email } } : previous)
+            form.reset()
+            setEmailNotice(data.message)
+        } catch (error) { setEmailNotice(error instanceof Error ? error.message : "Could not update email.") }
+        finally { setBusy(false) }
     }
 
-    function previewPasswordChange(event: FormEvent<HTMLFormElement>) {
+    async function changePassword(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         const form = event.currentTarget
         const current = form.elements.namedItem("currentPassword") as HTMLInputElement
@@ -84,8 +120,14 @@ export default function Settings() {
             next.focus()
             return
         }
-        form.reset()
-        setPasswordNotice("Password changes are coming soon. Your password has not been changed.")
+        if (busy) return
+        setBusy(true)
+        try {
+            const data = await updateAccount("password", { currentPassword: current.value, newPassword: next.value })
+            form.reset()
+            setPasswordNotice(data.message)
+        } catch (error) { setPasswordError(error instanceof Error ? error.message : "Could not update password.") }
+        finally { setBusy(false) }
     }
 
     return (
@@ -95,9 +137,10 @@ export default function Settings() {
                 <p className="mt-2 text-brand/65">Manage your account email and password.</p>
             </div>
             <p className="rounded-lg border border-brand/15 bg-brand-light/25 px-4 py-3 text-sm">
-                Email and password changes are coming soon. You can preview the forms below; changes will not be saved.
+                {accountError || (passwordAccount === null ? "Loading account settings..." : passwordAccount ? "Confirm your current password to change your credentials. Other sessions will be signed out." : "You sign in with Google. Manage your email and password in your Google account.")}
             </p>
 
+            <fieldset disabled={busy || passwordAccount !== true} className="flex min-w-0 flex-col gap-6 disabled:opacity-60">
             <section aria-labelledby="email-heading" className="rounded-xl border border-brand/20 bg-white p-5 sm:p-6">
                 <div className="mb-6 flex items-start gap-3">
                     <Mail className="mt-1 shrink-0" size={22} aria-hidden="true" />
@@ -108,9 +151,11 @@ export default function Settings() {
                         </p>
                     </div>
                 </div>
-                <form onSubmit={previewEmailChange} onChange={() => setEmailNotice("")} onReset={(event) => {
+                <form onSubmit={changeEmail} onChange={() => setEmailNotice("")} onReset={(event) => {
                     setEmailNotice("")
-                    const email = event.currentTarget.elements.namedItem("email") as HTMLInputElement
+                    const form = event.currentTarget
+        if (busy) return
+        const email = form.elements.namedItem("email") as HTMLInputElement
                     email.setCustomValidity("")
                 }} className="flex flex-col gap-5">
                     <div className="flex flex-col gap-2">
@@ -135,7 +180,7 @@ export default function Settings() {
                     </div>
                 </div>
                 <form
-                    onSubmit={previewPasswordChange}
+                    onSubmit={changePassword}
                     onChange={() => { setPasswordError(""); setPasswordNotice("") }}
                     onReset={() => { setPasswordError(""); setPasswordNotice("") }}
                     aria-describedby={passwordError ? passwordErrorId : undefined}
@@ -153,6 +198,7 @@ export default function Settings() {
                 </form>
             </section>
 
+            </fieldset>
             <section aria-labelledby="delete-heading" className="rounded-xl border border-red-200 bg-white p-5 sm:p-6">
                 <h2 id="delete-heading" className="text-2xl font-bold text-red-700">Delete account</h2>
                 <p className="mt-2 text-sm text-brand/65">Permanently delete your LittlePointers account.</p>
@@ -174,17 +220,33 @@ export default function Settings() {
             >
                 <h2 id="delete-dialog-heading" className="text-2xl font-bold">Are you sure?</h2>
                 <p id="delete-dialog-description" className="mt-3 text-brand/75">
-                    Deleting your account is permanent. This is a preview, so your account will not be deleted yet.
+                    Deleting your account is permanent. You will lose access to your account.
                 </p>
-                <form method="dialog" className="mt-6 flex flex-wrap justify-end gap-3">
-                    <button type="submit" autoFocus className={cancelClass}>Cancel</button>
+                <form onSubmit={async event => {
+                    event.preventDefault()
+                    if (busy) return
+                    const form = event.currentTarget
+                    const password = form.elements.namedItem("deletePassword") as HTMLInputElement | null
+                    setBusy(true)
+                    setDeleteNotice("")
+                    try {
+                        await updateAccount("delete", { confirm: true, currentPassword: password?.value })
+                        setAuth(null)
+                        navigate("/", { replace: true })
+                    } catch (error) { setDeleteNotice(error instanceof Error ? error.message : "Could not delete account.") }
+                    finally { setBusy(false) }
+                }} className="mt-6 flex flex-col gap-4">
+                    {passwordAccount && <PasswordField label="Current password" name="deletePassword" />}
+                    {deleteNotice && <p role="alert" className="text-sm text-red-700">{deleteNotice}</p>}
+                    <fieldset disabled={busy || passwordAccount === null} className="flex flex-wrap justify-end gap-3 disabled:opacity-60">
+                    <button type="button" autoFocus onClick={() => deleteDialog.current?.close()} className={cancelClass}>Cancel</button>
                     <button
                         type="submit"
                         className="rounded-lg bg-red-700 px-4 py-2.5 font-medium text-white cursor-pointer hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
-                        onClick={() => setDeleteNotice("Account deletion is coming soon. Your account has not been deleted.")}
                     >
-                        Yes, delete account
+                        {busy ? "Deleting..." : "Yes, delete account"}
                     </button>
+                    </fieldset>
                 </form>
             </dialog>
         </section>
