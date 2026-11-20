@@ -82,7 +82,7 @@ export default function TeacherActivity({
         ) : (
           <>
             <div>
-              <h3 className="text-xs font-semibold text-gray-600">Solution, in order</h3>
+              <h3 className="text-xs font-semibold text-gray-600">Solution</h3>
               <div className="px-2 pb-2" style={ANSWER_FRAME_STYLE.neutral}>
                 {(question.solution ?? []).map((line, i) => (
                   <LineBox key={i} code={line.code} indent={line.indent} xIndent={xIndent} />
