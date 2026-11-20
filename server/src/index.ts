@@ -15,6 +15,7 @@ import {Activity} from "./models/Activity"
 
 import { authConfig } from "./auth/config";
 import { parseActivityInput } from "./activityInput";
+import { splitInitial } from "./parsons/parse";
 import { isObjectIdOrHexString } from "mongoose";
 
 import { sessionMiddleware } from "./auth/session";
@@ -200,6 +201,38 @@ export function createApp(io : AppServer) {
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to load activities." });
+    }
+  });
+
+  // getActivity(activityId, teacherId): one activity with its answers, for the teacher who made it.
+  //   coding: each question's correct output.
+  //   parsons: each question's code and extra lines as the teacher typed them (the create form's
+  //     shape, rebuilt from the stored problem), and its settings.
+  // Students never reach this: it only answers the activity's own teacher.
+  app.get("/api/activities/:activityId", requireLogin, async (req, res) => {
+    const activityId = req.params.activityId.trim();
+    const teacherId = req.session.user!.id; // from the login, never from the browser
+
+    if (!isObjectIdOrHexString(activityId)) {
+      res.status(400).json({ error: "Invalid activity id." });
+      return;
+    }
+
+    try {
+      const found = await Activity.findOne({ _id: activityId, teacherId }).lean();
+      if (found === null) {
+        res.status(404).json({ error: "Cannot find that activity." });
+        return;
+      }
+      const questions = found.questions.map((q) => {
+        if (found.type === "coding") return { question: q.question, output: q.output ?? "" };
+        const { code, distractors } = splitInitial(q.initial ?? "");
+        return { question: q.question, code, distractors, options: q.options ?? {} };
+      });
+      res.status(200).json({ id: String(found._id), name: found.name, type: found.type, language: found.language ?? null, createdAt: found.createdAt, questions });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load the activity." });
     }
   });
 

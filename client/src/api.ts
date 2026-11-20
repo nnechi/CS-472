@@ -1,4 +1,4 @@
-import type { ActivitySummary, ActivityType, ParsonsSettings, PastRoomDetail, PastRoomSummary, ProgrammingLanguage } from "./types"
+import type { ActivityDetail, ActivitySummary, ActivityType, ParsonsSettings, PastRoomDetail, PastRoomSummary, ProgrammingLanguage } from "./types"
 
 export const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
@@ -77,6 +77,32 @@ export async function listActivities() : Promise<ActivitySummary[]> {
     return res.json();
 }
 
+// Activities already loaded for a preview, so hovering the same one again doesn't refetch.
+// Holds the request itself, so two previews opening at once share one fetch.
+const activityDetailCache = new Map<string, Promise<ActivityDetail>>();
+
+// Loads one of the signed-in teacher's activities with its answers. Throws with the server's reason if it fails.
+export function getActivity(activityId : string) : Promise<ActivityDetail> {
+    const cached = activityDetailCache.get(activityId);
+    if (cached) return cached;
+
+    const request = (async () => {
+        const res = await fetch(`${SERVER_URL}/api/activities/${encodeURIComponent(activityId)}`, { credentials: "include" })
+        if (res.status === 401) throw new SessionEndedError();
+        if (!res.ok) throw new Error(await failureMessage(res, "Could not load the activity."));
+        return res.json() as Promise<ActivityDetail>;
+    })();
+    // A failed load isn't kept, so the next hover tries again.
+    request.catch(() => activityDetailCache.delete(activityId));
+    activityDetailCache.set(activityId, request);
+    return request;
+}
+
+// Drops a cached activity so the next getActivity loads it fresh. Call after the activity changes or is deleted.
+export function forgetActivity(activityId : string) : void {
+    activityDetailCache.delete(activityId);
+}
+
 // Deletes one of the signed-in teacher's activities. Throws with the server's reason if it fails.
 export async function deleteActivity(activityId : string) : Promise<void> {
     const res = await fetch(`${SERVER_URL}/api/activities/${encodeURIComponent(activityId)}`, {
@@ -85,6 +111,7 @@ export async function deleteActivity(activityId : string) : Promise<void> {
 
     if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not delete the activity."));
+    forgetActivity(activityId);
 }
 
 // Sets the activity a room uses. Throws with the server's reason if it fails.

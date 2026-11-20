@@ -73,6 +73,25 @@ export interface ParsonsLine {
   indent: number;
 }
 
+// One question of an activity with its answer, as only the activity's teacher sees it.
+export interface ActivityDetailQuestion {
+  question: string;
+  output?: string; // coding: the output a correct answer produces
+  code?: string; // parsons: the solution code as the teacher typed it, one line per row, indentation kept
+  distractors?: string; // parsons: the extra lines that aren't in the answer, one per row
+  options?: Partial<ParsonsSettings>; // parsons: the question's settings; missing ones use the defaults
+}
+
+// A whole activity with its answers, from GET /api/activities/:activityId. Teacher-only.
+export interface ActivityDetail {
+  id: string;
+  name: string;
+  type: ActivityType;
+  language: ProgrammingLanguage | null;
+  createdAt: string; // ISO timestamp
+  questions: ActivityDetailQuestion[];
+}
+
 // Where a student's line is wrong: its place in the order, or its indentation.
 export interface LineMark {
   index: number; // the line's position in the student's answer
