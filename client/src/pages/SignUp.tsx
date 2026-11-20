@@ -1,44 +1,63 @@
 import { Link, useNavigate } from "react-router-dom"
-import React, { useRef, useState, useEffect, type ChangeEvent } from "react"
-import AuthCard from "../components/AuthCard";
+import React, { useState, useEffect } from "react"
+import SignupForm from "../components/SignupForm"
+import textLogo from "../assets/LittlePointers Logo/Text Logo.png"
+import { SERVER_URL } from "../api"
+import useAuth from "../hooks/useAuth"
 
+// Regex for username and password
+// Rules for username: must use first and last name with a space separating them
+// Hyphens and apostrophes allowed
 const USER_REGEX = /^[A-Za-z]+(?:[-'][A-Za-z]+)* [A-Za-z]+(?:[-'][A-Za-z]+)*$/
-const PWD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%]).{8,24}$/
 
-type SignUpForm = {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
+// Rules for password:
+// Must be between 8 and 24 characters
+// Must contain at least one lowercase letter
+// Must contain at least one uppercase letter
+// Must contain at least one digit
+const PWD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,24}$/
+
+// The values that we get from the inputs on the sign up form
+type SignUpValues = {
+  name: string; // user's name
+  email: string; // user's email
+  password: string; // user's password
+  confirmPassword: string; // text from "confirm password" field
 };
 
+// This component renders the sign up page, using the sign up form for the design.
+// Most error checking is done here
 export default function SignUp() {
     const navigate = useNavigate();
+    const { setAuth } = useAuth();
 
-    const userRef = useRef<HTMLInputElement>(null);
-    const errRef = useRef<HTMLParagraphElement>(null);
-
-    const [form, setForm] = useState<SignUpForm>({
+    // The form state contains the information from the form and updates as needed
+    const [form, setForm] = useState<SignUpValues>({
         name: '',
         email: '',
         password: '',
         confirmPassword: ''
     });
     
+    // Represents if the name is valid
     const [validName, setValidName] = useState(false)
-    const [userFocus, setUserFocus] = useState(false)
-    
+
+    // Represents if the password is valid
     const [validPassword, setValidPassword] = useState(false)
-    const [passwordFocus, setPasswordFocus] = useState(false)
 
+    // Represents if the "confirm password" is valid
     const [validMatch, setValidMatch] = useState(false)
-    const [matchFocus, setMatchFocus] = useState(false)
 
+    // Sets the error message
     const [errMsg, setErrMsg] = useState('')
 
-    useEffect(() => {
-        userRef.current?.focus()
-    }, [])
+    // True once the user has typed in Full Name and then left it, so "John" isn't flagged while they're still typing.
+    const [nameTouched, setNameTouched] = useState(false)
+    const nameError = nameTouched && form.name !== '' && !validName ? 'Must use full name.' : ''
+
+    // Only once they've started typing in Confirm Password, so it isn't red before they try.
+    const confirmPasswordError =
+        form.confirmPassword !== '' && !validMatch ? 'Please ensure that the passwords match.' : ''
 
     useEffect(() => {
         setValidName(USER_REGEX.test(form.name))
@@ -51,174 +70,95 @@ export default function SignUp() {
 
     useEffect(() => {
         setErrMsg('')
-    }, [form.name, form.password, form.confirmPassword])
+    }, [form.name, form.email, form.password, form.confirmPassword])
 
-    const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-
-        setForm((prev) => ({
-            ...prev,
-            [name]: value
-        }));
-    };
-
-    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    // Attached to the div around <SignupForm />: the form's submit event bubbles up to it.
+    async function handleSubmit(e: React.FormEvent) {
+        // Prevents page from reloading when submitted
         e.preventDefault()
-        // if button enabled with JS hack
-        const v1 = USER_REGEX.test(form.name)
-        const v2 = PWD_REGEX.test(form.password)
-        const v3 = form.password === form.confirmPassword
-        if (!v1 || !v2 || !v3) {
+
+        // The button is disabled until these pass, but it can be forced on (e.g. in dev tools).
+        if (!validName || !validPassword || !validMatch) {
             setErrMsg("Invalid Entry")
             return
         }
+
+        let response: Response
         try {
-            const response = await fetch('api/auth/signup', {
-                method:'POST',
-                headers: {
-                    'Content-Type' : 'application/json'
-                },
+            response = await fetch(`${SERVER_URL}/api/auth/signup`, {
+                method: 'POST',
+                credentials: 'include', // lets the browser keep the login cookie the server sends back
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     user: form.name,
                     email: form.email,
                     password: form.password
                 })
             })
-
-            if(!response.ok) {
-                const data = await response.json()
-                throw new Error(data.message || 'Unable to create account')
-            }
-
-            const data = await response.json()
-            console.log(data)
-            setForm({
-                name: '',
-                email: '',
-                password: '',
-                confirmPassword: ''
-            });
-            navigate('/dashboard')
-            
-        } catch (err) {
-            //if (!err?.response) {
-            //    setErrMsg('No Server Response');
-            //} else if (err.response?.status === 409) {
-            //    setErrMsg('Username Taken');
-            //} else {
-            //    setErrMsg('Registration Failed')
-            //}
-            setErrMsg('Either no server response, username taken, or registration failed')
-            errRef.current?.focus();
+        } catch {
+            // fetch only throws when the request never got an answer
+            setErrMsg('No server response. Please try again.')
+            return
         }
+
+        // The server sends { user } on success or { message } on failure
+        const data = await response.json().catch(() => null)
+
+        if (!response.ok || !data?.user) {
+            // 409 = email already used, 400 = invalid input; the server's message says which
+            setErrMsg(data?.message || 'Registration failed. Please try again.')
+            return
+        }
+
+        // The server has already logged them in, so tell the rest of the app
+        setAuth({
+            user: {
+                id: data.user.id,
+                email: data.user.email,
+                name: data.user.name ?? data.user.email,
+                picture: data.user.picture,
+            },
+        })
+        navigate('/dashboard')
     }
 
     return (
-        <AuthCard title="Sign Up">
-            <p
-                ref={errRef}
-                className={errMsg ? "auth-error" : "sr-only"}
-                role="alert"
-                aria-live="assertive"
-            >
-                {errMsg}
-            </p>
-            
-            <h1>Register</h1>
-                <form onSubmit={handleSubmit}>
-                    <div className="auth-field">
-                        <label htmlFor="usersName">
-                            Name
-                        </label>
-                        <input
-                            type="text"
-                            id="usersName"
-                            name="name"
-                            ref={userRef}
-                            autoComplete="off"
-                            onChange={handleChange}
-                            value={form.name}
-                            required
-                            aria-invalid={validName ? "false" : "true"}
-                            aria-describedby="userNameNote"
-                            onFocus={() => setUserFocus(true)}
-                            onBlur={() => setUserFocus(false)}
-                        />
-                        <p id="userNameNote" className={userFocus && form.name && !validName ? "auth-error" : "sr-only"}>
-                            Enter your first name followed by your last name.<br />
-                            Letters, commas, hyphens allowed.
-                        </p>
-                    </div>
-                    <div className="auth-field">
-                        <label htmlFor="email">
-                            Email
-                        </label>
-                        <input
-                            type="email"
-                            id="email"
-                            name="email"
-                            autoComplete="off"
-                            onChange={handleChange}
-                            value={form.email}
-                            required
-                            aria-describedby="emailNote"
-                        />
-                       
-                        <p id="emailNote" className= {"sr-only"}> 
-                            {/* print out the errorMsg later???  */}
-                            Enter a valid email address.
-                        </p>
-                    </div>
-                    <div className="auth-field">
-                        <label htmlFor="password">Password</label>
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            onChange={handleChange}
-                            value={form.password}
-                            required
-                            aria-invalid={validPassword ? "false" : "true"}
-                            aria-describedby="passwordNote"
-                            onFocus={() => setPasswordFocus(true)}
-                            onBlur={() => setPasswordFocus(false)}
-                        />
-                        <p id="passwordNote" className={passwordFocus && !validPassword ? "auth-error" : "sr-only"}>
-                            8 to 24 characters.<br />
-                            Must include uppercase and lowercase letters, a number and a special character.<br />
-                            Allowed special characters: <span aria-label="exclamation mark">!</span> <span aria-label="at symbol">@</span> <span aria-label="hashtag">#</span> <span aria-label="dollar sign">$</span> <span aria-label="percent">%</span>
-                        </p>
-                    </div>
-                    <div className="auth-field">
-                        <label htmlFor="confirm_pwd"> Confirm Password</label>
-                        <input
-                            type="password"
-                            id="confirm_pwd"
-                            name="confirmPassword"
-                            onChange={handleChange}
-                            value={form.confirmPassword}
-                            required
-                            aria-invalid={validMatch ? "false" : "true"}
-                            aria-describedby="confirmNote"
-                            onFocus={() => setMatchFocus(true)}
-                            onBlur={() => setMatchFocus(false)}
-                        />
-                        <p id="confirmNote" className={matchFocus && !validMatch ? "auth-error" : "sr-only"}>
-                            Must match the first password input field.
-                        </p>
-                    </div>
-                        <button 
-                            disabled={!validName || !validPassword || !validMatch ? true : false}
-                            className="auth-submit"
-                        >
-                            Sign Up
-                        </button>
-                   
-                </form>
-                <p>
-                    Already have an account?  
-                    {<Link to="/login" style={{ marginLeft: '5px' }} className="auth-switch">Sign in</Link>} 
-                </p>
-        </AuthCard>
+        <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+            <div className="flex w-full max-w-lg flex-col gap-6">
+                {/* LittlePointers logo, navigates back to homepage when clicked */}
+                <Link to="/" className="self-center" aria-label="LittlePointers home">
+                    <img src={textLogo} alt="LittlePointers" />
+                </Link>
+
+                {/* Actual form */}
+                {/* Typing in and leaving SignupForm's inputs bubble up here, so the page can check them. */}
+                <div
+                    onSubmit={handleSubmit}
+                    onChange={(e) => {
+                        const input = e.target as HTMLInputElement
+                        if (input.id === 'name') {
+                            setForm((prev) => ({ ...prev, name: input.value }))
+                            // Emptied the field: start over, so retyping isn't flagged straight away.
+                            if (input.value === '') setNameTouched(false)
+                        }
+                        if (input.id === 'email') setForm((prev) => ({ ...prev, email: input.value }))
+                        if (input.id === 'password') setForm((prev) => ({ ...prev, password: input.value }))
+                        if (input.id === 'confirm-password') setForm((prev) => ({ ...prev, confirmPassword: input.value }))
+                    }}
+                    onBlur={(e) => {
+                        // Ignore leaving an empty field, e.g. switching windows while it has autofocus.
+                        const input = e.target as HTMLInputElement
+                        if (input.id === 'name' && input.value !== '') setNameTouched(true)
+                    }}
+                >
+                    <SignupForm
+                        nameError={nameError}
+                        confirmPasswordError={confirmPasswordError}
+                        submitDisabled={!validName}
+                        errorMessage={errMsg} // e.g. email already used or no server response
+                    />
+                </div>
+            </div>
+        </div>
     )
 }

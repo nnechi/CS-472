@@ -293,10 +293,6 @@ export function createApp(io : AppServer) {
   // TODO: Check the room code and capacity before adding the participant.
   app.post("/api/rooms/:roomCode/join", notImplemented("joinRoom"));
 
-  // authenticate(user: string, password: string): boolean
-  // Body: { user, password }. TODO: Validate credentials using the auth service.
-  app.post("/api/auth/login", notImplemented("authenticate"));
-
   // Previous activities: the rooms the logged-in teacher ran that have ended,
   // newest first. Uses the session's user id, never one the browser sends.
   app.get("/api/past-rooms", requireLogin, async (req, res) => {
