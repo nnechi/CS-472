@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { NoteIcon, PencilIcon, PlayIcon, TrashIcon } from "./ActivitySVGs"
+import ActivityPreview, { ACTIVITY_PREVIEW_CLASS, ACTIVITY_PREVIEW_COLLISION_PADDING } from "./ActivityPreview"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import type { ActivitySummary } from "../types"
 
 interface ActivityProps {
-    // The activity's database id, used to link it to a new room
-    id: string
-    name: string
-    // How many questions the activity has, shown under the name
-    questionCount: number
-    // ISO timestamp of when the activity was made, shown under the name
-    createdAt: string
+    // The activity as listed by the server. Its id links it to a new room; the rest is shown in the row and the hover preview.
+    activity: ActivitySummary
     // Called when the user confirms they want to delete this activity. Throws if the delete fails.
     onDelete: () => Promise<void>
     // Whether this activity's ... menu is open. The list keeps only one menu open at a time.
@@ -20,8 +18,12 @@ interface ActivityProps {
     onMenuClose: () => void
 }
 
-export default function Activity({ id, name, questionCount, createdAt, onDelete, menuOpen, onMenuToggle, onMenuClose } : ActivityProps){
+export default function Activity({ activity, onDelete, menuOpen, onMenuToggle, onMenuClose } : ActivityProps){
+    const { id, name, questionCount, createdAt } = activity
     const navigate = useNavigate()
+
+    // Whether the hover preview wants to be open. It is kept closed while the ... menu is open, so the two never overlap.
+    const [previewOpen, setPreviewOpen] = useState(false)
 
     // Boolean to represent if the activity is in the process of deleting
     // True while the delete request is waiting on the server, so the button can't be clicked twice
@@ -98,7 +100,16 @@ export default function Activity({ id, name, questionCount, createdAt, onDelete,
     }
 
     return (
-        <div className="group rounded-lg p-4 hover:bg-brand-light">
+        // Hovering anywhere on the box shows the preview below it. It stays closed while the ... menu is open.
+        <Popover open={previewOpen && !menuOpen} onOpenChange={setPreviewOpen}>
+        <PopoverTrigger
+            openOnHover
+            delay={200}
+            closeDelay={150}
+            nativeButton={false}
+            render={<div />}
+            className="group rounded-lg p-4 hover:bg-brand-light data-popup-open:bg-brand-light"
+        >
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-white group-hover:bg-brand-light">
@@ -111,7 +122,8 @@ export default function Activity({ id, name, questionCount, createdAt, onDelete,
                         </p>
                     </div>
                 </div>
-                <div ref={moreRef} className="group/more relative">
+                {/* Clicks on the ... button and its menu stay here, so they don't also toggle the preview. */}
+                <div ref={moreRef} className="group/more relative" onClick={(e) => e.stopPropagation()}>
                     <button
                         type="button"
                         className="relative isolate flex h-10 w-10 items-center justify-center rounded-full text-2xl leading-none text-gray-600 cursor-pointer before:absolute before:inset-0 before:-z-10 before:translate-y-1 before:rounded-full before:content-[''] hover:text-black hover:before:bg-neutral-100"
@@ -163,6 +175,10 @@ export default function Activity({ id, name, questionCount, createdAt, onDelete,
                 </div>
             </div>
             {deleteError && <p className="mt-2 text-red-600">{deleteError}</p>}
-        </div>
+        </PopoverTrigger>
+        <PopoverContent side="bottom" align="start" collisionPadding={ACTIVITY_PREVIEW_COLLISION_PADDING} className={ACTIVITY_PREVIEW_CLASS}>
+            <ActivityPreview activity={activity} />
+        </PopoverContent>
+        </Popover>
     )
 }
