@@ -4,8 +4,18 @@ import { Server } from "socket.io";
 import cors from "cors";
 
 import { connectToDatabase } from "./db";
-import {AppServer, closeRoom, isLiveRoomCode, isLiveRoomHost, lobbyChannel, registerSocketHandlers } from "./socket";
+import {
+  AppServer,
+  activeRoomsForHost,
+  closeRoom,
+  isLiveRoomCode,
+  isLiveRoomHost,
+  lobbyChannel,
+  markLiveRoomOpened,
+  registerSocketHandlers,
+} from "./socket";
 import { deletePastRoomForHost, pastRoomForHost, pastRoomsForHost } from "./pastRooms";
+import { backfillRoomLogs, roomStatsForHost } from "./roomStats";
 
 
 import { generateRoomCode } from "./utils/roomCode";
@@ -19,6 +29,7 @@ import { splitInitial } from "./parsons/parse";
 import { isObjectIdOrHexString } from "mongoose";
 
 import { sessionMiddleware } from "./auth/session";
+import { accountRouter } from "./auth/account";
 import { authRouter } from "./auth/routes";
 import { requireLogin } from "./auth/requireLogin";
 
@@ -48,6 +59,7 @@ export function createApp(io : AppServer) {
   app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
   app.use(sessionMiddleware);
   app.use(authRouter);
+  app.use(accountRouter);
   // who is logged in?
   app.get("/api/me", requireLogin, (req, res) => {
     res.json({ user: req.session.user });
@@ -308,12 +320,14 @@ export function createApp(io : AppServer) {
       const updated = await Room.findOneAndUpdate( 
         {code : c, hostID, expiresAt: { $gt: new Date() }, activityId}, { isOpen : true }
       ); 
-      if (updated === null){ 
-        res.status(404).json({error : "Cannot find room!"}); 
+      if (updated === null){
+        res.status(404).json({error : "Cannot find room!"});
 
-      } else { 
-        res.status(200).json({ message : "Opened room."}); 
-        io.to(lobbyChannel(c)).emit("room opened"); 
+      } else {
+        // The room now counts as running (dashboard, saving when it ends).
+        markLiveRoomOpened(c);
+        res.status(200).json({ message : "Opened room."});
+        io.to(lobbyChannel(c)).emit("room opened");
       }
     } catch (e){ 
       console.error(e); 
@@ -330,6 +344,19 @@ export function createApp(io : AppServer) {
   // Body: { user, password }. TODO: Validate credentials using the auth service.
   app.post("/api/auth/login", notImplemented("authenticate"));
 
+  // The logged-in teacher's rooms that are still running (opened and not
+  // ended), newest first, so the dashboard can offer to rejoin or end them.
+  // A room keeps running when the teacher closes their tab or loses their
+  // connection; only End room (DELETE /api/rooms/:code) or expiry ends it.
+  app.get("/api/active-rooms", requireLogin, async (req, res) => {
+    try {
+      res.status(200).json(await activeRoomsForHost(io, req.session.user!.id));
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load your running rooms." });
+    }
+  });
+
   // Previous activities: the rooms the logged-in teacher ran that have ended,
   // newest first. Uses the session's user id, never one the browser sends.
   app.get("/api/past-rooms", requireLogin, async (req, res) => {
@@ -338,6 +365,17 @@ export function createApp(io : AppServer) {
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to load previous activities." });
+    }
+  });
+
+  // Dashboard stats: every room the logged-in teacher ended. Read from RoomLog, so deleting
+  // a previous activity does not change these.
+  app.get("/api/room-stats", requireLogin, async (req, res) => {
+    try {
+      res.status(200).json(await roomStatsForHost(req.session.user!.id));
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load your room stats." });
     }
   });
 
@@ -398,6 +436,14 @@ export function createApp(io : AppServer) {
 
 async function main() {
   await connectToDatabase();
+
+  // Copies rooms saved before RoomLog existed. Rooms already copied are skipped.
+  try {
+    const copied = await backfillRoomLogs();
+    if (copied > 0) console.log(`[room-stats] copied ${copied} earlier room(s) into the room log`);
+  } catch (err) {
+    console.error("[room-stats] failed to copy earlier rooms:", err);
+  }
 
 
 const io : AppServer = new Server({ 

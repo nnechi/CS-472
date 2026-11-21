@@ -20,6 +20,10 @@ interface StudentSelectorProps {
 // The "Class activity" item's value. Picking it clears the selection.
 const CLASS_ACTIVITY = "__class_activity__"
 
+// A student's name in the list, marked when they're away (lost their
+// connection; they can come back to the same work).
+const studentLabel = (s: RosterStudent) => (s.connected === false ? `${s.username} (away)` : s.username)
+
 // Lets the teacher pick one student to see their work on the activity, or
 // "Class activity" to go back to the class view. The caller keeps the selection.
 export default function StudentSelector({ students, selectedId, onSelect }: StudentSelectorProps) {
@@ -32,7 +36,7 @@ export default function StudentSelector({ students, selectedId, onSelect }: Stud
             disabled={!hasStudents}
             items={[
                 { value: CLASS_ACTIVITY, label: "Class activity" },
-                ...students.map((s) => ({ value: s.id, label: s.username })),
+                ...students.map((s) => ({ value: s.id, label: studentLabel(s) })),
             ]}
         >
             <SelectTrigger aria-label="Select a student" className="cursor-pointer">
@@ -43,8 +47,12 @@ export default function StudentSelector({ students, selectedId, onSelect }: Stud
             <SelectContent aria-label="Students in this room">
                 <SelectItem value={CLASS_ACTIVITY} className="data-highlighted:bg-[#ccc9f7]">Class activity</SelectItem>
                 {students.map((student) => (
-                    <SelectItem key={student.id} value={student.id} className="data-highlighted:bg-[#ccc9f7]">
-                        {student.username}
+                    <SelectItem
+                        key={student.id}
+                        value={student.id}
+                        className={`data-highlighted:bg-[#ccc9f7] ${student.connected === false ? "text-brand/60" : ""}`}
+                    >
+                        {studentLabel(student)}
                     </SelectItem>
                 ))}
             </SelectContent>

@@ -28,7 +28,7 @@ export default function StudentHeader({ session, room, onLeave } : StudentHeader
         <div className="border-b border-brand bg-brand-light">
             <div className="flex flex-col gap-3 px-4 py-3 sm:px-8 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
                 <div className="flex min-w-0 flex-wrap items-center gap-4">
-                    <img src={shortLogo} alt="LittlePointers" className="h-8 w-auto shrink-0" />
+                    <img src={shortLogo} alt="LittlePointers" className="h-14 w-14 shrink-0" />
                     <div className="flex items-center gap-3">
                         <span className="text-lg font-semibold text-brand">{session.username}</span>
                         <RaiseHandButton raised={room.handRaised} onToggle={room.raiseHand} />
@@ -36,16 +36,21 @@ export default function StudentHeader({ session, room, onLeave } : StudentHeader
                 </div>
 
                 <div className="flex items-center justify-center">
-                    <Timer
-                        durationMs={room.timer.durationMs}
-                        remainingMs={room.timer.remainingMs}
-                        running={room.timer.running}
-                        isTeacher={false}
-                        onPlay={() => {}}
-                        onPause={() => {}}
-                        onRestart={() => {}}
-                        onSetMinutes={() => {}}
-                    />
+                    {/* The teacher can hide the timer; then students see nothing here. */}
+                    {room.timer.visibleToStudents && (
+                        <Timer
+                            durationMs={room.timer.durationMs}
+                            remainingMs={room.timer.remainingMs}
+                            running={room.timer.running}
+                            isTeacher={false}
+                            onPlay={() => {}}
+                            onPause={() => {}}
+                            onRestart={() => {}}
+                            onSetMinutes={() => {}}
+                            visibleToStudents={true}
+                            onSetVisibleToStudents={() => {}}
+                        />
+                    )}
                 </div>
 
                 <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">

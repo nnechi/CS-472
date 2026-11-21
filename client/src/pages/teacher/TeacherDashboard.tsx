@@ -1,20 +1,41 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import useAuth from "../../hooks/useAuth"
-import { listActivities } from "../../api"
-import type { ActivitySummary } from "../../types"
+import ActiveRooms from "../../components/ActiveRooms"
+import { listActivities, listRoomStats } from "../../api"
+import type { ActivitySummary, RoomStatSummary } from "../../types"
 import ActivityPreview, { ACTIVITY_PREVIEW_CLASS, ACTIVITY_PREVIEW_COLLISION_PADDING } from "../../components/ActivityPreview"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { AverageSessionTile, RecentRoomsTable, RoomsPerWeekChart, StatCard } from "../../components/dashboard/RoomStats"
 
 // /dashboard -- the teacher's home page. Activities and notes are in the ☰ menu.
 export default function TeacherDashboard() {
     const { auth } = useAuth()
     const navigate = useNavigate()
+    // The first word of the teacher's name, for the greeting ("Savannah Michalsky" -> "Savannah").
+    const firstName = auth?.user.name?.trim().split(/\s+/)[0] ?? ""
 
     // The activities for the "Start a room" dropdown. Null until they load.
     const [activities, setActivities] = useState<ActivitySummary[] | null>(null)
     const [listError, setListError] = useState("")
     const [menuOpen, setMenuOpen] = useState(false)
+
+    // The rooms this teacher ended, for the stats below. Null until they load.
+    const [pastRooms, setPastRooms] = useState<RoomStatSummary[] | null>(null)
+    const [statsError, setStatsError] = useState("")
+
+    useEffect(() => {
+        if (!auth) return
+        let cancelled = false
+        listRoomStats()
+            .then((rooms) => {
+                if (!cancelled) setPastRooms(rooms)
+            })
+            .catch((err) => {
+                if (!cancelled) setStatsError(err instanceof Error ? err.message : "Could not load your room stats.")
+            })
+        return () => { cancelled = true }
+    }, [auth?.user.id])
 
     useEffect(() => {
         if (!auth) return
@@ -68,23 +89,57 @@ export default function TeacherDashboard() {
 
     return (
         <section className="mt-8 flex flex-col gap-8">
-            <h1 className="text-5xl font-bold">Welcome{auth ? `, ${auth.user.name}!` : ""}</h1>
-            <div className="relative w-fit">
-                <button
-                    type="button"
-                    className="rounded-lg bg-brand px-4 py-2 text-lg text-white cursor-pointer hover:bg-brand/90"
-                    aria-haspopup="listbox"
-                    aria-expanded={menuOpen}
-                    onClick={() => setMenuOpen((open) => !open)}
-                >
-                    Start a room {menuOpen ? "▴" : "▾"}
-                </button>
-                {menuOpen && (
-                    <div className="absolute left-0 top-full z-20 mt-2 flex max-h-80 w-72 flex-col overflow-y-auto rounded-lg border border-brand bg-white p-2 shadow-md">
-                        {displayChoices()}
-                    </div>
-                )}
+            <div className="flex flex-col gap-4">
+            <div className="flex items-start justify-between gap-6">
+                <div className="min-w-0 flex-1">
+                    <h1 className="text-4xl font-bold">Welcome back{firstName ? `, ${firstName}` : ""}!</h1>
+                </div>
+                {/* The menu opens to the left so it stays on screen at the right edge. */}
+                <div className="relative shrink-0">
+                    <button
+                        type="button"
+                        className="rounded-lg bg-brand px-4 py-2 text-lg text-white cursor-pointer hover:bg-brand/90"
+                        aria-haspopup="listbox"
+                        aria-expanded={menuOpen}
+                        onClick={() => setMenuOpen((open) => !open)}
+                    >
+                        Start a room {menuOpen ? "▴" : "▾"}
+                    </button>
+                    {menuOpen && (
+                        <div className="absolute right-0 top-full z-20 mt-2 flex max-h-80 w-72 flex-col overflow-y-auto rounded-lg border-2 border-brand bg-white p-2 shadow-md">
+                            {displayChoices()}
+                        </div>
+                    )}
+                </div>
             </div>
+            {/* -mt-2 pulls it up so it sits 8px under the heading, like before (the container's gap is 16px). */}
+            <p className="-mt-2 text-lg text-[#5a52a6]">Here's your current overview and work history.</p>
+            {/* Rooms still running (e.g. after closing their tab), to rejoin or end. */}
+            <ActiveRooms />
+            {/* Spans the full width of the header, under the active rooms. */}
+            <div className="h-1 w-full rounded-full bg-brand" aria-hidden="true" />
+            </div>
+
+            {statsError && <p role="alert" className="rounded-md bg-warn px-3 py-2 text-brand">{statsError}</p>}
+            {!statsError && pastRooms === null && <p className="text-gray-600">Loading your room stats...</p>}
+            {pastRooms !== null && (
+                <>
+                    <div className="grid gap-6 md:grid-cols-3">
+                        <AverageSessionTile rooms={pastRooms} />
+                        <StatCard title="Rooms run per week (last 12 weeks)" className="md:col-span-2" selected>
+                            <RoomsPerWeekChart rooms={pastRooms} />
+                        </StatCard>
+                    </div>
+                    <div className="h-1 w-full rounded-full bg-brand" aria-hidden="true" />
+                    <section className="flex flex-col gap-3">
+                        <h2 className="text-2xl font-semibold text-brand">Recent rooms</h2>
+                        {/* Same look as the selected Coding / Parsons type cards in Create Activity. */}
+                        <div className="rounded-xl border-2 border-brand bg-pop/25 p-5">
+                            <RecentRoomsTable rooms={pastRooms} />
+                        </div>
+                    </section>
+                </>
+            )}
         </section>
     )
 }

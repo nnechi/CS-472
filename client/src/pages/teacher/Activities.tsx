@@ -188,7 +188,7 @@ export default function Activities() {
                     {/* Clicking the icon and the text opens the create page. */}
                     <button
                         type="button"
-                        className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-300 px-4 py-2 text-gray-900 hover:bg-neutral-100"
+                        className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-brand bg-pop/25 px-4 py-2 text-[#5a52a6] hover:bg-pop/40"
                         onClick={() => navigate("/create-activity")}
                     >
                         <NoteIcon />
@@ -211,7 +211,7 @@ export default function Activities() {
                             <span aria-hidden="true">{sortOpen ? "▴" : "▾"}</span>
                         </button>
                         {sortOpen && (
-                            <ul role="listbox" aria-labelledby="activity-sort" className="absolute left-0 top-full z-20 mt-2 flex w-56 flex-col rounded-lg border border-brand bg-white p-2 shadow-md">
+                            <ul role="listbox" aria-labelledby="activity-sort" className="absolute left-0 top-full z-20 mt-2 flex w-56 flex-col rounded-lg border-2 border-brand bg-white p-2 shadow-md">
                                 {(Object.keys(SORT_LABELS) as SortOrder[]).map((order) => (
                                     <li
                                         key={order}

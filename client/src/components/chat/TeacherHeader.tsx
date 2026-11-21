@@ -110,6 +110,8 @@ export default function TeacherHeader({
                         onPause={() => socket.emit("timer pause")}
                         onRestart={() => socket.emit("timer restart")}
                         onSetMinutes={(minutes) => socket.emit("timer set", { minutes })}
+                        visibleToStudents={room.timer.visibleToStudents}
+                        onSetVisibleToStudents={(visible) => socket.emit("timer visibility", { visible })}
                     />}
                 </div>
 

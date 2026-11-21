@@ -218,9 +218,10 @@ export default function CodeEditor({
             {editError && <p role="alert" className="text-sm text-red-700">{editError}</p>}
             {!canRun && !readOnly && <p className="text-sm text-gray-600">{activity.language ? `Execution is not available for this activity’s language (${activity.language}).` : "The teacher needs to set a programming language for this activity."}</p>}
             {/* 4 quadrants */}
+            {/* added overflow-hidden so nothing pokes past the rounded border */}
             <ResizablePanelGroup
             orientation="horizontal"
-            className="h-[90vh] min-h-[600px] shrink-0 rounded-lg border"
+            className="h-[90vh] min-h-[600px] shrink-0 overflow-hidden rounded-lg border"
             >
             <ResizablePanel defaultSize="30%">
                 <ResizablePanelGroup orientation="vertical">
@@ -247,7 +248,9 @@ export default function CodeEditor({
                 <ResizablePanelGroup orientation="vertical">
 
                 {/* Quadrant 2 - Code area */}
-                <ResizablePanel defaultSize="75%">
+                {/* the class paints the editor's scrollbar strip white, so the
+                    current-line box stops at the scrollbar instead of showing through it. */}
+                <ResizablePanel defaultSize="75%" className="[&_.monaco-editor_.scrollbar.vertical]:bg-[#fffffe]!">
                     <Editor
                         key={`${activity.language}:${index}`}
                         language={language === "other" || !language ? "plaintext" : language}
@@ -260,7 +263,15 @@ export default function CodeEditor({
                             readOnly,
                             automaticLayout: true,
                             quickSuggestions: { other: true, comments: false, strings: false },
-                            minimap: { enabled: false }
+                            minimap: { enabled: false },
+                            // removes the strip on the right edge (its border line and
+                            // the little "—" cursor mark) that overlapped the panel's edge.
+                            overviewRulerLanes: 0,
+                            overviewRulerBorder: false,
+                            hideCursorInOverviewRuler: true,
+                            // keep the scrollbar strip shown, so the current-line
+                            // box ends at its left edge instead of running under it.
+                            scrollbar: { vertical: "visible" },
                         }}
                         onMount={handleMount}
                     />
