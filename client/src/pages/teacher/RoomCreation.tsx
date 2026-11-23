@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react"
-import { createRoom, deleteRoom, saveActivity, markRoomOpen, SERVER_URL, SessionEndedError} from '../../api.ts'
+import { createRoom, deleteRoom, saveActivity, markRoomOpen, SERVER_URL, SessionEndedError, getActivityNote, saveActivityNote, saveRoomNote} from '../../api.ts'
+import TeacherNotes, { NotesField } from "../../components/TeacherNotes"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
 
@@ -26,6 +27,9 @@ export default function RoomCreation() {
 
     const [saving, setSaving] = useState(false);
     const [participants, setParticipants] = useState<Participant[]>([]);
+    // The teacher's private notes for this room. Kept on this page until Open
+    // room saves them with the room, so "New code" and closing need no cleanup.
+    const [roomNotes, setRoomNotes] = useState("");
     // False once the panel unmounts, so a late response can clean up after itself.
     const mounted = useRef(false);
 
@@ -115,6 +119,8 @@ export default function RoomCreation() {
         setSaving(true);
         try {
             await saveActivity(code, startingActivityId); 
+            // Saved before opening: if this fails, the room stays closed and the notes stay on screen.
+            if (roomNotes.trim()) await saveRoomNote(code, roomNotes);
             await markRoomOpen(code, startingActivityId); 
             navigate(`/rooms/${code}`);
         } catch (e) {
@@ -189,6 +195,28 @@ export default function RoomCreation() {
                     </button>
                     {!startingActivityId && <span className="text-sm text-brand/70">Pick an activity to open the room.</span>}
                 </div>
+            </div>
+
+            {/* The teacher's private notes. Students never see them. */}
+            <div className="grid gap-6 rounded-lg border border-brand/30 p-6 md:grid-cols-2">
+                <NotesField
+                    title="Notes for this room"
+                    description="Saved with the room when you open it. Only you can see these."
+                    value={roomNotes}
+                    onChange={setRoomNotes}
+                    placeholder="Plans for today, who to check on..."
+                />
+                {startingActivityId ? (
+                    <TeacherNotes
+                        title="Notes on this activity"
+                        description="Saved as you type, and shown every time you use this activity."
+                        noteKey={`activity:${startingActivityId}`}
+                        load={() => getActivityNote(startingActivityId).then((note) => note.text)}
+                        save={(text) => saveActivityNote(startingActivityId, text)}
+                    />
+                ) : (
+                    <p className="text-sm text-brand/70">Pick an activity to see your notes on it.</p>
+                )}
             </div>
             </section>
 

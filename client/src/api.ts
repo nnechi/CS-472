@@ -1,4 +1,4 @@
-import type { ActiveRoomSummary, ActivitySummary, ActivityType, ParsonsSettings, PastRoomDetail, PastRoomSummary, ProgrammingLanguage, RoomStatSummary } from "./types"
+import type { ActiveRoomSummary, ActivityNote, ActivitySummary, ActivityType, NoteSummary, NoteText, ParsonsSettings, PastRoomDetail, PastRoomSummary, ProgrammingLanguage, RoomNotes, RoomStatSummary } from "./types"
 
 export const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
@@ -153,6 +153,62 @@ export async function deletePastRoom(roomCode : string) : Promise<void> {
 
     if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not delete that room."));
+}
+
+// ---------- Teacher notes: private to the signed-in teacher ----------
+
+// Every note the signed-in teacher has written, most recently changed first. Throws with the server's reason if it fails.
+export async function listNotes() : Promise<NoteSummary[]> {
+    const res = await fetch(`${SERVER_URL}/api/notes`, { credentials: "include" })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not load your notes."));
+    return res.json();
+}
+
+// The note on one of the signed-in teacher's activities. Throws with the server's reason if it fails.
+export async function getActivityNote(activityId : string) : Promise<ActivityNote> {
+    const res = await fetch(`${SERVER_URL}/api/notes/activities/${encodeURIComponent(activityId)}`, { credentials: "include" })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not load your note."));
+    return res.json();
+}
+
+// Saves the note on one of the signed-in teacher's activities. Empty text deletes it.
+export async function saveActivityNote(activityId : string, text : string) : Promise<NoteText> {
+    const res = await fetch(`${SERVER_URL}/api/notes/activities/${encodeURIComponent(activityId)}`, {
+        method: "PUT", credentials: "include",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ text })
+    })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not save your note."));
+    return res.json();
+}
+
+// A room's notes: its own, and the note on the activity it uses. Works while the
+// room is being set up, while it's live, and once it's saved.
+export async function getRoomNotes(roomCode : string) : Promise<RoomNotes> {
+    const res = await fetch(`${SERVER_URL}/api/notes/rooms/${encodeURIComponent(roomCode)}`, { credentials: "include" })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not load your notes."));
+    return res.json();
+}
+
+// Saves a room's own note. Empty text deletes it.
+export async function saveRoomNote(roomCode : string, text : string) : Promise<NoteText> {
+    const res = await fetch(`${SERVER_URL}/api/notes/rooms/${encodeURIComponent(roomCode)}`, {
+        method: "PUT", credentials: "include",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ text })
+    })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not save your note."));
+    return res.json();
 }
 
 // determines whether the roomstatus is allowing students to join.

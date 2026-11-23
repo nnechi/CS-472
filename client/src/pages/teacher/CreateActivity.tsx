@@ -1,7 +1,7 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { ChevronDown, Code, ListOrdered, X } from "lucide-react"
-import { ActivityInput, ActivityQuestionInput, createActivity } from "../../api"
+import { ActivityInput, ActivityQuestionInput, createActivity, saveActivityNote } from "../../api"
 import CodingQuestion from "../../components/activity/CodingQuestion"
 import ParsonsQuestion from "../../components/activity/ParsonsQuestion"
 import { codeLines, effectiveRequireDragging, UPLOAD_LIMIT } from "../../components/activity/questionCode"
@@ -19,6 +19,7 @@ import {
     ParsonsSettings,
     PROGRAMMING_LANGUAGES,
     ProgrammingLanguage,
+    NOTE_MAX_LENGTH,
 } from "../../types"
 
 const EMPTY_QUESTION : ActivityQuestion = {
@@ -69,6 +70,10 @@ export default function CreateActivity(){
     const [selected, setSelected] = useState(0)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState("")
+    // The teacher's private notes on the activity, saved with it on Finish.
+    const [notes, setNotes] = useState("")
+    // Set once the activity is saved. If its notes then fail to save, Finish only retries the notes.
+    const [createdId, setCreatedId] = useState<string | null>(null)
     const listRef = useRef<HTMLDivElement>(null)
 
     // Keep the highlighted question visible in the scrolling list, e.g. after
@@ -133,11 +138,20 @@ export default function CreateActivity(){
         }
         setSaving(true)
         setError("")
+        let id = createdId
         try {
-            await createActivity(activity)
+            if (id === null) {
+                id = (await createActivity(activity)).id
+                setCreatedId(id)
+            }
+            if (notes.trim()) await saveActivityNote(id, notes)
             navigate("/dashboard/activities")
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Could not save the activity.")
+            const reason = err instanceof Error ? err.message : "Could not save the activity."
+            setError(id === null
+                ? reason
+                // The activity exists now. Saving it again would make a copy, so only the notes are retried.
+                : `Your activity was saved, but your notes weren't: ${reason} Click Finish to try saving them again.`)
             setSaving(false)
         }
     }
@@ -389,6 +403,28 @@ export default function CreateActivity(){
                                 </section>
                             )}
                         </div>
+                    </section>
+
+                    {/* Section 3: the teacher's private notes */}
+                    <section className="flex flex-col gap-3">
+                        <h2 className="flex items-center gap-3 text-3xl font-bold">
+                            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-2xl text-white">3</span>
+                            Your Notes
+                        </h2>
+                        <label className="flex flex-col gap-2 text-2xl font-semibold">
+                            Notes for yourself (optional)
+                            <span className="text-lg font-normal text-brand/70">
+                                Only you can see these. They're kept with the activity and shown every time you use it.
+                            </span>
+                            <textarea
+                                className="min-h-32 resize-y rounded-lg border border-brand/20 bg-white px-4 py-3 text-xl font-normal text-brand placeholder:text-brand/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-pop"
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                placeholder="Things to remember when you run this activity..."
+                                maxLength={NOTE_MAX_LENGTH}
+                                rows={4}
+                            />
+                        </label>
                     </section>
 
                     {error && (

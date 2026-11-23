@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { NotebookPen } from "lucide-react"
 import { NoteIcon, PencilIcon, PlayIcon, TrashIcon } from "./ActivitySVGs"
+import TeacherNotes from "./TeacherNotes"
+import { getActivityNote, saveActivityNote } from "../api"
 
 interface ActivityProps {
     // The activity's database id, used to link it to a new room
@@ -18,9 +21,13 @@ interface ActivityProps {
     onMenuToggle: () => void
     // Closes this activity's menu
     onMenuClose: () => void
+    // Whether this activity's notes are open under it, and the menu item that opens or closes them.
+    // Without onNotesToggle, the menu has no Notes item.
+    notesOpen?: boolean
+    onNotesToggle?: () => void
 }
 
-export default function Activity({ id, name, questionCount, createdAt, onDelete, menuOpen, onMenuToggle, onMenuClose } : ActivityProps){
+export default function Activity({ id, name, questionCount, createdAt, onDelete, menuOpen, onMenuToggle, onMenuClose, notesOpen = false, onNotesToggle } : ActivityProps){
     const navigate = useNavigate()
 
     // Boolean to represent if the activity is in the process of deleting
@@ -40,9 +47,9 @@ export default function Activity({ id, name, questionCount, createdAt, onDelete,
     // Opens or closes the menu. When it opens, puts it below the ... button, or above it when there isn't room below.
     function toggleMenu(){
         if (!menuOpen && moreRef.current) {
-            // The menu's width (w-52) and about three buttons tall, plus padding and the gap
+            // The menu's width (w-52) and about four buttons tall, plus padding and the gaps
             const menuWidth = 208
-            const menuHeight = 160
+            const menuHeight = 216
             const rect = moreRef.current.getBoundingClientRect()
             const opensUp = window.innerHeight - rect.bottom < menuHeight
             setMenuPosition({
@@ -138,6 +145,22 @@ export default function Activity({ id, name, questionCount, createdAt, onDelete,
                                     Start Room
                                 </span>
                             </button>
+                            {onNotesToggle && (
+                                <button
+                                    type="button"
+                                    className="rounded-lg whitespace-nowrap px-3 py-2 text-left text-lg text-gray-900 cursor-pointer hover:bg-neutral-100"
+                                    aria-expanded={notesOpen}
+                                    onClick={() => {
+                                        onNotesToggle()
+                                        onMenuClose()
+                                    }}
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <NotebookPen className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
+                                        {notesOpen ? "Hide notes" : "Notes"}
+                                    </span>
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 className="rounded-lg whitespace-nowrap px-3 py-2 text-left text-lg text-gray-900 cursor-pointer hover:bg-neutral-100"
@@ -163,6 +186,18 @@ export default function Activity({ id, name, questionCount, createdAt, onDelete,
                 </div>
             </div>
             {deleteError && <p className="mt-2 text-red-600">{deleteError}</p>}
+            {/* The teacher's private notes on this activity, saved as they type. */}
+            {notesOpen && (
+                <div className="mt-4 rounded-lg border border-brand/20 bg-white p-4">
+                    <TeacherNotes
+                        title="Your notes on this activity"
+                        description="Only you can see these. They're shown every time you use this activity."
+                        noteKey={`activity:${id}`}
+                        load={() => getActivityNote(id).then((note) => note.text)}
+                        save={(text) => saveActivityNote(id, text)}
+                    />
+                </div>
+            )}
         </div>
     )
 }
