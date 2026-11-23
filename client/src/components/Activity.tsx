@@ -97,6 +97,12 @@ export default function Activity({ id, name, questionCount, createdAt, onDelete,
         navigate("/room-creation", { state: { activityId: id } })
     }
 
+    // Goes to the same Create Activity page this activity was made on, with its
+    // existing information loaded so the teacher can change it.
+    function editActivity(){
+        navigate(`/create-activity/${id}`)
+    }
+
     return (
         <div className="group rounded-lg p-4 hover:bg-brand-light">
             <div className="flex items-center justify-between">
@@ -141,6 +147,7 @@ export default function Activity({ id, name, questionCount, createdAt, onDelete,
                             <button
                                 type="button"
                                 className="rounded-lg whitespace-nowrap px-3 py-2 text-left text-lg text-gray-900 cursor-pointer hover:bg-neutral-100"
+                                onClick={editActivity}
                             >
                                 <span className="flex items-center gap-2">
                                     <PencilIcon />

@@ -65,6 +65,7 @@ export default function AppRoutes() {
                     <Route path="*" element={<DashboardNotFound />} />
                 </Route>
                 <Route path="create-activity" element={<CreateActivity />} />
+                <Route path="create-activity/:activityId" element={<CreateActivity />} />
 
                 {/* Create a room: its own page, without the dashboard header and menu. */}
                 <Route element={<RoomLayout />}>

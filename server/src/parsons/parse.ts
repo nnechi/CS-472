@@ -86,6 +86,29 @@ export function parseInitial(initial: string): ParsedProblem {
   };
 }
 
+// Reverses buildInitial, for editing: splits a stored "initial" string back into
+// the code and extra-lines text a teacher sees in the two boxes. A line is an
+// extra line if it carries the #distractor tag (the same test parseInitial
+// uses), so this agrees with how the problem is graded. Code and distractor
+// lines each keep their original text and order; only the tag is removed from
+// a distractor line. A line that happens to end in literal "#distractor" is
+// read back as a distractor either way -- buildInitial can't tell those apart
+// either, so this isn't a new ambiguity. Blank lines (exactly "") that
+// buildInitial drops when saving can't be recovered here, same as it already
+// can't recover them for a freshly created activity reopened without editing.
+export function splitInitial(initial: string): { code: string; distractors: string } {
+  const code: string[] = [];
+  const distractors: string[] = [];
+  for (const line of initial.split("\n")) {
+    if (DISTRACTOR_SUFFIX.test(line)) {
+      distractors.push(line.replace(DISTRACTOR_SUFFIX, ""));
+    } else {
+      code.push(line);
+    }
+  }
+  return { code: code.join("\n"), distractors: distractors.join("\n") };
+}
+
 // The "initial" string for a problem: the code, then each extra line tagged
 // with #distractor. Matches collectCommonSettings in the generator.
 export function buildInitial(code: string, distractors: string): string {
