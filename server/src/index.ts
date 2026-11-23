@@ -16,6 +16,15 @@ import {
 } from "./socket";
 import { deletePastRoomForHost, pastRoomForHost, pastRoomsForHost } from "./pastRooms";
 import { backfillRoomLogs, roomStatsForHost } from "./roomStats";
+import {
+  activityNoteFor,
+  deleteActivityNote,
+  notesForTeacher,
+  parseNoteText,
+  roomNotesFor,
+  saveActivityNoteFor,
+  saveRoomNoteFor,
+} from "./notes";
 
 
 import { generateRoomCode } from "./utils/roomCode";
@@ -233,6 +242,8 @@ export function createApp(io : AppServer) {
         return;
       }
       await Room.updateMany({ activityId }, { activityId: null });
+      // The teacher's note on it goes with it.
+      await deleteActivityNote(activityId, teacherId);
       res.status(200).json({ message: "Deleted activity." });
     } catch (e) {
       console.error(e);
@@ -373,6 +384,92 @@ export function createApp(io : AppServer) {
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to delete that room." });
+    }
+  });
+
+  // ---------- Teacher notes (see notes.ts) ----------
+  // Private to the logged-in teacher: every route uses the session's user id,
+  // never one the browser sends, and checks the activity or room is theirs.
+
+  // Every note of the logged-in teacher, most recently changed first.
+  app.get("/api/notes", requireLogin, async (req, res) => {
+    try {
+      res.status(200).json(await notesForTeacher(req.session.user!.id));
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load your notes." });
+    }
+  });
+
+  // The note on one of the logged-in teacher's activities.
+  app.get("/api/notes/activities/:activityId", requireLogin, async (req, res) => {
+    try {
+      const note = await activityNoteFor(req.params.activityId.trim(), req.session.user!.id);
+      if (note === null) {
+        res.status(404).json({ error: "Cannot find that activity." });
+        return;
+      }
+      res.status(200).json(note);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load your note." });
+    }
+  });
+
+  // Saves the note on one of the logged-in teacher's activities. Body: { text }.
+  // Empty text deletes the note.
+  app.put("/api/notes/activities/:activityId", requireLogin, async (req, res) => {
+    const parsed = parseNoteText(req.body);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    try {
+      const saved = await saveActivityNoteFor(req.params.activityId.trim(), req.session.user!.id, parsed.text);
+      if (saved === null) {
+        res.status(404).json({ error: "Cannot find that activity." });
+        return;
+      }
+      res.status(200).json(saved);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to save your note." });
+    }
+  });
+
+  // A room's notes: the room's own note, and the note on the activity it uses.
+  // Works while the room is being set up, while it's live, and once it's saved.
+  app.get("/api/notes/rooms/:roomCode", requireLogin, async (req, res) => {
+    try {
+      const notes = await roomNotesFor(req.params.roomCode, req.session.user!.id);
+      if (notes === null) {
+        res.status(404).json({ error: "Cannot find that room." });
+        return;
+      }
+      res.status(200).json(notes);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load your notes." });
+    }
+  });
+
+  // Saves a room's own note. Body: { text }. Empty text deletes the note.
+  app.put("/api/notes/rooms/:roomCode", requireLogin, async (req, res) => {
+    const parsed = parseNoteText(req.body);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    try {
+      const saved = await saveRoomNoteFor(req.params.roomCode, req.session.user!.id, parsed.text);
+      if (saved === null) {
+        res.status(404).json({ error: "Cannot find that room." });
+        return;
+      }
+      res.status(200).json(saved);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to save your note." });
     }
   });
 

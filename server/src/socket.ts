@@ -3,6 +3,7 @@ import type { IncomingMessage } from "http";
 import type { Session, SessionData } from "express-session";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { Message } from "./models/Message";
+import { Note } from "./models/Note";
 import { Activity } from "./models/Activity";
 import { ParsonsOptions, DEFAULT_PARSONS_OPTIONS } from "./parsons/options";
 import { parseInitial, seededRandom, studentPool } from "./parsons/parse";
@@ -137,7 +138,19 @@ export function closeRoom(io : AppServer, room : string, reason: RoomClosedReaso
   // saved, so their group chat is deleted instead of being kept forever.
   // (snapshot is only set on the first call, so a repeat call deletes nothing.)
   if (snapshot?.opened) void archiveRoom(snapshot);
-  else if (snapshot) void deleteRoomMessages(room);
+  else if (snapshot) {
+    void deleteRoomMessages(room);
+    void deleteRoomNotes(room);
+  }
+}
+
+// Deletes a room's notes. Used for rooms that end without being saved.
+async function deleteRoomNotes(room: string): Promise<void> {
+  try {
+    await Note.deleteMany({ kind: "room", targetId: room });
+  } catch (err) {
+    console.error("[socket] failed to delete notes of unsaved room:", err);
+  }
 }
 
 // Deletes a room's group chat. Used for rooms that end without being saved.
@@ -184,6 +197,13 @@ function clearLiveTimers(live: LiveRoom): void {
     if (seat.awayTimer) clearTimeout(seat.awayTimer);
     seat.awayTimer = undefined;
   }
+}
+
+// The host and activity of a room that is live in memory, or null if it isn't.
+// Used by the notes routes for a room whose Room doc already expired.
+export function liveRoomInfo(code: string): { hostID: string | null; activityId: unknown } | null {
+  const live = liveRooms.get(code);
+  return live ? { hostID: live.hostID, activityId: live.activityId } : null;
 }
 
 // True if the room is still live in memory and was opened by this host. Used by
@@ -422,6 +442,8 @@ async function archiveRoom(snapshot: RoomSnapshot): Promise<void> {
     const doc = {
       code: snapshot.code,
       hostID: snapshot.hostID,
+      // So the activity's note can be shown with the saved room.
+      activityId: snapshot.activityId ? String(snapshot.activityId) : null,
       activityName: loaded?.name ?? null,
       activityType: loaded?.type ?? null,
       activity: teacherView(loaded),
