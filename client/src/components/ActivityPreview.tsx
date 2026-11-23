@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
-import { DEFAULT_PARSONS_SETTINGS } from "../types"
-import type { ActivityDetail, ActivityDetailQuestion, ActivitySummary, ParsonsSettings } from "../types"
+import type { ActivityDetail, ActivityDetailQuestion, ActivitySummary } from "../types"
 import { getActivity } from "../api"
 import { activityLanguageLabel } from "../utils/activityLabels"
 import { PopoverTitle } from "@/components/ui/popover"
@@ -39,7 +38,7 @@ function AnswerSkeleton() {
     return <div className="mt-3 h-12 animate-pulse rounded-md bg-neutral-100" aria-hidden="true" />
 }
 
-// The answer under one question: the expected output for coding, or the solution and extra lines for Parsons.
+// The answer under one question: the expected output for coding, or every line students are handed for Parsons.
 function Answer({ type, item }: { type: ActivitySummary["type"]; item: ActivityDetailQuestion }) {
     if (type === "coding") {
         return (
@@ -58,90 +57,35 @@ function Answer({ type, item }: { type: ActivitySummary["type"]; item: ActivityD
     // Rows as the teacher typed them. Blank rows aren't saved, so dropping them here changes nothing.
     const codeLines = (item.code ?? "").split("\n").filter((line) => line.trim() !== "")
     const extraLines = (item.distractors ?? "").split("\n").filter((line) => line.trim() !== "")
-    const settings: ParsonsSettings = { ...DEFAULT_PARSONS_SETTINGS, ...item.options }
-    // Every line a student could be handed, mixed together the way they start out: no indentation
-    // (placing it is part of the task), and the extra lines marked so the teacher can tell them apart.
-    const pool = jumble([
-        ...codeLines.map((line) => ({ text: line.trim(), extra: false })),
-        ...extraLines.map((line) => ({ text: line.trim(), extra: true })),
-    ])
+    // Every line a student could be handed, mixed together the way they start out and all looking alike:
+    // no indentation and no mark on the extra lines, so the preview gives away neither the order nor the distractors.
+    const pool = jumble([...codeLines, ...extraLines].map((line) => line.trim()))
     return (
-        <div className="mt-3 flex flex-col gap-3">
-            <div>
-                <AnswerLabel>
-                    Lines + distractors · {codeLines.length} {codeLines.length === 1 ? "line" : "lines"}
-                    {extraLines.length > 0 && `, ${extraLines.length} ${extraLines.length === 1 ? "distractor" : "distractors"}`}
-                </AnswerLabel>
-                <ul className="flex max-h-48 flex-col gap-1 overflow-auto">
-                    {pool.map((line, i) => (
-                        <li
-                            key={i}
-                            className={line.extra
-                                ? "flex items-center justify-between gap-2 rounded-md border border-dashed border-red-200 bg-red-50/60 px-3 py-1 font-mono text-xs text-red-900"
-                                : "rounded-md border border-neutral-200 bg-white px-3 py-1 font-mono text-xs text-gray-900"}
-                        >
-                            <span className="whitespace-pre">{line.text}</span>
-                            {line.extra && <span className="shrink-0 font-sans text-[10px] font-semibold uppercase tracking-wide text-red-700">Distractor</span>}
-                        </li>
-                    ))}
-                </ul>
-            </div>
-            <div>
-                <AnswerLabel>Solution · {codeLines.length} {codeLines.length === 1 ? "line" : "lines"}</AnswerLabel>
-                {/* Numbered and kept exactly as typed, indentation included: the order and indents students must rebuild. */}
-                <ol className="max-h-48 overflow-auto rounded-md border border-neutral-200 bg-neutral-50 py-2 font-mono text-xs leading-relaxed text-gray-900">
-                    {codeLines.map((line, i) => (
-                        <li key={i} className="flex">
-                            <span className="w-8 shrink-0 select-none pr-2 text-right text-gray-400">{i + 1}</span>
-                            <span className="whitespace-pre pr-3">{line}</span>
-                        </li>
-                    ))}
-                </ol>
-            </div>
-            <div>
-                <AnswerLabel>Settings</AnswerLabel>
-                <ParsonsSettingsSummary settings={settings} hasExtraLines={extraLines.length > 0} />
-            </div>
+        <div className="mt-3">
+            <AnswerLabel>Lines · {pool.length} {pool.length === 1 ? "line" : "lines"}</AnswerLabel>
+            <ul className="flex max-h-48 flex-col gap-1 overflow-auto">
+                {pool.map((line, i) => (
+                    <li key={i} className="rounded-md border border-neutral-200 bg-white px-3 py-1 font-mono text-xs text-gray-900">
+                        <span className="whitespace-pre">{line}</span>
+                    </li>
+                ))}
+            </ul>
         </div>
     )
 }
 
 // Mixes lines into an order that looks shuffled but is the same every time, so the preview
 // doesn't reshuffle each time it opens. Each line is ordered by a hash of its text and position.
-function jumble<T extends { text: string }>(lines: T[]): T[] {
+function jumble(lines: string[]): string[] {
     const hash = (value: string) => {
         let h = 2166136261
         for (let i = 0; i < value.length; i++) h = Math.imul(h ^ value.charCodeAt(i), 16777619)
         return h >>> 0
     }
     return lines
-        .map((line, i) => ({ line, key: hash(`${i}:${line.text}`) }))
+        .map((line, i) => ({ line, key: hash(`${i}:${line}`) }))
         .sort((a, b) => a.key - b.key)
         .map(({ line }) => line)
-}
-
-// The settings that change what students see or do, as short label/value pairs in two columns.
-// Grader and execution limit are left out: only the line based grader runs, and it never runs code.
-function ParsonsSettingsSummary({ settings, hasExtraLines }: { settings: ParsonsSettings; hasExtraLines: boolean }) {
-    const rows: [string, string][] = [
-        ["Indentation", settings.canIndent ? `On · ${settings.xIndent}px per level` : "Off"],
-        ["Feedback", settings.showFeedback ? "Shown to students" : "Hidden"],
-    ]
-    // These two only matter when there are extra lines to hand out.
-    if (hasExtraLines) {
-        rows.push(["Extra lines given", `Up to ${settings.maxWrongLines}`])
-        rows.push(["Dragging", settings.requireDragging ? "Extra lines start in the trash" : "Not required"])
-    }
-    return (
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-md border border-neutral-200 px-3 py-2 text-xs">
-            {rows.map(([label, value]) => (
-                <div key={label}>
-                    <dt className="text-gray-500">{label}</dt>
-                    <dd className="font-medium text-gray-900">{value}</dd>
-                </div>
-            ))}
-        </dl>
-    )
 }
 
 // What the hover preview shows for one activity: a header with its type, language, size and date,
