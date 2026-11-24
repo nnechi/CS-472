@@ -507,14 +507,6 @@ export interface ServerToClientEvents {
   // Students only: this seat was opened in another tab or window, which now
   // has it. This socket is disconnected right after.
   "session replaced": () => void;
-  // Your run is waiting. Sent again whenever its place changes (1 = next).
-  "run queued": (payload: { jobId: string; questionIndex: number; position: number }) => void;
-  "run started": (payload: { jobId: string; questionIndex: number }) => void;
-  // Output as the program produces it.
-  "run output": (payload: { jobId: string; stream: "stdout" | "stderr"; chunk: string }) => void;
-  "run finished": (payload: { jobId: string; questionIndex: number; outcome: RunOutcome }) => void;
-  // The run wasn't queued, with a message to show the student.
-  "run rejected": (payload: { questionIndex: number; reason: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -531,10 +523,8 @@ export interface ClientToServerEvents {
     tabId?: string;
     resume?: boolean;
   }) => void;
-  // Run this question's code. Queued; results come back as "run ..." events.
-  "run code": (payload: { questionIndex: number; code: string }) => void;
-  // Stop your own queued or running code.
-  "cancel run": () => void;
+  // Share browser output for the student's current code. This is not a trusted grade.
+  "browser run result": (payload: { questionIndex: number; code: string; result: RunResult }) => void;
   // Students only: change their pup avatar. Later messages use the new pup.
   "set pup": (payload: { pup: string }) => void;
   "chat message": (payload: { text: string }) => void;

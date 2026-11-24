@@ -16,10 +16,10 @@ import type {
 // A person's current code run. Events for any other job are ignored, so a
 // replaced or stale run can't overwrite the newest one.
 export interface RunState {
+  phase?: string;
   jobId: string | null;
   questionIndex: number | null;
-  status: "idle" | "queued" | "running";
-  position: number | null; // place in line while queued, 1 = next
+  status: "idle" | "running";
   output: string; // streamed while running, then the final output
   outcome: RunOutcome | null; // how the last run ended
   error: string | null; // why a run was rejected

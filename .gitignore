@@ -21,3 +21,6 @@ npm-debug.log*
 
 #builds and stuff
 *.tsbuildinfo
+# Browser test artifacts
+client/test-results/
+client/playwright-report/
