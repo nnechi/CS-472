@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, NotebookPen } from "lucide-react"
 import { AnswerProgress, Session } from "../../types"
 import Timer from "../Timer"
 import { HandRaiseAlert } from "../HandQueue"
@@ -53,6 +53,11 @@ interface TeacherHeaderProps {
     // Whether the Needs help box is open, and the click that opens or closes it (the raise-hand icon).
     handQueueOpen: boolean
     onToggleHandQueue: () => void
+
+    // Whether the teacher's notes are open, and the click that opens or closes
+    // them (the notebook icon). Without onToggleNotes there's no notes button.
+    notesOpen?: boolean
+    onToggleNotes?: () => void
 }
 
 // The teacher's room header: one consolidated bar (this replaced two separate
@@ -73,6 +78,8 @@ export default function TeacherHeader({
     statusLabel,
     handQueueOpen,
     onToggleHandQueue,
+    notesOpen = false,
+    onToggleNotes,
 }: TeacherHeaderProps) {
     const { auth } = useAuth()
     // Picking a question moves every student in the room to it (in a saved
@@ -116,6 +123,29 @@ export default function TeacherHeader({
                 </div>
 
                 <div className="flex min-w-0 flex-wrap items-center justify-end gap-3 sm:gap-4">
+                    {onToggleNotes && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <button
+                                            type="button"
+                                            onClick={onToggleNotes}
+                                            aria-expanded={notesOpen}
+                                            aria-label={notesOpen ? "Hide your notes" : "Show your notes"}
+                                            className={cn(
+                                                "inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+                                                notesOpen ? "border-brand bg-brand text-white" : "border-brand/40 bg-white text-brand hover:bg-brand/10"
+                                            )}
+                                        >
+                                            <NotebookPen className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
+                                        </button>
+                                    }
+                                />
+                                <TooltipContent>Your notes</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
                     {!room.ended && <HandRaiseAlert count={room.handQueue.length} open={handQueueOpen} onToggle={onToggleHandQueue} />}
                     <TooltipProvider>
                         <Tooltip>

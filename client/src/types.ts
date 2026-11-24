@@ -402,6 +402,44 @@ export interface PastRoomDetail {
   messages: ChatMessage[]; // the group chat, oldest first
 }
 
+// Teacher notes. Private: only the teacher who wrote a note can read or change
+// it, and notes are never sent over the room's socket, which students share.
+export const NOTE_MAX_LENGTH = 20000;
+
+// A note belongs to one of a teacher's activities, or to one of their rooms
+// (by room code, from setting it up through to Previous activities).
+export type NoteKind = "activity" | "room";
+
+// One note's text. Empty text with a null updatedAt means there's no note yet.
+export interface NoteText {
+  text: string;
+  updatedAt: string | null; // ISO timestamp
+}
+
+// An activity's note, with the activity's name to show next to it.
+export interface ActivityNote extends NoteText {
+  activityId: string;
+  activityName: string;
+}
+
+// A room's notes: its own, and the note on the activity it uses (if it has one).
+export interface RoomNotes {
+  room: NoteText;
+  activity: ActivityNote | null;
+}
+
+// One note in the list on the Notes page.
+export interface NoteSummary {
+  kind: NoteKind;
+  targetId: string; // the activity's id, or the room's code
+  text: string;
+  updatedAt: string; // ISO timestamp
+  activityName: string | null; // the activity, or the activity the room used
+  // Rooms only: "previous" once it has ended, "current" while it's set up or live.
+  roomStatus: "previous" | "current" | null;
+  endedAt: string | null; // previous rooms only, ISO timestamp
+}
+
 export interface ServerToClientEvents {
   "chat message": (message: ChatMessage) => void;
   "chat history": (messages: ChatMessage[]) => void;
