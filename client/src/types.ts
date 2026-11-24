@@ -56,12 +56,14 @@ export interface ActivityQuestion {
   settings: ParsonsSettings;
 }
 
-// An activity a teacher made, as listed for picking. Its text is not included.
+// An activity a teacher made, as listed for picking. Only each question's text is included, never its answer.
 export interface ActivitySummary {
   id: string;
   name: string;
   type: ActivityType;
+  language: ProgrammingLanguage | null; // only set for coding activities
   questionCount: number;
+  questions: string[]; // each question's text, for the dashboard's hover preview
   createdAt: string; // ISO timestamp
 }
 
@@ -69,6 +71,25 @@ export interface ActivitySummary {
 export interface ParsonsLine {
   code: string;
   indent: number;
+}
+
+// One question of an activity with its answer, as only the activity's teacher sees it.
+export interface ActivityDetailQuestion {
+  question: string;
+  output?: string; // coding: the output a correct answer produces
+  code?: string; // parsons: the solution code as the teacher typed it, one line per row, indentation kept
+  distractors?: string; // parsons: the extra lines that aren't in the answer, one per row
+  options?: Partial<ParsonsSettings>; // parsons: the question's settings; missing ones use the defaults
+}
+
+// A whole activity with its answers, from GET /api/activities/:activityId. Teacher-only.
+export interface ActivityDetail {
+  id: string;
+  name: string;
+  type: ActivityType;
+  language: ProgrammingLanguage | null;
+  createdAt: string; // ISO timestamp
+  questions: ActivityDetailQuestion[];
 }
 
 // Where a student's line is wrong: its place in the order, or its indentation.
