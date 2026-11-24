@@ -1,9 +1,8 @@
 import { useState } from "react"
 import { Link, NavLink, Outlet } from "react-router-dom"
-import useAuth from "../hooks/useAuth"
 import DashboardSearch from "../components/DashboardSearch"
-import UserAvatar from "../components/UserAvatar"
-import { FolderIcon, HistoryIcon, HomeIcon, LogoutIcon, PencilIcon, SettingsIcon } from "../components/MenuIcons"
+import AccountMenu from "../components/AccountMenu"
+import { FolderIcon, HistoryIcon, HomeIcon, PencilIcon, SettingsIcon } from "../components/MenuIcons"
 import shortLogo from "../assets/LittlePointers Logo/Short Logo.png"
 
 // Menu items stack the icon above the text on small screens and sit side by side on laptop and larger.
@@ -17,7 +16,6 @@ const tooltipClass = (menuOpen: boolean) => menuOpen
 
 //Originally had the teacherDashbooard but changed it to just DashboardLayout
 export default function DashboardLayout() {
-    const { auth, logout } = useAuth()
     // The menu starts open on laptop-sized screens (768px and up) and closed on small ones.
     // The ☰ button opens and closes it at every size.
     const [menuOpen, setMenuOpen] = useState(() => window.matchMedia("(min-width: 768px)").matches)
@@ -58,14 +56,8 @@ export default function DashboardLayout() {
                     <DashboardSearch />
                 </div>
 
-                {auth && (
-                    <span className="flex items-center gap-6 text-xl text-brand">
-                        {/* The profile picture goes to the settings page. */}
-                        <Link to="/dashboard/settings" aria-label="Go to settings" className="rounded-full">
-                            <UserAvatar name={auth.user.name} picture={auth.user.picture} />
-                        </Link>
-                    </span>
-                )}
+                {/* The profile picture opens a menu with Settings and Log out. */}
+                <AccountMenu />
             </header>
 
             <div className="flex flex-1">
@@ -96,16 +88,6 @@ export default function DashboardLayout() {
                             <span className={labelClass}>Settings</span>
                             <span className={tooltipClass(menuOpen)} aria-hidden="true">Settings</span>
                         </NavLink>
-                        <button
-                            type="button"
-                            className={`${itemClass} mt-auto cursor-pointer`}
-                            aria-label="Logout"
-                            onClick={logout}
-                        >
-                            <LogoutIcon/>
-                            <span className={labelClass}>Logout</span>
-                            <span className={tooltipClass(menuOpen)} aria-hidden="true">Logout</span>
-                        </button>
                     </nav>
 
                 <main className="flex-1 border-t border-brand p-6">

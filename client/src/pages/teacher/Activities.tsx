@@ -78,6 +78,9 @@ export default function Activities() {
     // The id of the activity whose ... menu is open. Only one menu can be open at a time.
     const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
+    // The id of the activity whose notes are open under it. One at a time, like the menu.
+    const [openNotesId, setOpenNotesId] = useState<string | null>(null)
+
     // This loads the teacher's activities from the server, runs when the dashboard is first rendered
     // This also runs when the auth changes
     useEffect(() => {
@@ -137,14 +140,13 @@ export default function Activities() {
                         className={a.id === highlightId ? "rounded-lg ring-2 ring-indigo-600" : undefined}
                     >
                         <Activity
-                            id={a.id}
-                            name={a.name}
-                            questionCount={a.questionCount}
-                            createdAt={a.createdAt}
+                            activity={a}
                             onDelete={() => handleDelete(a.id)}
                             menuOpen={openMenuId === a.id}
                             onMenuToggle={() => setOpenMenuId((current) => current === a.id ? null : a.id)}
                             onMenuClose={() => setOpenMenuId(null)}
+                            notesOpen={openNotesId === a.id}
+                            onNotesToggle={() => setOpenNotesId((current) => current === a.id ? null : a.id)}
                         />
                     </div>
                 ))}

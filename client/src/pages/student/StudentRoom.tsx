@@ -1,15 +1,17 @@
+import { useState } from "react"
 import type { ReactNode } from "react"
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
 import StudentParsons from "../../components/activity/StudentParsons"
 import ChatWidget from "../../components/chat/ChatWidget"
 import RoomLayout from "../../components/chat/RoomLayout"
+import RoomEndedModal from "../../components/RoomEndedModal"
 import RoomStatusBanner from "../../components/chat/RoomStatusBanner"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
 import { Session } from "../../types"
 import { normalizeRoomCode } from "../../utils/roomCode"
 import StudentHeader from "../../components/chat/StudentHeader"
 import CodeEditor from "../../components/activity/CodeEditor"
-import PupAvatar, { PUPS } from "../../components/chat/PupAvatar" 
+import PupAvatar, { PUPS } from "../../components/chat/PupAvatar"
 
 // /rooms/join/:roomCode -- the student's view of a room: the activity, the chat,
 // and the raise-hand button. Students have no account; the name comes from the
@@ -47,17 +49,23 @@ function RoomCard({ children }: { children: ReactNode }) {
 // The socket is opened here, so it only runs once the name check has passed.
 function StudentRoomScreen({ session, waiting }: { session: Session; waiting: boolean }) {
     const navigate = useNavigate()
+    // Set when the teacher ends the room, so the popup can show before the
+    // student is redirected instead of leaving immediately. A second "room
+    // closed" event just sets this to true again, so no duplicate popup.
+    const [roomEnded, setRoomEnded] = useState(false)
     const room = useRoomSocket(session, {
         startWaiting: waiting,
         onRoomClosed: (reason) => {
-            window.alert(
-                reason === "teacher-away"
-                    ? "Your teacher didn't come back, so this room has closed. Your work was saved for them."
-                    : reason === "expired"
-                      ? "This room has closed. Your work was saved for your teacher."
-                      : "Your teacher ended this room."
-            )
-            navigate("/")
+            if (reason === "teacher-away" || reason === "expired") {
+                window.alert(
+                    reason === "teacher-away"
+                        ? "Your teacher didn't come back, so this room has closed. Your work was saved for them."
+                        : "This room has closed. Your work was saved for your teacher."
+                )
+                navigate("/")
+                return
+            }
+            setRoomEnded(true)
         },
         onJoinError: (reason) => {
             window.alert(
@@ -68,6 +76,16 @@ function StudentRoomScreen({ session, waiting }: { session: Session; waiting: bo
             navigate("/")
         },
     })
+
+    // Unmounting this screen runs useRoomSocket's cleanup, which disconnects
+    // the socket (already dropped server-side) and leaves the ended room.
+    const leaveEndedRoom = () => navigate("/")
+
+    // The teacher ended the room: show the explanation instead of whatever
+    // screen was up (waiting, replaced, or the room itself).
+    if (roomEnded) {
+        return <RoomEndedModal onOkay={leaveEndedRoom} />
+    }
 
     // Leave gives up the seat, so ask first: joining again starts over.
     async function leave() {

@@ -1,13 +1,13 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { ChevronDown, Code, ListOrdered, X } from "lucide-react"
-import { ActivityInput, ActivityQuestionInput, createActivity, getActivity, SessionEndedError, updateActivity } from "../../api"
+import { ActivityInput, ActivityQuestionInput, createActivity, getActivity, SessionEndedError, updateActivity, saveActivityNote } from "../../api"
 import CodingQuestion from "../../components/activity/CodingQuestion"
 import ParsonsQuestion from "../../components/activity/ParsonsQuestion"
 import { codeLines, effectiveRequireDragging, UPLOAD_LIMIT } from "../../components/activity/questionCode"
 import useAuth from "../../hooks/useAuth"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
-import UserAvatar from "../../components/UserAvatar"
+import AccountMenu from "../../components/AccountMenu"
 import {
     ACTIVITY_MAX_LENGTH,
     ACTIVITY_MAX_QUESTIONS,
@@ -19,6 +19,7 @@ import {
     ParsonsSettings,
     PROGRAMMING_LANGUAGES,
     ProgrammingLanguage,
+    NOTE_MAX_LENGTH,
 } from "../../types"
 
 const EMPTY_QUESTION : ActivityQuestion = {
@@ -76,6 +77,11 @@ export default function CreateActivity(){
     // blank defaults above never flash on screen before its real data arrives.
     const [loading, setLoading] = useState(isEditing)
     const [loadError, setLoadError] = useState("")
+
+    // The teacher's private notes on the activity, saved with it on Finish.
+    const [notes, setNotes] = useState("")
+    // Set once the activity is saved. If its notes then fail to save, Finish only retries the notes.
+    const [createdId, setCreatedId] = useState<string | null>(null)
     const listRef = useRef<HTMLDivElement>(null)
 
     // Keep the highlighted question visible in the scrolling list, e.g. after
@@ -97,11 +103,12 @@ export default function CreateActivity(){
                 setName(activity.name)
                 setType(activity.type)
                 setLanguage(activity.language ?? "")
+                // The server only sends the fields for the activity's type, so the others start empty.
                 setQuestions(activity.questions.map((item) => ({
                     question: item.question,
-                    output: item.output,
-                    code: item.code,
-                    distractors: item.distractors,
+                    output: item.output ?? "",
+                    code: item.code ?? "",
+                    distractors: item.distractors ?? "",
                     settings: { ...DEFAULT_PARSONS_SETTINGS, ...item.options },
                 })))
                 setSelected(0)
@@ -174,19 +181,29 @@ export default function CreateActivity(){
         }
         setSaving(true)
         setError("")
+        let id = createdId
         try {
             if (activityId) {
                 await updateActivity(activityId, activity)
-            } else {
-                await createActivity(activity)
+                // Only set once the update worked, so a failed update shows its real error below.
+                id = activityId
+            } else if (id === null) {
+                // A new activity is created once. If its notes fail, Finish only retries the notes.
+                id = (await createActivity(activity)).id
+                setCreatedId(id)
             }
+            if (notes.trim()) await saveActivityNote(id, notes)
             navigate("/dashboard/activities")
         } catch (err) {
             if (err instanceof SessionEndedError) {
                 setAuth(null)
                 return
             }
-            setError(err instanceof Error ? err.message : "Could not save the activity.")
+            const reason = err instanceof Error ? err.message : "Could not save the activity."
+            setError(id === null
+                ? reason
+                // The activity exists now. Saving it again would make a copy, so only the notes are retried.
+                : `Your activity was saved, but your notes weren't: ${reason} Click Finish to try saving them again.`)
             setSaving(false)
         }
     }
@@ -228,14 +245,8 @@ export default function CreateActivity(){
                     </Link>
                 </div>
 
-                {auth && (
-                    <span className="flex items-center gap-6 text-xl text-brand">
-                        {/* The profile picture goes to the settings page. */}
-                        <Link to="/dashboard/settings" aria-label="Go to settings" className="rounded-full">
-                            <UserAvatar name={auth.user.name} picture={auth.user.picture} />
-                        </Link>
-                    </span>
-                )}
+                {/* The profile picture opens a menu with Settings and Log out. */}
+                <AccountMenu />
             </header>
 
             <form
@@ -463,6 +474,28 @@ export default function CreateActivity(){
                                 </section>
                             )}
                         </div>
+                    </section>
+
+                    {/* Section 3: the teacher's private notes */}
+                    <section className="flex flex-col gap-3">
+                        <h2 className="flex items-center gap-3 text-3xl font-bold">
+                            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-2xl text-white">3</span>
+                            Your Notes
+                        </h2>
+                        <label className="flex flex-col gap-2 text-2xl font-semibold">
+                            Notes for yourself (optional)
+                            <span className="text-lg font-normal text-brand/70">
+                                Only you can see these. They're kept with the activity and shown every time you use it.
+                            </span>
+                            <textarea
+                                className="min-h-32 resize-y rounded-lg border border-brand/20 bg-white px-4 py-3 text-xl font-normal text-brand placeholder:text-brand/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-pop"
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                placeholder="Things to remember when you run this activity..."
+                                maxLength={NOTE_MAX_LENGTH}
+                                rows={4}
+                            />
+                        </label>
                     </section>
 
                     {error && (

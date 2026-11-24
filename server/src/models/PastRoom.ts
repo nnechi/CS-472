@@ -8,6 +8,9 @@ const PastRoomSchema = new Schema(
     code: { type: String, required: true, unique: true, uppercase: true, trim: true },
     // The teacher who ran the room (same id as Room.hostID and the session user id).
     hostID: { type: String, required: true, index: true },
+    // The activity the room used, so its note can be shown with the saved room.
+    // Rooms saved before this field existed don't have it.
+    activityId: { type: String, default: null },
     activityName: { type: String, default: null },
     activityType: { type: String, enum: ["coding", "parsons"], default: null },
     // The teacher's view of the activity (answers included), as the room used it.

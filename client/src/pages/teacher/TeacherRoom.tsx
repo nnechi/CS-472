@@ -13,6 +13,7 @@ import { deleteRoom, SessionEndedError } from "../../api"
 import TeacherHeader from "../../components/chat/TeacherHeader"
 import CodeEditor from "../../components/activity/CodeEditor"
 import { HandQueue } from "../../components/HandQueue"
+import { RoomNotesPanel } from "../../components/TeacherNotes"
 
 // /rooms/:roomId -- the teacher's view of a room: the activity, the chat, the
 // timer, and the raised-hand queue. Students who land here are sent to their
@@ -107,6 +108,8 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
     const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
     // Whether the Needs help box is open. Toggled by the raise-hand icon in the header.
     const [showHandQueue, setShowHandQueue] = useState(false)
+    // Whether the teacher's notes are open. Toggled by the notebook icon in the header.
+    const [showNotes, setShowNotes] = useState(false)
 
     // If the selected student leaves a live room, drop the stale selection. A
     // student who is only away (lost their connection) stays selected and
@@ -159,11 +162,19 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                 statusLabel={statusLabel}
                 handQueueOpen={showHandQueue}
                 onToggleHandQueue={() => setShowHandQueue((open) => !open)}
+                notesOpen={showNotes}
+                onToggleNotes={() => setShowNotes((open) => !open)}
             />
             {!room.ended && room.reconnecting && (
                 <RoomStatusBanner kind="offline">
                     Connection lost. Reconnecting… The room stays open for your students.
                 </RoomStatusBanner>
+            )}
+            {/* The teacher's private notes: this room's, and its activity's. Live and saved rooms alike. */}
+            {showNotes && (
+                <div className="px-4 py-3 sm:px-8">
+                    <RoomNotesPanel roomCode={session.room} />
+                </div>
             )}
             {!room.ended && showHandQueue && (
                 <div className="px-4 py-3 sm:px-8">

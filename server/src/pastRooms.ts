@@ -1,4 +1,5 @@
 import { PastRoom } from "./models/PastRoom";
+import { deleteRoomNote } from "./notes";
 import {
   ActivityType,
   ChatMessage,
@@ -78,5 +79,8 @@ export async function deletePastRoomForHost(code: string, hostID: string): Promi
   if (!c) return false;
 
   const result = await PastRoom.deleteOne({ code: c, hostID });
-  return result.deletedCount === 1;
+  if (result.deletedCount !== 1) return false;
+  // The teacher's note on the room goes with it.
+  await deleteRoomNote(c, hostID);
+  return true;
 }

@@ -56,12 +56,14 @@ export interface ActivityQuestion {
   settings: ParsonsSettings;
 }
 
-// An activity a teacher made, as listed for picking. Its text is not included.
+// An activity a teacher made, as listed for picking. Only each question's text is included, never its answer.
 export interface ActivitySummary {
   id: string;
   name: string;
   type: ActivityType;
+  language: ProgrammingLanguage | null; // only set for coding activities
   questionCount: number;
+  questions: string[]; // each question's text, for the dashboard's hover preview
   createdAt: string; // ISO timestamp
 }
 
@@ -69,6 +71,25 @@ export interface ActivitySummary {
 export interface ParsonsLine {
   code: string;
   indent: number;
+}
+
+// One question of an activity with its answer, as only the activity's teacher sees it.
+export interface ActivityDetailQuestion {
+  question: string;
+  output?: string; // coding: the output a correct answer produces
+  code?: string; // parsons: the solution code as the teacher typed it, one line per row, indentation kept
+  distractors?: string; // parsons: the extra lines that aren't in the answer, one per row
+  options?: Partial<ParsonsSettings>; // parsons: the question's settings; missing ones use the defaults
+}
+
+// A whole activity with its answers, from GET /api/activities/:activityId. Teacher-only.
+export interface ActivityDetail {
+  id: string;
+  name: string;
+  type: ActivityType;
+  language: ProgrammingLanguage | null;
+  createdAt: string; // ISO timestamp
+  questions: ActivityDetailQuestion[];
 }
 
 // Where a student's line is wrong: its place in the order, or its indentation.
@@ -379,6 +400,44 @@ export interface PastRoomDetail {
   endedAt: string;
   students: PastStudent[];
   messages: ChatMessage[]; // the group chat, oldest first
+}
+
+// Teacher notes. Private: only the teacher who wrote a note can read or change
+// it, and notes are never sent over the room's socket, which students share.
+export const NOTE_MAX_LENGTH = 20000;
+
+// A note belongs to one of a teacher's activities, or to one of their rooms
+// (by room code, from setting it up through to Previous activities).
+export type NoteKind = "activity" | "room";
+
+// One note's text. Empty text with a null updatedAt means there's no note yet.
+export interface NoteText {
+  text: string;
+  updatedAt: string | null; // ISO timestamp
+}
+
+// An activity's note, with the activity's name to show next to it.
+export interface ActivityNote extends NoteText {
+  activityId: string;
+  activityName: string;
+}
+
+// A room's notes: its own, and the note on the activity it uses (if it has one).
+export interface RoomNotes {
+  room: NoteText;
+  activity: ActivityNote | null;
+}
+
+// One note in the list on the Notes page.
+export interface NoteSummary {
+  kind: NoteKind;
+  targetId: string; // the activity's id, or the room's code
+  text: string;
+  updatedAt: string; // ISO timestamp
+  activityName: string | null; // the activity, or the activity the room used
+  // Rooms only: "previous" once it has ended, "current" while it's set up or live.
+  roomStatus: "previous" | "current" | null;
+  endedAt: string | null; // previous rooms only, ISO timestamp
 }
 
 export interface ServerToClientEvents {

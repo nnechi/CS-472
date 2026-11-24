@@ -16,6 +16,15 @@ import {
 } from "./socket";
 import { deletePastRoomForHost, pastRoomForHost, pastRoomsForHost } from "./pastRooms";
 import { backfillRoomLogs, roomStatsForHost } from "./roomStats";
+import {
+  activityNoteFor,
+  deleteActivityNote,
+  notesForTeacher,
+  parseNoteText,
+  roomNotesFor,
+  saveActivityNoteFor,
+  saveRoomNoteFor,
+} from "./notes";
 
 
 import { generateRoomCode } from "./utils/roomCode";
@@ -191,7 +200,7 @@ export function createApp(io : AppServer) {
 
     try {
       const created = await Activity.create(parsed.value);
-      res.status(201).json({ id: String(created._id), name: created.name, type: created.type, questionCount: created.questions.length, createdAt: created.createdAt });
+      res.status(201).json({ id: String(created._id), name: created.name, type: created.type, language: created.language ?? null, questionCount: created.questions.length, questions: created.questions.map((q) => q.question), createdAt: created.createdAt });
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to save the activity." });
@@ -203,21 +212,24 @@ export function createApp(io : AppServer) {
     const teacherId = req.session.user!.id; // from the login, never from the browser
 
     try {
-      // Counts the questions on the server so the whole question list isn't sent just to show a number.
+      // Sends only each question's text, for the dashboard's hover preview. Answers (output) and Parsons solutions (initial) stay on the server.
       const found = await Activity.aggregate([
         { $match: { teacherId } },
         { $sort: { name: 1 } },
-        { $project: { name: 1, type: 1, createdAt: 1, questionCount: { $size: "$questions" } } },
+        { $project: { name: 1, type: 1, language: 1, createdAt: 1, questionCount: { $size: "$questions" }, questions: "$questions.question" } },
       ]);
-      res.status(200).json(found.map((a) => ({ id: String(a._id), name: a.name, type: a.type, questionCount: a.questionCount, createdAt: a.createdAt })));
+      res.status(200).json(found.map((a) => ({ id: String(a._id), name: a.name, type: a.type, language: a.language ?? null, questionCount: a.questionCount, questions: a.questions ?? [], createdAt: a.createdAt })));
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to load activities." });
     }
   });
 
-  // getActivity(activityId, teacherId): the full activity, including every
-  // question's content, for the edit page. Only the teacher who made it can read it.
+  // getActivity(activityId, teacherId): one activity with its answers, for the teacher who made it.
+  //   coding: each question's correct output.
+  //   parsons: each question's code and extra lines as the teacher typed them (the create form's
+  //     shape, rebuilt from the stored problem), and its settings.
+  // Students never reach this: it only answers the activity's own teacher.
   app.get("/api/activities/:activityId", requireLogin, async (req, res) => {
     const activityId = req.params.activityId.trim();
     const teacherId = req.session.user!.id; // from the login, never from the browser
@@ -228,27 +240,25 @@ export function createApp(io : AppServer) {
     }
 
     try {
-      const found = await Activity.findOne({ _id: activityId, teacherId });
+
+      const found = await Activity.findOne({ _id: activityId, teacherId }).lean();
       if (found === null) {
         res.status(404).json({ error: "Cannot find that activity." });
         return;
       }
-      res.status(200).json({
-        id: String(found._id),
-        name: found.name,
-        type: found.type,
-        language: found.language,
-        questions: found.questions.map((q) =>
-          found.type === "coding"
-            ? { question: q.question, output: q.output, code: "", distractors: "", options: {} }
-            : { question: q.question, output: "", ...splitInitial(q.initial), options: q.options ?? {} }
-        ),
+
+      const questions = found.questions.map((q) => {
+        if (found.type === "coding") return { question: q.question, output: q.output ?? "" };
+        const { code, distractors } = splitInitial(q.initial ?? "");
+        return { question: q.question, code, distractors, options: q.options ?? {} };
       });
+      res.status(200).json({ id: String(found._id), name: found.name, type: found.type, language: found.language ?? null, createdAt: found.createdAt, questions });
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to load the activity." });
     }
   });
+
 
   // updateActivity(activityId, teacherId, name, type, language, questions): saves
   // changes to an activity the teacher already made, in place. Its id and
@@ -281,6 +291,7 @@ export function createApp(io : AppServer) {
     }
   });
 
+
   // deleteActivity(activityId, teacherId): only the teacher who made it can delete it.
   // Rooms that were using it go back to having no activity.
   app.delete("/api/activities/:activityId", requireLogin, async (req, res) => {
@@ -299,6 +310,8 @@ export function createApp(io : AppServer) {
         return;
       }
       await Room.updateMany({ activityId }, { activityId: null });
+      // The teacher's note on it goes with it.
+      await deleteActivityNote(activityId, teacherId);
       res.status(200).json({ message: "Deleted activity." });
     } catch (e) {
       console.error(e);
@@ -439,6 +452,92 @@ export function createApp(io : AppServer) {
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to delete that room." });
+    }
+  });
+
+  // ---------- Teacher notes (see notes.ts) ----------
+  // Private to the logged-in teacher: every route uses the session's user id,
+  // never one the browser sends, and checks the activity or room is theirs.
+
+  // Every note of the logged-in teacher, most recently changed first.
+  app.get("/api/notes", requireLogin, async (req, res) => {
+    try {
+      res.status(200).json(await notesForTeacher(req.session.user!.id));
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load your notes." });
+    }
+  });
+
+  // The note on one of the logged-in teacher's activities.
+  app.get("/api/notes/activities/:activityId", requireLogin, async (req, res) => {
+    try {
+      const note = await activityNoteFor(req.params.activityId.trim(), req.session.user!.id);
+      if (note === null) {
+        res.status(404).json({ error: "Cannot find that activity." });
+        return;
+      }
+      res.status(200).json(note);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load your note." });
+    }
+  });
+
+  // Saves the note on one of the logged-in teacher's activities. Body: { text }.
+  // Empty text deletes the note.
+  app.put("/api/notes/activities/:activityId", requireLogin, async (req, res) => {
+    const parsed = parseNoteText(req.body);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    try {
+      const saved = await saveActivityNoteFor(req.params.activityId.trim(), req.session.user!.id, parsed.text);
+      if (saved === null) {
+        res.status(404).json({ error: "Cannot find that activity." });
+        return;
+      }
+      res.status(200).json(saved);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to save your note." });
+    }
+  });
+
+  // A room's notes: the room's own note, and the note on the activity it uses.
+  // Works while the room is being set up, while it's live, and once it's saved.
+  app.get("/api/notes/rooms/:roomCode", requireLogin, async (req, res) => {
+    try {
+      const notes = await roomNotesFor(req.params.roomCode, req.session.user!.id);
+      if (notes === null) {
+        res.status(404).json({ error: "Cannot find that room." });
+        return;
+      }
+      res.status(200).json(notes);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load your notes." });
+    }
+  });
+
+  // Saves a room's own note. Body: { text }. Empty text deletes the note.
+  app.put("/api/notes/rooms/:roomCode", requireLogin, async (req, res) => {
+    const parsed = parseNoteText(req.body);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    try {
+      const saved = await saveRoomNoteFor(req.params.roomCode, req.session.user!.id, parsed.text);
+      if (saved === null) {
+        res.status(404).json({ error: "Cannot find that room." });
+        return;
+      }
+      res.status(200).json(saved);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to save your note." });
     }
   });
 
