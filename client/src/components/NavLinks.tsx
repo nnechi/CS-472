@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 
 interface NavLinksProp {
     onLinkClick?: () => void;
@@ -16,15 +16,24 @@ export default function NavLinks({ onLinkClick, menuItem = false }: NavLinksProp
         `rounded-lg px-3 py-2 text-base md:text-lg text-brand hover:bg-white/60 ${isActive
             ? "bg-white font-semibold"
             : "font-normal"}`;
+
+    // About Us and Features now scroll to their sections on the home page.
+    // NavLink ignores the "#..." part, so on the home page it would mark both as
+    // current. These use Link with the normal (not current) look instead.
+    const sectionLinkClass = menuItem
+        ? menuItemClass({ isActive: false })
+        : getLinkClass({ isActive: false });
    
     return (
         <>
-            <NavLink to="/about" className={menuItem ? menuItemClass : getLinkClass} onClick={onLinkClick}>
+            {/* NavLink to="/about" became Link to="/#about" */}
+            <Link to="/#about" className={sectionLinkClass} onClick={onLinkClick}>
                 About Us
-            </NavLink>
-            <NavLink to="/features" className={menuItem ? menuItemClass : getLinkClass} onClick={onLinkClick}>
+            </Link>
+            {/* NavLink to="/features" became Link to="/#features" */}
+            <Link to="/#features" className={sectionLinkClass} onClick={onLinkClick}>
                 Features
-            </NavLink>
+            </Link>
             {/* <NavLink to="/contact" className={menuItem ? menuItemClass : getLinkClass} onClick={onLinkClick}>
                 Contact Us
             </NavLink> */}

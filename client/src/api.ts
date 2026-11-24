@@ -1,4 +1,4 @@
-import type { ActivitySummary, ActivityType, ParsonsSettings, PastRoomDetail, PastRoomSummary, ProgrammingLanguage } from "./types"
+import type { ActiveRoomSummary, ActivitySummary, ActivityType, ParsonsSettings, PastRoomDetail, PastRoomSummary, ProgrammingLanguage, RoomStatSummary } from "./types"
 
 export const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
@@ -55,45 +55,47 @@ export interface ActivityInput {
     questions : ActivityQuestionInput[];
 }
 
-// Saves a new activity for a teacher. Throws with the server's reason if it fails.
-export async function createActivity(teacherId : string, activity : ActivityInput) : Promise<ActivitySummary> {
+// Saves a new activity for the signed-in teacher. Throws with the server's reason if it fails.
+export async function createActivity(activity : ActivityInput) : Promise<ActivitySummary> {
     const res = await fetch(`${SERVER_URL}/api/activities`, {
-        method: "POST",
+        method: "POST", credentials: "include",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({teacherId, ...activity})
+        body: JSON.stringify(activity)
     })
 
+    if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not save the activity."));
     return res.json();
 }
 
-// The activities a teacher made, A to Z. Throws with the server's reason if it fails.
-export async function listActivities(teacherId : string) : Promise<ActivitySummary[]> {
-    const res = await fetch(`${SERVER_URL}/api/activities?teacherId=${encodeURIComponent(teacherId)}`)
+// The activities the signed-in teacher made, A to Z. Throws with the server's reason if it fails.
+export async function listActivities() : Promise<ActivitySummary[]> {
+    const res = await fetch(`${SERVER_URL}/api/activities`, { credentials: "include" })
 
+    if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not load your activities."));
     return res.json();
 }
 
-// Deletes one of a teacher's activities. Throws with the server's reason if it fails.
-export async function deleteActivity(activityId : string, teacherId : string) : Promise<void> {
+// Deletes one of the signed-in teacher's activities. Throws with the server's reason if it fails.
+export async function deleteActivity(activityId : string) : Promise<void> {
     const res = await fetch(`${SERVER_URL}/api/activities/${encodeURIComponent(activityId)}`, {
-        method: "DELETE",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({teacherId})
+        method: "DELETE", credentials: "include"
     })
 
+    if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not delete the activity."));
 }
 
 // Sets the activity a room uses. Throws with the server's reason if it fails.
-export async function saveActivity(roomCode : string, hostID : string, activityId : string) : Promise<void> {
+export async function saveActivity(roomCode : string, activityId : string) : Promise<void> {
     const res = await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent(roomCode)}/activity`, {
-        method: "PUT",
+        method: "PUT", credentials: "include",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({hostID, activityId})
+        body: JSON.stringify({activityId})
     })
 
+    if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not save the activity."));
 }
 
@@ -106,12 +108,33 @@ export class SessionEndedError extends Error {
     }
 }
 
+// This teacher's rooms that are still running, newest first: rooms they opened
+// that haven't been ended, including ones whose tab they closed. Needs a
+// signed-in teacher. Throws with the server's reason if it fails.
+export async function listActiveRooms() : Promise<ActiveRoomSummary[]> {
+    const res = await fetch(`${SERVER_URL}/api/active-rooms`, { credentials: "include" })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not load your running rooms."));
+    return res.json();
+}
+
 // The rooms this teacher ended, newest first. Needs a signed-in teacher. Throws with the server's reason if it fails.
 export async function listPastRooms() : Promise<PastRoomSummary[]> {
     const res = await fetch(`${SERVER_URL}/api/past-rooms`, { credentials: "include" })
 
     if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not load your previous activities."));
+    return res.json();
+}
+
+// The dashboard's room stats: every room this teacher ended, newest first. Unlike listPastRooms,
+// deleting a previous activity does not remove a room from these. Throws with the server's reason if it fails.
+export async function listRoomStats() : Promise<RoomStatSummary[]> {
+    const res = await fetch(`${SERVER_URL}/api/room-stats`, { credentials: "include" })
+
+    if (res.status === 401) throw new SessionEndedError();
+    if (!res.ok) throw new Error(await failureMessage(res, "Could not load your room stats."));
     return res.json();
 }
 
@@ -145,11 +168,12 @@ export async function getRoomStatus(roomCode : string) : Promise<RoomStatus> {
 }
 
 // mark the room open for students to join
-export async function markRoomOpen(roomCode : string, hostID : string, activityId : string) : Promise<void>{ 
+export async function markRoomOpen(roomCode : string, activityId : string) : Promise<void>{ 
      const res = await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent(roomCode)}/open`, { 
-        method: "PUT", 
+        method: "PUT", credentials: "include",
         headers: {"Content-Type":"application/json"},
-        body : JSON.stringify({hostID, activityId}), 
+        body : JSON.stringify({activityId}), 
     })
+    if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not open room.")); 
 }

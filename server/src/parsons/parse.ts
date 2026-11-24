@@ -17,8 +17,12 @@ const DISTRACTOR_SUFFIX = /#distractor\s*$/;
 const DISTRACTOR_TAG = "#distractor";
 
 // Trims both ends and drops the distractor tag, as ParsonsCodeline does.
+// Everything else is kept exactly as typed. ParsonsCodeline also turns a "\n"
+// written inside a line into a real line break (its way of joining lines into
+// one block), but here teachers paste real code, where "\n" is an escape in a
+// string such as cout << "Done\n"; and must reach students unchanged.
 function codeOf(text: string): string {
-  return text.replace(DISTRACTOR_SUFFIX, "").replace(/^\s*(.*?)\s*$/, "$1").replace(/\\n/g, "\n");
+  return text.replace(DISTRACTOR_SUFFIX, "").replace(/^\s*(.*?)\s*$/, "$1");
 }
 
 // Number of leading whitespace characters. Tabs and spaces both count as one.
@@ -96,20 +100,73 @@ export function buildInitial(code: string, distractors: string): string {
     .join("\n");
 }
 
+// A source of random numbers from 0 (inclusive) to 1, like Math.random.
+export type Random = () => number;
+
 // Fisher-Yates shuffle. Used for the order of lines and for picking extra lines.
-export function shuffle<T>(items: T[]): T[] {
+export function shuffle<T>(items: T[], random: Random = Math.random): T[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
 }
 
-// The lines a student starts with: every solution line, plus up to maxWrongLines
-// extra lines picked at random, all in a random order. Same as the widget's init
-// and shuffleLines.
-export function studentPool(solution: ParsonsLine[], distractors: string[], maxWrongLines: number): string[] {
-  const picked = shuffle(distractors).slice(0, maxWrongLines);
-  return shuffle([...solution.map((line) => line.code), ...picked]);
+// Counting numbers from start, count of them: range(2, 3) is [2, 3, 4].
+const range = (start: number, count: number): number[] => Array.from({ length: count }, (_, i) => start + i);
+
+// The lines a student is given, as positions in the problem's lines: the
+// solution's lines come first (0 up to solutionCount - 1), then the extra
+// lines. Every solution line, plus up to maxWrongLines extra lines picked at
+// random, all in a random order. Same as the widget's init and shuffleLines.
+// The order says which lines are the answer, so it never leaves the server;
+// students only get the lines' text (poolLines).
+export function studentPoolOrder(
+  solutionCount: number,
+  distractorCount: number,
+  maxWrongLines: number,
+  random: Random = Math.random
+): number[] {
+  const picked = shuffle(range(solutionCount, distractorCount), random).slice(0, Math.max(0, maxWrongLines));
+  return shuffle([...range(0, solutionCount), ...picked], random);
+}
+
+// The text of each line in a pool order.
+export function poolLines(order: number[], solution: ParsonsLine[], distractors: string[]): string[] {
+  const all = [...solution.map((line) => line.code), ...distractors];
+  return order.map((position) => all[position]);
+}
+
+// The lines a student starts with, as text. See studentPoolOrder. Pass a
+// seeded random (see seededRandom) to give the same student the same lines
+// every time they join.
+export function studentPool(
+  solution: ParsonsLine[],
+  distractors: string[],
+  maxWrongLines: number,
+  random: Random = Math.random
+): string[] {
+  return poolLines(studentPoolOrder(solution.length, distractors.length, maxWrongLines, random), solution, distractors);
+}
+
+// A repeatable random source from 32 bytes of seed (e.g. an HMAC digest), using
+// the sfc32 generator. The same seed always gives the same numbers.
+export function seededRandom(seed: Uint8Array): Random {
+  const word = (i: number) => ((seed[i] << 24) | (seed[i + 1] << 16) | (seed[i + 2] << 8) | seed[i + 3]) >>> 0;
+  let a = word(0), b = word(4), c = word(8), d = word(12);
+  const next = () => {
+    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+    const t = (a + b) | 0;
+    a = b ^ (b >>> 9);
+    b = (c + (c << 3)) | 0;
+    c = (c << 21) | (c >>> 11);
+    d = (d + 1) | 0;
+    const result = (t + d) | 0;
+    c = (c + result) | 0;
+    return (result >>> 0) / 4294967296;
+  };
+  // Mix the state well before using it.
+  for (let i = 0; i < 15; i++) next();
+  return next;
 }

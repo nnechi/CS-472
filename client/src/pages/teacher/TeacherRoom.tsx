@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Navigate, useNavigate, useParams } from "react-router-dom"
 import TeacherParsons from "../../components/activity/TeacherParsons"
 import ChatWidget from "../../components/chat/ChatWidget"
 import RoomLayout from "../../components/chat/RoomLayout"
+import RoomStatusBanner from "../../components/chat/RoomStatusBanner"
 import { useRoomSocket } from "../../hooks/useRoomSocket"
 import type { RoomView } from "../../hooks/roomView"
 import useAuth from "../../hooks/useAuth"
@@ -32,11 +33,28 @@ export default function TeacherRoom() {
 }
 
 // The socket is opened here, so it only runs once the sign-in check has passed.
+// Closing this tab or losing the connection doesn't end the room: the teacher
+// can come back through this URL or the dashboard. Only Leave (endRoom) ends it.
 function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: string }) {
     const navigate = useNavigate()
+    // True while this tab is ending the room, so its own "room closed" isn't announced.
+    const ending = useRef(false)
     const room = useRoomSocket(session, {
-        onJoinError: () => {
+        onJoinError: (reason) => {
+            // Ended since, e.g. it closed itself while the teacher was away: its
+            // work is saved under Previous activities.
+            if (reason === "ended") {
+                window.alert("This room has ended, and everyone's work was saved. You can find it under Previous activities.")
+                navigate("/dashboard/previous-activities")
+                return
+            }
             window.alert("This room doesn't exist, has ended, or you aren't signed in as its teacher.")
+            navigate("/dashboard")
+        },
+        // Ended from somewhere else, e.g. End room on the dashboard or another tab.
+        onRoomClosed: () => {
+            if (ending.current) return
+            window.alert("This room was ended. You can find it under Previous activities.")
             navigate("/dashboard")
         },
     })
@@ -45,9 +63,11 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
         if (!window.confirm("End this room for everyone?")) return
 
         let success: Boolean = false
+        ending.current = true
         try {
             success = await deleteRoom(session.room, hostID)
         } catch (e) {
+            ending.current = false
             if (e instanceof SessionEndedError) {
                 // Signed out: log in again, then open this room to end it. Login returns to the room.
                 window.alert("Your sign-in has ended. Log in again, then open this room to end it.")
@@ -58,6 +78,7 @@ function TeacherRoomScreen({ session, hostID }: { session: Session; hostID: stri
         }
 
         if (!success) {
+            ending.current = false
             window.alert("This room could not be ended. Check your connection and try again.")
             return
         }
@@ -87,13 +108,18 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
     // Whether the Needs help box is open. Toggled by the raise-hand icon in the header.
     const [showHandQueue, setShowHandQueue] = useState(false)
 
-    // If the selected student leaves a live room, drop the stale selection.
+    // If the selected student leaves a live room, drop the stale selection. A
+    // student who is only away (lost their connection) stays selected and
+    // comes back with the same id.
     useEffect(() => {
         if (room.ended) return
         if (selectedStudentId && !room.roster.some((s) => s.id === selectedStudentId)) {
             setSelectedStudentId(null)
         }
     }, [room.ended, room.roster, selectedStudentId])
+
+    // Students who lost their connection and can come back, by id.
+    const awayIds = new Set(room.roster.filter((s) => s.connected === false).map((s) => s.id))
 
     // Opening a student's private chat (hand queue or chat tab) shows their work too.
     const openPrivateChat = (studentId: string) => {
@@ -116,8 +142,10 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
     const progress = studentId ? room.studentProgress(studentId) : null
     const parsonsProgress = progress?.type === "parsons" ? progress : undefined
     const codingProgress = progress?.type === "coding" ? progress : null
+    // Only a connected student's code can be edited together.
     const canEditStudent = !room.ended && room.activity?.type === "coding" &&
-        room.roster.some((student) => student.id === studentId) && !!room.editStudentCode
+        room.roster.some((student) => student.id === studentId && student.connected !== false) && !!room.editStudentCode
+    const selectedAway = !!selectedStudent && awayIds.has(selectedStudent.id)
 
     return (
         <div className="flex min-h-screen flex-col bg-white text-black">
@@ -132,10 +160,16 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                 handQueueOpen={showHandQueue}
                 onToggleHandQueue={() => setShowHandQueue((open) => !open)}
             />
+            {!room.ended && room.reconnecting && (
+                <RoomStatusBanner kind="offline">
+                    Connection lost. Reconnecting… The room stays open for your students.
+                </RoomStatusBanner>
+            )}
             {!room.ended && showHandQueue && (
                 <div className="px-4 py-3 sm:px-8">
                     <HandQueue
                         queue={room.handQueue}
+                        awayIds={awayIds}
                         onLowerHand={room.lowerHand}
                         onOpenPrivateChat={openPrivateChat}
                     />
@@ -149,6 +183,7 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                     <span className="font-semibold">
                         {canEditStudent ? "Editing with" : "Viewing"} {canEditStudent ? selectedStudent.username : `${selectedStudent.username}'s work`}
                         {!progress && <span className="font-normal text-brand/70"> (no work yet)</span>}
+                        {selectedAway && <span className="font-normal text-brand/70"> · away, they can come back to this work</span>}
                     </span>
                     <button
                         type="button"
@@ -207,7 +242,7 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                     <ChatWidget
                         room={chatRoom}
                         username={session.username}
-                        privateLabel={(chat) => `Private: ${chat.studentName}`}
+                        privateLabel={(chat) => `Private: ${chat.studentName}${awayIds.has(chat.id) ? " (away)" : ""}`}
                     />
                 }
             />

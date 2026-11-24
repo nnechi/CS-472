@@ -90,7 +90,7 @@ export default function Activities() {
 
         // listActivities is an API call to the server that returns a Promise - this Promise holds an array of ActivitySummary objects
         // Essentially, this function returns the array of activities for a user - passes in the user's id to know which user to look up
-        listActivities(auth.user.id)
+        listActivities()
             // .then() runs when the server responds
             // This calls the setActivities function to change the state of the activities array to match the array from the server (triggers rerender as well)
             .then((found) => { if (!cancelled) setActivities(found) })
@@ -179,7 +179,7 @@ export default function Activities() {
     // If the server request fails, the error is thrown so the Activity component can show it
     async function handleDelete(activityId: string){
         if (!auth) return
-        await deleteActivity(activityId, auth.user.id)
+        await deleteActivity(activityId)
         setActivities((current) => current?.filter((a) => a.id !== activityId) ?? null)
     }
 
@@ -191,7 +191,7 @@ export default function Activities() {
                     {/* Clicking the icon and the text opens the create page. */}
                     <button
                         type="button"
-                        className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-300 px-4 py-2 text-gray-900 hover:bg-neutral-100"
+                        className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-brand bg-pop/25 px-4 py-2 text-[#5a52a6] hover:bg-pop/40"
                         onClick={() => navigate("/create-activity")}
                     >
                         <NoteIcon />
@@ -214,7 +214,7 @@ export default function Activities() {
                             <span aria-hidden="true">{sortOpen ? "▴" : "▾"}</span>
                         </button>
                         {sortOpen && (
-                            <ul role="listbox" aria-labelledby="activity-sort" className="absolute left-0 top-full z-20 mt-2 flex w-56 flex-col rounded-lg border border-brand bg-white p-2 shadow-md">
+                            <ul role="listbox" aria-labelledby="activity-sort" className="absolute left-0 top-full z-20 mt-2 flex w-56 flex-col rounded-lg border-2 border-brand bg-white p-2 shadow-md">
                                 {(Object.keys(SORT_LABELS) as SortOrder[]).map((order) => (
                                     <li
                                         key={order}

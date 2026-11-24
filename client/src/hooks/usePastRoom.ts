@@ -114,7 +114,7 @@ export function usePastRoom(roomCode: string): PastRoom {
     handRaised: false,
     waiting: false,
     roster: view.roster,
-    timer: { durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, running: false },
+    timer: { durationMs: DEFAULT_TIMER_MS, remainingMs: DEFAULT_TIMER_MS, running: false, visibleToStudents: true },
     activity: detail?.activity ?? null,
     currentQuestion,
     selectQuestion: setCurrentQuestion,
@@ -137,5 +137,12 @@ export function usePastRoom(roomCode: string): PastRoom {
     raiseHand: doNothing,
     lowerHand: doNothing,
     ended: true,
+    joined: false,
+    reconnecting: false,
+    replaced: false,
+    reclaim: doNothing,
+    teacherAway: false,
+    roomClosesAt: null,
+    leave: () => Promise.resolve(),
   };
 }

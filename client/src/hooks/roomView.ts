@@ -82,6 +82,24 @@ export interface RoomView {
   lowerHand: (id: string) => void;
   // False for a live room, true for a saved (ended) room, which is read-only.
   ended: boolean;
+  // Live rooms: true once the server has let this page back into the room
+  // after connecting, false while it is offline or (re)joining. Chat and
+  // other actions wait for it, since the server ignores them before then.
+  joined: boolean;
+  // Live rooms: the connection dropped and the page is trying to get back in.
+  reconnecting: boolean;
+  // Students: the room was opened in another tab, which has their seat now.
+  replaced: boolean;
+  // Students: take the seat back into this tab ("Use this tab").
+  reclaim: () => void;
+  // Students: their teacher has been out of the room for a little while, and
+  // when the room will close itself (saving everyone's work) if they don't
+  // come back (ISO), or null.
+  teacherAway: boolean;
+  roomClosesAt: string | null;
+  // Students: the Leave button. Gives up their seat (see "leave room"), then
+  // resolves; the caller navigates away.
+  leave: () => Promise<void>;
 }
 
 // The old name, so existing imports keep working.

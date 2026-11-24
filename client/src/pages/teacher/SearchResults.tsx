@@ -16,7 +16,7 @@ export default function SearchResults() {
     useEffect(() => {
         if (!auth) return
         let cancelled = false
-        listActivities(auth.user.id)
+        listActivities()
             .then((found) => { if (!cancelled) setActivities(found) })
             .catch((err) => {
                 if (!cancelled) setLoadError(err instanceof Error ? err.message : "Could not load your activities.")

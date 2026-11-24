@@ -1,11 +1,20 @@
-// Put require login in front of any route that needs a logged in user
-
 import type { NextFunction, Request, Response } from "express";
+import { User } from "../models/User";
 
 export function requireLogin(req: Request, res: Response, next: NextFunction): void {
-    if (!req.session.user) {
+    const sessionUser = req.session.user;
+    if (!sessionUser) {
         res.status(401).json({ error: "Not logged in" });
         return;
     }
-    next(); // logged in, carry on to route itself
+    User.findById(sessionUser.id).then(user => {
+        if (!user || user.authVersion !== (sessionUser.authVersion ?? 0)) {
+            req.session.destroy(() => {});
+            res.clearCookie("sid");
+            res.status(401).json({ error: "Please sign in again." });
+            return;
+        }
+        sessionUser.email = user.email;
+        next();
+    }).catch(next);
 }

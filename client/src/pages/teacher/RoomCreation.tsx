@@ -67,7 +67,7 @@ export default function RoomCreation() {
         if (!auth || !code || !startingActivityId) return;
 
         // API call to saveActivity to bind the room to the activity using the activity Id
-        saveActivity(code, auth.user.id, startingActivityId).catch(console.error);
+        saveActivity(code, startingActivityId).catch(console.error);
     }, [auth?.user.id, code, startingActivityId]);
 
     useEffect(() => {
@@ -114,8 +114,8 @@ export default function RoomCreation() {
         if (!auth || !startingActivityId || saving) return;
         setSaving(true);
         try {
-            await saveActivity(code, auth.user.id, startingActivityId); 
-            await markRoomOpen(code, auth.user.id, startingActivityId); 
+            await saveActivity(code, startingActivityId); 
+            await markRoomOpen(code, startingActivityId); 
             navigate(`/rooms/${code}`);
         } catch (e) {
             window.alert(`Could not open the room. ${e instanceof Error ? e.message : ""}`.trim());

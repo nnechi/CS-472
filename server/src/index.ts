@@ -4,8 +4,18 @@ import { Server } from "socket.io";
 import cors from "cors";
 
 import { connectToDatabase } from "./db";
-import {AppServer, closeRoom, isLiveRoomCode, isLiveRoomHost, lobbyChannel, registerSocketHandlers } from "./socket";
+import {
+  AppServer,
+  activeRoomsForHost,
+  closeRoom,
+  isLiveRoomCode,
+  isLiveRoomHost,
+  lobbyChannel,
+  markLiveRoomOpened,
+  registerSocketHandlers,
+} from "./socket";
 import { deletePastRoomForHost, pastRoomForHost, pastRoomsForHost } from "./pastRooms";
+import { backfillRoomLogs, roomStatsForHost } from "./roomStats";
 
 
 import { generateRoomCode } from "./utils/roomCode";
@@ -18,6 +28,7 @@ import { parseActivityInput } from "./activityInput";
 import { isObjectIdOrHexString } from "mongoose";
 
 import { sessionMiddleware } from "./auth/session";
+import { accountRouter } from "./auth/account";
 import { authRouter } from "./auth/routes";
 import { requireLogin } from "./auth/requireLogin";
 
@@ -43,15 +54,16 @@ export function createApp(io : AppServer) {
     app.set("trust proxy", 1);
   }
   // Turn on sessions for every request.
-  app.use(cors({ origin: process.env.CLIENT_ORIGIN, credentials: true })); // lets us talk to frontend and send them stuff, namely cookies, sessions, and Google's sign-in payload
+  // Lets the frontend read our answers and send its login cookie. Keep this above every route.
+  app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
   app.use(sessionMiddleware);
   app.use(authRouter);
+  app.use(accountRouter);
   // who is logged in?
   app.get("/api/me", requireLogin, (req, res) => {
     res.json({ user: req.session.user });
   });
 
-  app.use(cors({ origin: CLIENT_ORIGIN }));
   app.use(express.json({ limit: "1mb" }));
 
   // A tiny health-check route so you can confirm the server is up in a browser.
@@ -168,8 +180,9 @@ export function createApp(io : AppServer) {
   });
 
   // Activities a teacher made. createActivity(teacherId, name, type, language, questions)
-  app.post("/api/activities", async (req, res) => {
-    const parsed = parseActivityInput(req.body);
+  app.post("/api/activities", requireLogin, async (req, res) => {
+    // The activity belongs to whoever is logged in, never an id the browser sends.
+    const parsed = parseActivityInput(req.body, req.session.user!.id);
     if (!parsed.ok) {
       res.status(400).json({ error: parsed.error });
       return;
@@ -185,13 +198,8 @@ export function createApp(io : AppServer) {
   });
 
   // listActivities(teacherId): only that teacher's activities, A to Z.
-  app.get("/api/activities", async (req, res) => {
-    const teacherId = typeof req.query.teacherId === "string" ? req.query.teacherId.trim() : "";
-
-    if (!teacherId) {
-      res.status(400).json({ error: "Missing teacher id." });
-      return;
-    }
+  app.get("/api/activities", requireLogin, async (req, res) => {
+    const teacherId = req.session.user!.id; // from the login, never from the browser
 
     try {
       // Counts the questions on the server so the whole question list isn't sent just to show a number.
@@ -209,14 +217,10 @@ export function createApp(io : AppServer) {
 
   // deleteActivity(activityId, teacherId): only the teacher who made it can delete it.
   // Rooms that were using it go back to having no activity.
-  app.delete("/api/activities/:activityId", async (req, res) => {
+  app.delete("/api/activities/:activityId", requireLogin, async (req, res) => {
     const activityId = req.params.activityId.trim();
-    const teacherId = typeof req.body?.teacherId === "string" ? req.body.teacherId.trim() : "";
+    const teacherId = req.session.user!.id; // from the login, never from the browser
 
-    if (!teacherId) {
-      res.status(400).json({ error: "Missing teacher id." });
-      return;
-    }
     if (!isObjectIdOrHexString(activityId)) {
       res.status(400).json({ error: "Invalid activity id." });
       return;
@@ -238,14 +242,10 @@ export function createApp(io : AppServer) {
 
   // Sets which activity a room uses. Only the room's host can change it, and
   // only with an activity they made, while the room is still open.
-  app.put("/api/rooms/:roomCode/activity", async (req, res) => {
+  app.put("/api/rooms/:roomCode/activity", requireLogin, async (req, res) => {
     const c : string = req.params.roomCode.trim().toUpperCase();
-    const hostID = typeof req.body?.hostID === "string" ? req.body.hostID.trim() : "";
+    const hostID = req.session.user!.id; // from the login, never from the browser
     const activityId = typeof req.body?.activityId === "string" ? req.body.activityId.trim() : "";
-    if (!hostID) {
-      res.status(400).json({ error: "Missing HostID." });
-      return;
-    }
     if (!isObjectIdOrHexString(activityId)) {
       res.status(400).json({ error: "Choose an activity." });
       return;
@@ -274,14 +274,10 @@ export function createApp(io : AppServer) {
   });
 
 // toggle open flags on the room to prevent early student joins. teacher clicks open room, students can join afterwards. 
-  app.put("/api/rooms/:roomCode/open", async (req, res) => { 
+  app.put("/api/rooms/:roomCode/open", requireLogin, async (req, res) => { 
     const c : string = req.params.roomCode.trim().toUpperCase();
-    const hostID = typeof req.body?.hostID === "string" ? req.body.hostID.trim() : "";
+    const hostID = req.session.user!.id; // from the login, never from the browser
     const activityId = typeof req.body?.activityId === "string" ? req.body.activityId.trim() : "";
-    if (!hostID) {
-      res.status(400).json({ error: "Missing HostID." });
-      return;
-    }
     if (!isObjectIdOrHexString(activityId)) {
       res.status(400).json({ error: "Choose an activity." });
       return;
@@ -291,12 +287,14 @@ export function createApp(io : AppServer) {
       const updated = await Room.findOneAndUpdate( 
         {code : c, hostID, expiresAt: { $gt: new Date() }, activityId}, { isOpen : true }
       ); 
-      if (updated === null){ 
-        res.status(404).json({error : "Cannot find room!"}); 
+      if (updated === null){
+        res.status(404).json({error : "Cannot find room!"});
 
-      } else { 
-        res.status(200).json({ message : "Opened room."}); 
-        io.to(lobbyChannel(c)).emit("room opened"); 
+      } else {
+        // The room now counts as running (dashboard, saving when it ends).
+        markLiveRoomOpened(c);
+        res.status(200).json({ message : "Opened room."});
+        io.to(lobbyChannel(c)).emit("room opened");
       }
     } catch (e){ 
       console.error(e); 
@@ -313,6 +311,19 @@ export function createApp(io : AppServer) {
   // Body: { user, password }. TODO: Validate credentials using the auth service.
   app.post("/api/auth/login", notImplemented("authenticate"));
 
+  // The logged-in teacher's rooms that are still running (opened and not
+  // ended), newest first, so the dashboard can offer to rejoin or end them.
+  // A room keeps running when the teacher closes their tab or loses their
+  // connection; only End room (DELETE /api/rooms/:code) or expiry ends it.
+  app.get("/api/active-rooms", requireLogin, async (req, res) => {
+    try {
+      res.status(200).json(await activeRoomsForHost(io, req.session.user!.id));
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load your running rooms." });
+    }
+  });
+
   // Previous activities: the rooms the logged-in teacher ran that have ended,
   // newest first. Uses the session's user id, never one the browser sends.
   app.get("/api/past-rooms", requireLogin, async (req, res) => {
@@ -321,6 +332,17 @@ export function createApp(io : AppServer) {
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Failed to load previous activities." });
+    }
+  });
+
+  // Dashboard stats: every room the logged-in teacher ended. Read from RoomLog, so deleting
+  // a previous activity does not change these.
+  app.get("/api/room-stats", requireLogin, async (req, res) => {
+    try {
+      res.status(200).json(await roomStatsForHost(req.session.user!.id));
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to load your room stats." });
     }
   });
 
@@ -381,6 +403,14 @@ export function createApp(io : AppServer) {
 
 async function main() {
   await connectToDatabase();
+
+  // Copies rooms saved before RoomLog existed. Rooms already copied are skipped.
+  try {
+    const copied = await backfillRoomLogs();
+    if (copied > 0) console.log(`[room-stats] copied ${copied} earlier room(s) into the room log`);
+  } catch (err) {
+    console.error("[room-stats] failed to copy earlier rooms:", err);
+  }
 
 
 const io : AppServer = new Server({ 

@@ -268,27 +268,61 @@ export interface ChatMessage {
 }
 
 // A private chat between the room's teacher and one student. `id` is the
-// student's socket id, which is how messages get routed to them.
+// student's id in the room (see RosterStudent), so the chat survives the
+// student reconnecting.
 export interface PrivateChat {
   id: string;
   studentName: string;
   teacherName: string;
 }
 
-// A student waiting for help. `id` is the student's socket id.
+// A student waiting for help. `id` is the student's id in the room.
 export interface RaisedHand {
   id: string;
   username: string;
   raisedAt: string; // ISO timestamp
 }
 
-// A student currently connected to the room. `id` is their socket id, same
-// as RaisedHand -- a student can appear here whether or not they've raised
-// their hand.
+// A student in the room. `id` is their id in the room: it stays the same when
+// they reconnect, refresh, or come back after closing the tab, so their hand,
+// private chat and work stay theirs. Students who left on purpose aren't listed.
 export interface RosterStudent {
   id: string;
   username: string;
+  // Live rooms: false while the student is away (lost their connection or
+  // closed the tab). They can come back to the same seat. Unset in saved rooms.
+  connected?: boolean;
 }
+
+// A returning student's Parsons work, as the server kept it: their arrangement
+// of each question, whether each checked one was right, and the feedback they
+// were shown (null for questions not checked since they last changed).
+export interface SavedParsonsWork {
+  answers: ParsonsLine[][];
+  results: (boolean | null)[];
+  feedback: (AnswerFeedback | null)[];
+}
+
+// One of the teacher's rooms that is still running, for the dashboard.
+export interface ActiveRoomSummary {
+  code: string;
+  activityName: string | null;
+  activityType: ActivityType | null;
+  startedAt: string | null; // ISO timestamp, when the teacher opened the room
+  expiresAt: string; // ISO timestamp, when the room stops letting new students in
+  expired: boolean; // past expiresAt: only people already in it can come back
+  studentCount: number; // students connected right now
+  awayCount: number; // students who lost their connection and can come back
+  teacherConnected: boolean; // the room is open in one of the teacher's tabs
+  // When the room will close on its own (saving everyone's work) unless the
+  // teacher comes back: they've been out of it a while, or it's past its hour
+  // with nobody in it. Null while it isn't going to.
+  closesAt: string | null;
+}
+
+// Why a room closed: its teacher ended it, it closed itself after the teacher
+// was away too long, or it ran out its time with nobody in it.
+export type RoomClosedReason = "ended" | "teacher-away" | "expired";
 
 // The room's countdown timer. remainingMs is the time left right now, and
 // running means it is counting down.
@@ -296,6 +330,8 @@ export interface TimerState {
   durationMs: number; // the length the teacher chose, what Restart returns to
   remainingMs: number;
   running: boolean;
+  // Whether students can see the timer. Teachers always see it.
+  visibleToStudents: boolean;
 }
 
 export interface Participant { 
@@ -305,7 +341,7 @@ export interface Participant {
 
 // A student who joined a room, as saved when the room ended.
 export interface PastStudent {
-  id: string; // the student's socket id during the room
+  id: string; // the student's id during the room
   username: string;
   pup: string | null;
   joinedAt: string; // ISO timestamp
@@ -320,6 +356,16 @@ export interface PastRoomSummary {
   activityName: string | null;
   activityType: ActivityType | null;
   startedAt: string; // ISO timestamp, when the teacher opened the room
+  endedAt: string; // ISO timestamp
+  studentCount: number;
+}
+
+// One ended room, as the dashboard stats need it. Kept apart from PastRoomSummary
+// so these stats do not depend on previous activities still existing.
+export interface RoomStatSummary {
+  code: string;
+  activityName: string | null;
+  startedAt: string; // ISO timestamp
   endedAt: string; // ISO timestamp
   studentCount: number;
 }
@@ -344,14 +390,22 @@ export interface ServerToClientEvents {
   // The question the teacher picked, sent on join and on every change.
   "current question": (questionIndex: number) => void;
   // A private chat was opened (or sent again on join). Includes its history.
-  // A student's progress comes in "student activity", not here.
-  "private chat opened": (payload: { chat: PrivateChat; messages: ChatMessage[] }) => void;
-  // A student left, so their private chat is gone. Sent with the chat id.
+  // A student's progress comes in "student activity", not here. restored is
+  // set when a returning student gets their chat back, rather than the
+  // teacher opening it just now.
+  "private chat opened": (payload: { chat: PrivateChat; messages: ChatMessage[]; restored?: boolean }) => void;
+  // A student left on purpose, so their private chat is gone. Sent with the chat id.
   "private chat closed": (chatId: string) => void;
   "private message": (message: ChatMessage) => void;
   // Teachers only: a student's work changed. Sent for every student who has
-  // progress when a teacher joins, and again on each change.
-  "student activity": (payload: { studentId: string; progress: StudentProgress }) => void;
+  // progress when a teacher joins, and again on each change. A coding student
+  // gets their own too; when they join it also carries, for each question,
+  // the latest text of theirs the server took in (so a rejoining student
+  // sends only the rest of their typing).
+  "student activity": (
+    payload: { studentId: string; progress: StudentProgress },
+    studentTexts?: (string | null)[]
+  ) => void;
   // Students only: whether their checked answer is right.
   "answer result": (payload: {
     questionIndex: number;
@@ -370,14 +424,30 @@ export interface ServerToClientEvents {
   "hand status": (raised: boolean) => void;
   // The room's timer, sent to teachers on join and on every play/pause.
   "timer state": (timer: TimerState) => void;
-  "room closed" : () => void;
-  "join error" : () =>  void;
+  // The room ended, and everyone's work was saved for the teacher.
+  "room closed" : (reason?: RoomClosedReason) => void;
+  // The join was refused. "ended" when the room existed but has ended since.
+  "join error" : (reason?: "ended") =>  void;
   "participants" : (participants : Participant[]) => void; 
   "room waiting" : () => void; 
   "room opened" : () => void; 
-  // Students only: the key their environment is kept under in this room.
-  // Saved by the client and sent back with "join" so a refresh keeps their work.
-  "student key": (studentKey: string) => void;
+  // Students only: the key their seat is kept under in this room. Saved by the
+  // client and sent back with "join", so a dropped connection, a refresh, or
+  // rejoining with the same name keeps their work. seat.returning is true when
+  // they got an existing seat back; seat.sameTab when this tab held it last,
+  // so this tab's copy of their work is the newest.
+  "student key": (studentKey: string, seat: { returning: boolean; sameTab: boolean }) => void;
+  // Students only, Parsons: their saved work, sent right after "room activity"
+  // when they join a seat that has some.
+  "saved work": (work: SavedParsonsWork) => void;
+  // Students only: true when the teacher has been out of the room for a
+  // little while (closed their tab or lost their connection), false when
+  // they're back. closesAt (ISO) is when the room will close itself, saving
+  // everyone's work, if the teacher doesn't come back by then.
+  "teacher away": (away: boolean, closesAt?: string | null) => void;
+  // Students only: this seat was opened in another tab or window, which now
+  // has it. This socket is disconnected right after.
+  "session replaced": () => void;
   // Your run is waiting. Sent again whenever its place changes (1 = next).
   "run queued": (payload: { jobId: string; questionIndex: number; position: number }) => void;
   "run started": (payload: { jobId: string; questionIndex: number }) => void;
@@ -389,8 +459,19 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  // Students send the studentKey they were given last time in this room, if any.
-  join: (payload: { username: string; role: Role; room: string; pup?: string; studentKey?: string }) => void;
+  // Students send the studentKey they were given last time in this room, if
+  // any; tabId, random per page load, so the server can tell this tab from
+  // another tab of the same student; and resume, true when this is the
+  // socket reconnecting on its own (not a page load or "Use this tab").
+  join: (payload: {
+    username: string;
+    role: Role;
+    room: string;
+    pup?: string;
+    studentKey?: string;
+    tabId?: string;
+    resume?: boolean;
+  }) => void;
   // Run this question's code. Queued; results come back as "run ..." events.
   "run code": (payload: { questionIndex: number; code: string }) => void;
   // Stop your own queued or running code.
@@ -409,6 +490,8 @@ export interface ClientToServerEvents {
   "timer restart": () => void;
   // Teachers only: set a new length in whole minutes (1 to 60) and stop the timer.
   "timer set": (payload: { minutes: number }) => void;
+  // Teachers only: show or hide the timer for students.
+  "timer visibility": (payload: { visible: boolean }) => void;
   // Teachers only: pick the question everyone in the room is on.
   "set question": (payload: { questionIndex: number }) => void;
   // Teachers only: open a private chat with a student who raised a hand.
@@ -424,4 +507,8 @@ export interface ClientToServerEvents {
     payload: { studentId: string | null; questionIndex: number; before: string; code: string },
     acknowledge: (error: string | null) => void
   ) => void;
+  // Students only: the Leave button. Their seat is given up: their work stays
+  // with the teacher (and in the saved room), but joining again starts a new
+  // seat. Acknowledged, so the client can disconnect after it arrives.
+  "leave room": (acknowledge?: () => void) => void;
 }
