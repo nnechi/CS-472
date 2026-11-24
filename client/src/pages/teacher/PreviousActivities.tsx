@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { HistoryIcon } from "../../components/MenuIcons"
 import { TrashIcon } from "../../components/ActivitySVGs"
-import { deletePastRoom, listPastRooms, SessionEndedError } from "../../api"
-import useAuth from "../../hooks/useAuth"
+import { deletePastRoom, listPastRooms } from "../../api"
+import useSessionEnded from "../../hooks/useSessionEnded"
 import type { PastRoomSummary } from "../../types"
 
 // The order the rooms can be shown in.
@@ -47,7 +47,7 @@ export default function PreviousActivities() {
     // null while loading, so an empty list and an unloaded list look different
     const [rooms, setRooms] = useState<PastRoomSummary[] | null>(null)
     const [listError, setListError] = useState("")
-    const { setAuth } = useAuth()
+    const sessionEnded = useSessionEnded()
 
     // How the list is sorted. Newest-Oldest is the default.
     const [sortOrder, setSortOrder] = useState<SortOrder>("newest")
@@ -96,10 +96,7 @@ export default function PreviousActivities() {
             setRooms((current) => current?.filter((r) => r.code !== room.code) ?? null)
             setOpenMenuCode(null)
         } catch (e) {
-            if (e instanceof SessionEndedError) {
-                setAuth(null)
-                return
-            }
+            if (sessionEnded(e)) return
             console.error(e)
             setRowErrors((current) => ({ ...current, [room.code]: e instanceof Error ? e.message : "Could not delete that room." }))
         } finally {
@@ -114,15 +111,12 @@ export default function PreviousActivities() {
                 if (cancelled) return
                 // The server no longer knows this user (e.g. it restarted). Sign out
                 // here too, so RequireAuth sends them to /login and back afterwards.
-                if (e instanceof SessionEndedError) {
-                    setAuth(null)
-                    return
-                }
+                if (sessionEnded(e)) return
                 console.error(e)
                 setListError(e instanceof Error ? e.message : "Could not load your previous activities.")
             })
         return () => { cancelled = true }
-    }, [setAuth])
+    }, [sessionEnded])
 
     function displayRooms() {
         if (listError)

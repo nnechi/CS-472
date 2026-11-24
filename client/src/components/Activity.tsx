@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { NotebookPen } from "lucide-react"
-import { NoteIcon, PencilIcon, PlayIcon, TrashIcon } from "./ActivitySVGs"
+import { NoteIcon, EditIcon, PlayIcon, TrashIcon } from "./ActivitySVGs"
 import TeacherNotes from "./TeacherNotes"
 import { getActivityNote, saveActivityNote } from "../api"
 import ActivityPreview, { ACTIVITY_PREVIEW_CLASS, ACTIVITY_PREVIEW_COLLISION_PADDING } from "./ActivityPreview"
@@ -186,7 +186,7 @@ export default function Activity({ activity, onDelete, menuOpen, onMenuToggle, o
                                 onClick={editActivity}
                             >
                                 <span className="flex items-center gap-2">
-                                    <PencilIcon />
+                                    <EditIcon />
                                     Edit
                                 </span>
                             </button>

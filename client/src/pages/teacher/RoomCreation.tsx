@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { createRoom, deleteRoom, saveActivity, markRoomOpen, SERVER_URL, SessionEndedError, getActivityNote, saveActivityNote, saveRoomNote} from '../../api.ts'
+import { createRoom, deleteRoom, saveActivity, markRoomOpen, SessionEndedError, getActivityNote, saveActivityNote, saveRoomNote} from '../../api.ts'
 import TeacherNotes, { NotesField } from "../../components/TeacherNotes"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import shortLogo from "../../assets/LittlePointers Logo/Short Logo.png"
@@ -171,7 +171,7 @@ export default function RoomCreation() {
                 {codeError && (
                     <p role="alert" className="text-sm text-red-700">
                         {codeError instanceof SessionEndedError ? (
-                            <>Creating a room requires a teacher session. <a className="underline" href={`${SERVER_URL}/auth/google`}>Sign in with Google</a> and try again.</>
+                            <>Creating a room requires a teacher session. <Link className="underline" to="/login" state={{ from: location }}>Sign in</Link> and try again.</>
                         ) : codeError.message}
                     </p>
                 )}
