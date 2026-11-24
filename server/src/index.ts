@@ -240,11 +240,13 @@ export function createApp(io : AppServer) {
     }
 
     try {
+
       const found = await Activity.findOne({ _id: activityId, teacherId }).lean();
       if (found === null) {
         res.status(404).json({ error: "Cannot find that activity." });
         return;
       }
+
       const questions = found.questions.map((q) => {
         if (found.type === "coding") return { question: q.question, output: q.output ?? "" };
         const { code, distractors } = splitInitial(q.initial ?? "");
@@ -256,6 +258,39 @@ export function createApp(io : AppServer) {
       res.status(500).json({ error: "Failed to load the activity." });
     }
   });
+
+
+  // updateActivity(activityId, teacherId, name, type, language, questions): saves
+  // changes to an activity the teacher already made, in place. Its id and
+  // teacherId never change, and only the teacher who made it can edit it.
+  app.put("/api/activities/:activityId", requireLogin, async (req, res) => {
+    const activityId = req.params.activityId.trim();
+    const teacherId = req.session.user!.id; // from the login, never from the browser
+
+    if (!isObjectIdOrHexString(activityId)) {
+      res.status(400).json({ error: "Invalid activity id." });
+      return;
+    }
+
+    const parsed = parseActivityInput(req.body, teacherId);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+
+    try {
+      const updated = await Activity.findOneAndUpdate({ _id: activityId, teacherId }, parsed.value, { new: true });
+      if (updated === null) {
+        res.status(404).json({ error: "Cannot find that activity." });
+        return;
+      }
+      res.status(200).json({ id: String(updated._id), name: updated.name, type: updated.type, questionCount: updated.questions.length, createdAt: updated.createdAt });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to save the activity." });
+    }
+  });
+
 
   // deleteActivity(activityId, teacherId): only the teacher who made it can delete it.
   // Rooms that were using it go back to having no activity.

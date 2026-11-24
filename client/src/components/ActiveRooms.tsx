@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { DoorOpen, Radio, Users, UserRoundX, X } from "lucide-react"
-import { deleteRoom, listActiveRooms, SessionEndedError } from "../api"
+import { deleteRoom, listActiveRooms } from "../api"
 import useAuth from "../hooks/useAuth"
+import useSessionEnded from "../hooks/useSessionEnded"
 import type { ActiveRoomSummary, ActivityType } from "../types"
 
 // How often the list refreshes while the dashboard is open.
@@ -31,7 +32,8 @@ function until(iso: string, now: number): string {
 // connection. Each one can be rejoined (its students and their work are all
 // still there) or ended. Shows nothing when no room is running.
 export default function ActiveRooms() {
-    const { auth, setAuth } = useAuth()
+    const { auth } = useAuth()
+    const sessionEnded = useSessionEnded()
     const [rooms, setRooms] = useState<ActiveRoomSummary[]>([])
     const [error, setError] = useState("")
     const [ending, setEnding] = useState<string | null>(null)
@@ -45,13 +47,10 @@ export default function ActiveRooms() {
             setNow(Date.now())
         } catch (e) {
             // The server no longer knows this user (e.g. it restarted): sign in again.
-            if (e instanceof SessionEndedError) {
-                setAuth(null)
-                return
-            }
+            if (sessionEnded(e)) return
             setError(e instanceof Error ? e.message : "Could not load your running rooms.")
         }
-    }, [setAuth])
+    }, [sessionEnded])
 
     // Loaded when the dashboard opens, then kept fresh while it's open and
     // whenever the teacher comes back to this tab.
@@ -76,10 +75,7 @@ export default function ActiveRooms() {
             if (!ended) throw new Error("This room could not be ended. Try again.")
             setRooms((current) => current.filter((r) => r.code !== room.code))
         } catch (e) {
-            if (e instanceof SessionEndedError) {
-                setAuth(null)
-                return
-            }
+            if (sessionEnded(e)) return
             setError(e instanceof Error ? e.message : "This room could not be ended. Try again.")
         } finally {
             setEnding(null)

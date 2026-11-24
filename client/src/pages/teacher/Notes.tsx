@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
-import useAuth from "../../hooks/useAuth"
+import useSessionEnded from "../../hooks/useSessionEnded"
 import TeacherNotes from "../../components/TeacherNotes"
-import { listNotes, saveActivityNote, saveRoomNote, SessionEndedError } from "../../api"
+import { listNotes, saveActivityNote, saveRoomNote } from "../../api"
 import type { NoteSummary } from "../../types"
 
 // A date and time, the same way Previous Activities shows them.
@@ -40,7 +40,7 @@ function describe(note: NoteSummary): { title: string; detail: string; link: str
 // /dashboard/notes -- every note the teacher has written, most recently changed
 // first. Each one can be edited right here, and saves as they type.
 export default function Notes() {
-    const { setAuth } = useAuth()
+    const sessionEnded = useSessionEnded()
     // Null while loading.
     const [notes, setNotes] = useState<NoteSummary[] | null>(null)
     const [error, setError] = useState("")
@@ -52,15 +52,12 @@ export default function Notes() {
             .catch((e: unknown) => {
                 if (cancelled) return
                 // The server no longer knows this user: RequireAuth sends them to /login, then back here.
-                if (e instanceof SessionEndedError) {
-                    setAuth(null)
-                    return
-                }
+                if (sessionEnded(e)) return
                 console.error(e)
                 setError(e instanceof Error ? e.message : "Could not load your notes.")
             })
         return () => { cancelled = true }
-    }, [setAuth])
+    }, [sessionEnded])
 
     function content() {
         if (error) return <p role="alert" className="text-red-600">{error}</p>

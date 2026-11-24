@@ -2,12 +2,14 @@ import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { listActivities } from "../../api"
 import useAuth from "../../hooks/useAuth"
+import useSessionEnded from "../../hooks/useSessionEnded"
 import type { ActivitySummary } from "../../types"
 
 // /dashboard/search?q=... -- the teacher's activities whose names match the search.
 // Notes will be listed here once they are saved to the database.
 export default function SearchResults() {
     const { auth } = useAuth()
+    const sessionEnded = useSessionEnded()
     const [params] = useSearchParams()
     const query = (params.get("q") ?? "").trim()
     const [activities, setActivities] = useState<ActivitySummary[] | null>(null)
@@ -19,7 +21,8 @@ export default function SearchResults() {
         listActivities()
             .then((found) => { if (!cancelled) setActivities(found) })
             .catch((err) => {
-                if (!cancelled) setLoadError(err instanceof Error ? err.message : "Could not load your activities.")
+                if (cancelled || sessionEnded(err)) return
+                setLoadError(err instanceof Error ? err.message : "Could not load your activities.")
             })
         return () => { cancelled = true }
     }, [auth?.user.id])

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import useAuth from "../../hooks/useAuth"
+import useSessionEnded from "../../hooks/useSessionEnded"
 import Activity from "../../components/Activity"
 import { NoteIcon } from "../../components/ActivitySVGs"
 import { deleteActivity, listActivities } from "../../api"
@@ -33,6 +34,7 @@ function sortActivities(list: ActivitySummary[], order: SortOrder): ActivitySumm
 // /dashboard/activities -- the teacher's saved activities, with a button to make a new one.
 export default function Activities() {
     const { auth } = useAuth()
+    const sessionEnded = useSessionEnded()
     const navigate = useNavigate()
 
     // When a search result is clicked, the URL carries that activity's id (?activity=...), so it can be highlighted
@@ -100,9 +102,11 @@ export default function Activities() {
             
             // .catch() runs when the server request fails
             // Sets the error message based on the error message from the Error object (given by listActivities function)
+            // If the sign-in ended, sign out instead so the teacher can log in again
             .catch((e) => {
+                if (cancelled || sessionEnded(e)) return
                 console.error(e)
-                if (!cancelled) setListError(e instanceof Error ? e.message : "Could not load your activities.")
+                setListError(e instanceof Error ? e.message : "Could not load your activities.")
             })
 
         // Cleanup function that runs when the component unmounts
@@ -181,7 +185,13 @@ export default function Activities() {
     // If the server request fails, the error is thrown so the Activity component can show it
     async function handleDelete(activityId: string){
         if (!auth) return
-        await deleteActivity(activityId)
+        try {
+            await deleteActivity(activityId)
+        } catch (e) {
+            // If the sign-in ended, sign out instead of showing the error
+            if (sessionEnded(e)) return
+            throw e
+        }
         setActivities((current) => current?.filter((a) => a.id !== activityId) ?? null)
     }
 

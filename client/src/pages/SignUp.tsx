@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom"
 import React, { useState, useEffect } from "react"
 import SignupForm from "../components/SignupForm"
 import textLogo from "../assets/LittlePointers Logo/Text Logo.png"
-import { SERVER_URL } from "../api"
+import { signup } from "../api"
 import useAuth from "../hooks/useAuth"
 
 // Regex for username and password
@@ -83,42 +83,14 @@ export default function SignUp() {
             return
         }
 
-        let response: Response
         try {
-            response = await fetch(`${SERVER_URL}/api/auth/signup`, {
-                method: 'POST',
-                credentials: 'include', // lets the browser keep the login cookie the server sends back
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    user: form.name,
-                    email: form.email,
-                    password: form.password
-                })
-            })
-        } catch {
-            // fetch only throws when the request never got an answer
-            setErrMsg('No server response. Please try again.')
+            // The server has already logged them in, so tell the rest of the app
+            setAuth(await signup(form.name, form.email, form.password))
+        } catch (e) {
+            // No answer, an email already used, or invalid input; the message says which
+            setErrMsg(e instanceof Error ? e.message : 'Registration failed. Please try again.')
             return
         }
-
-        // The server sends { user } on success or { message } on failure
-        const data = await response.json().catch(() => null)
-
-        if (!response.ok || !data?.user) {
-            // 409 = email already used, 400 = invalid input; the server's message says which
-            setErrMsg(data?.message || 'Registration failed. Please try again.')
-            return
-        }
-
-        // The server has already logged them in, so tell the rest of the app
-        setAuth({
-            user: {
-                id: data.user.id,
-                email: data.user.email,
-                name: data.user.name ?? data.user.email,
-                picture: data.user.picture,
-            },
-        })
         navigate('/dashboard')
     }
 

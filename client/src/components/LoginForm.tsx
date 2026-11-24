@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { cn } from "cn"
+import { SERVER_URL } from "../api"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -38,7 +39,7 @@ export default function LoginForm({ submitDisabled = false, errorMessage }: Logi
             <FieldGroup>
               <Field>
                 <a
-                  href={`${import.meta.env.VITE_SERVER_URL}/auth/google`}
+                  href={`${SERVER_URL}/auth/google`}
                   className="group relative block h-12 w-full overflow-hidden rounded-lg border border-[#747775] bg-white px-4 font-[Roboto,Arial,sans-serif] text-base tracking-[0.25px] whitespace-nowrap text-[#1f1f1f] no-underline outline-none select-none transition-[background-color,border-color,box-shadow] duration-200 hover:shadow-[0_1px_2px_0_rgba(60,64,67,0.30),0_1px_3px_1px_rgba(60,64,67,0.15)]"
                 >
                   <div className="absolute inset-0 bg-[#303030] opacity-0 transition-opacity duration-200 group-hover:opacity-[0.08] group-focus:opacity-[0.12]"></div>

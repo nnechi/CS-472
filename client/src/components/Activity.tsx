@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { NotebookPen } from "lucide-react"
-import { NoteIcon, PencilIcon, PlayIcon, TrashIcon } from "./ActivitySVGs"
+import { NoteIcon, EditIcon, PlayIcon, TrashIcon } from "./ActivitySVGs"
 import TeacherNotes from "./TeacherNotes"
 import { getActivityNote, saveActivityNote } from "../api"
 import ActivityPreview, { ACTIVITY_PREVIEW_CLASS, ACTIVITY_PREVIEW_COLLISION_PADDING } from "./ActivityPreview"
@@ -106,6 +106,12 @@ export default function Activity({ activity, onDelete, menuOpen, onMenuToggle, o
         navigate("/room-creation", { state: { activityId: id } })
     }
 
+    // Goes to the same Create Activity page this activity was made on, with its
+    // existing information loaded so the teacher can change it.
+    function editActivity(){
+        navigate(`/create-activity/${id}`)
+    }
+
     return (
         <div>
         {/* Hovering anywhere on the box shows the preview below it. It stays closed while the ... menu is open. */}
@@ -177,9 +183,10 @@ export default function Activity({ activity, onDelete, menuOpen, onMenuToggle, o
                             <button
                                 type="button"
                                 className="rounded-lg whitespace-nowrap px-3 py-2 text-left text-lg text-gray-900 cursor-pointer hover:bg-neutral-100"
+                                onClick={editActivity}
                             >
                                 <span className="flex items-center gap-2">
-                                    <PencilIcon />
+                                    <EditIcon />
                                     Edit
                                 </span>
                             </button>
