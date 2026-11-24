@@ -114,34 +114,6 @@ export async function deleteActivity(activityId : string) : Promise<void> {
     forgetActivity(activityId);
 }
 
-// One question as the editor reads it back for editing. Only the fields for
-// the activity's type are meaningful; the rest are empty/default.
-export interface ActivityQuestionDetail {
-    question : string;
-    output : string;
-    code : string;
-    distractors : string;
-    options : Partial<ParsonsSettings>;
-}
-
-// An activity with every question's content, for the edit page.
-export interface ActivityDetail {
-    id : string;
-    name : string;
-    type : ActivityType;
-    language : ProgrammingLanguage | null;
-    questions : ActivityQuestionDetail[];
-}
-
-// One of the signed-in teacher's activities, with its full content. Throws with the server's reason if it fails.
-export async function getActivity(activityId : string) : Promise<ActivityDetail> {
-    const res = await fetch(`${SERVER_URL}/api/activities/${encodeURIComponent(activityId)}`, { credentials: "include" })
-
-    if (res.status === 401) throw new SessionEndedError();
-    if (!res.ok) throw new Error(await failureMessage(res, "Could not load that activity."));
-    return res.json();
-}
-
 // Saves changes to one of the signed-in teacher's activities, in place. Throws with the server's reason if it fails.
 export async function updateActivity(activityId : string, activity : ActivityInput) : Promise<ActivitySummary> {
     const res = await fetch(`${SERVER_URL}/api/activities/${encodeURIComponent(activityId)}`, {
@@ -152,6 +124,8 @@ export async function updateActivity(activityId : string, activity : ActivityInp
 
     if (res.status === 401) throw new SessionEndedError();
     if (!res.ok) throw new Error(await failureMessage(res, "Could not save the activity."));
+    // The cached copy is now out of date: the preview and the edit page must load the new one.
+    forgetActivity(activityId);
     return res.json();
 }
 
