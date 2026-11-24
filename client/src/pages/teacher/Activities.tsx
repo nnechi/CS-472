@@ -140,10 +140,7 @@ export default function Activities() {
                         className={a.id === highlightId ? "rounded-lg ring-2 ring-indigo-600" : undefined}
                     >
                         <Activity
-                            id={a.id}
-                            name={a.name}
-                            questionCount={a.questionCount}
-                            createdAt={a.createdAt}
+                            activity={a}
                             onDelete={() => handleDelete(a.id)}
                             menuOpen={openMenuId === a.id}
                             onMenuToggle={() => setOpenMenuId((current) => current === a.id ? null : a.id)}

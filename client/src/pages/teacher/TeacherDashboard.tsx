@@ -4,6 +4,8 @@ import useAuth from "../../hooks/useAuth"
 import ActiveRooms from "../../components/ActiveRooms"
 import { listActivities, listRoomStats } from "../../api"
 import type { ActivitySummary, RoomStatSummary } from "../../types"
+import ActivityPreview, { ACTIVITY_PREVIEW_CLASS, ACTIVITY_PREVIEW_COLLISION_PADDING } from "../../components/ActivityPreview"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { AverageSessionTile, RecentRoomsTable, RoomsPerWeekChart, StatCard } from "../../components/dashboard/RoomStats"
 
 // /dashboard -- the teacher's home page. Activities and notes are in the ☰ menu.
@@ -62,19 +64,26 @@ export default function TeacherDashboard() {
         if (activities.length === 0) {
             return (
                 <p className="px-3 py-2 text-gray-600">
-                    You haven't made any activities yet. <Link to="/dashboard/activities" className="underline">Create an activity</Link>
+                    You haven't made any activities yet. <Link to="/create-activity" className="underline">Create an activity</Link>
                 </p>
             )
         }
+        // Hovering (or keyboard-focusing) an activity shows its preview to the right. Clicking still starts the room.
         return activities.map((a) => (
-            <button
-                key={a.id}
-                type="button"
-                className="block w-full rounded-md px-3 py-2 text-left text-brand cursor-pointer hover:bg-[#ccc9f7]"
-                onClick={() => startRoom(a.id)}
-            >
-                {a.name}
-            </button>
+            <Popover key={a.id}>
+                <PopoverTrigger
+                    openOnHover
+                    delay={200}
+                    closeDelay={150}
+                    className="block w-full rounded-md px-3 py-2 text-left text-brand cursor-pointer hover:bg-[#ccc9f7] data-popup-open:bg-[#ccc9f7]"
+                    onClick={() => startRoom(a.id)}
+                >
+                    {a.name}
+                </PopoverTrigger>
+                <PopoverContent side="right" align="start" collisionPadding={ACTIVITY_PREVIEW_COLLISION_PADDING} className={ACTIVITY_PREVIEW_CLASS}>
+                    <ActivityPreview activity={a} />
+                </PopoverContent>
+            </Popover>
         ))
     }
 

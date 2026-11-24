@@ -100,6 +100,19 @@ export function buildInitial(code: string, distractors: string): string {
     .join("\n");
 }
 
+// The reverse of buildInitial: splits a stored problem back into the code and
+// extra lines the teacher typed, one per row, with their own indentation kept.
+// Blank lines are the only thing lost, since buildInitial drops them.
+export function splitInitial(initial: string): { code: string; distractors: string } {
+  const code: string[] = [];
+  const distractors: string[] = [];
+  for (const line of initial.split("\n")) {
+    if (DISTRACTOR_SUFFIX.test(line)) distractors.push(line.replace(DISTRACTOR_SUFFIX, ""));
+    else code.push(line);
+  }
+  return { code: code.join("\n"), distractors: distractors.join("\n") };
+}
+
 // A source of random numbers from 0 (inclusive) to 1, like Math.random.
 export type Random = () => number;
 
