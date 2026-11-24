@@ -21,7 +21,7 @@ export default function AccountMenu() {
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger
                 aria-label="Account menu"
-                className="rounded-full cursor-pointer outline-offset-2 hover:ring-2 hover:ring-white/80 data-popup-open:ring-2 data-popup-open:ring-brand"
+                className="flex shrink-0 rounded-full cursor-pointer outline-offset-2 hover:ring-2 hover:ring-white/80 data-popup-open:ring-2 data-popup-open:ring-brand"
             >
                 <UserAvatar name={name} picture={picture} />
             </PopoverTrigger>
