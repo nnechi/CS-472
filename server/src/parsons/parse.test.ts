@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createHash } from "node:crypto";
-import { buildInitial, parseInitial, poolLines, seededRandom, studentPool, studentPoolOrder } from "./parse";
+import { buildInitial, parseInitial, poolLines, seededRandom, splitInitial, studentPool, studentPoolOrder } from "./parse";
 
 // ---------------------------------------------------------------------------
 // Reading a problem: lines are kept exactly as the teacher typed them.
@@ -58,6 +58,56 @@ test("the lines students get have no line breaks in them", () => {
 test("lines are still trimmed and blank lines skipped", () => {
   const { solution } = parseInitial(buildInitial("  x = 1  \n\n   \ny = 2\t", ""));
   assert.deepEqual(solution.map((line) => line.code), ["x = 1", "y = 2"]);
+});
+
+// ---------------------------------------------------------------------------
+// Editing a saved problem: splitInitial reverses buildInitial so the editor
+// can show the teacher their original code and extra lines back.
+// ---------------------------------------------------------------------------
+
+test("splitInitial reverses buildInitial for code with indentation and extra lines", () => {
+  const code = ["for (int i = 0; i < 2; i++) {", `    ${OUTER}`, "}"].join("\n");
+  const distractors = ["int y = 0;", "    int z = 1;"].join("\n");
+  const { code: gotCode, distractors: gotDistractors } = splitInitial(buildInitial(code, distractors));
+  assert.equal(gotCode, code);
+  assert.equal(gotDistractors, distractors);
+});
+
+test("splitInitial with no extra lines gives back an empty distractors box", () => {
+  const code = "print(1)\nprint(2)";
+  const { code: gotCode, distractors } = splitInitial(buildInitial(code, ""));
+  assert.equal(gotCode, code);
+  assert.equal(distractors, "");
+});
+
+test("splitInitial keeps whitespace-only lines, but can't recover lines that were fully blank", () => {
+  // buildInitial drops lines that are exactly "" when it saves; a line of only
+  // spaces is not "", so it survives the round trip untouched.
+  const code = "x = 1\n   \ny = 2";
+  const { code: gotCode } = splitInitial(buildInitial(code, ""));
+  assert.equal(gotCode, "x = 1\n   \ny = 2");
+
+  const withBlank = "x = 1\n\ny = 2";
+  const { code: gotWithBlank } = splitInitial(buildInitial(withBlank, ""));
+  assert.equal(gotWithBlank, "x = 1\ny = 2");
+});
+
+test("splitInitial does not mistake a code line merely containing the word distractor for an extra line", () => {
+  const code = String.raw`print("not a #distractor here")`;
+  const { code: gotCode, distractors } = splitInitial(buildInitial(code, ""));
+  assert.equal(gotCode, code);
+  assert.equal(distractors, "");
+});
+
+test("a code line that itself ends in the literal #distractor tag reads back as an extra line, same ambiguity parseInitial already has", () => {
+  const code = ["x = 1", "#distractor"].join("\n");
+  const initial = buildInitial(code, "");
+  const { code: gotCode, distractors } = splitInitial(initial);
+  // splitInitial reads the second line as the tag, same as parseInitial does:
+  // it isn't a new ambiguity, just one it agrees with the grader about.
+  assert.equal(gotCode, "x = 1");
+  assert.equal(distractors, "");
+  assert.deepEqual(parseInitial(initial).solution, [{ code: "x = 1", indent: 0 }]);
 });
 
 // ---------------------------------------------------------------------------

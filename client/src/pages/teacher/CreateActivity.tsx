@@ -1,7 +1,7 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { ChevronDown, Code, ListOrdered, X } from "lucide-react"
-import { ActivityInput, ActivityQuestionInput, createActivity, saveActivityNote } from "../../api"
+import { ActivityInput, ActivityQuestionInput, createActivity, getActivity, SessionEndedError, updateActivity, saveActivityNote } from "../../api"
 import CodingQuestion from "../../components/activity/CodingQuestion"
 import ParsonsQuestion from "../../components/activity/ParsonsQuestion"
 import { codeLines, effectiveRequireDragging, UPLOAD_LIMIT } from "../../components/activity/questionCode"
@@ -57,12 +57,15 @@ function questionInput(type : ActivityType, item : ActivityQuestion) : ActivityQ
     }
 }
 
-// /dashboard/create-activity -- a teacher writes an activity and saves it under
+// /dashboard/create-activity (or /create-activity/:activityId to edit one a
+// teacher already made) -- a teacher writes an activity and saves it under
 // their account. Only that teacher can use it in their rooms. An activity is
 // coding or a Parsons problem, and each of its questions is that type.
 export default function CreateActivity(){
     const navigate = useNavigate()
-    const { auth } = useAuth()
+    const { activityId } = useParams()
+    const isEditing = Boolean(activityId)
+    const { auth, setAuth } = useAuth()
     const [name, setName] = useState("")
     const [type, setType] = useState<ActivityType>("coding")
     const [language, setLanguage] = useState<ProgrammingLanguage | "">("")
@@ -70,6 +73,11 @@ export default function CreateActivity(){
     const [selected, setSelected] = useState(0)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState("")
+    // While editing, the existing activity loads before the form is shown, so the
+    // blank defaults above never flash on screen before its real data arrives.
+    const [loading, setLoading] = useState(isEditing)
+    const [loadError, setLoadError] = useState("")
+
     // The teacher's private notes on the activity, saved with it on Finish.
     const [notes, setNotes] = useState("")
     // Set once the activity is saved. If its notes then fail to save, Finish only retries the notes.
@@ -82,6 +90,41 @@ export default function CreateActivity(){
         const item = listRef.current?.children[selected] as HTMLElement | undefined
         item?.scrollIntoView({ block: "nearest" })
     }, [selected, questions.length])
+
+    // Editing an existing activity: load it and fill in the form above.
+    useEffect(() => {
+        if (!activityId) return
+        let cancelled = false
+        setLoading(true)
+        setLoadError("")
+        getActivity(activityId)
+            .then((activity) => {
+                if (cancelled) return
+                setName(activity.name)
+                setType(activity.type)
+                setLanguage(activity.language ?? "")
+                // The server only sends the fields for the activity's type, so the others start empty.
+                setQuestions(activity.questions.map((item) => ({
+                    question: item.question,
+                    output: item.output ?? "",
+                    code: item.code ?? "",
+                    distractors: item.distractors ?? "",
+                    settings: { ...DEFAULT_PARSONS_SETTINGS, ...item.options },
+                })))
+                setSelected(0)
+                setLoading(false)
+            })
+            .catch((err) => {
+                if (cancelled) return
+                if (err instanceof SessionEndedError) {
+                    setAuth(null)
+                    return
+                }
+                setLoadError(err instanceof Error ? err.message : "Could not load that activity.")
+                setLoading(false)
+            })
+        return () => { cancelled = true }
+    }, [activityId, setAuth])
 
     function updateQuestion(index : number, changes : Partial<ActivityQuestion>){
         setQuestions((current) => current.map((item, i) => i === index ? { ...item, ...changes } : item))
@@ -140,13 +183,22 @@ export default function CreateActivity(){
         setError("")
         let id = createdId
         try {
-            if (id === null) {
+            if (activityId) {
+                await updateActivity(activityId, activity)
+                // Only set once the update worked, so a failed update shows its real error below.
+                id = activityId
+            } else if (id === null) {
+                // A new activity is created once. If its notes fail, Finish only retries the notes.
                 id = (await createActivity(activity)).id
                 setCreatedId(id)
             }
             if (notes.trim()) await saveActivityNote(id, notes)
             navigate("/dashboard/activities")
         } catch (err) {
+            if (err instanceof SessionEndedError) {
+                setAuth(null)
+                return
+            }
             const reason = err instanceof Error ? err.message : "Could not save the activity."
             setError(id === null
                 ? reason
@@ -157,6 +209,29 @@ export default function CreateActivity(){
     }
 
     const current = questions[selected]
+
+    if (isEditing && loading) {
+        return (
+            <div className="flex min-h-dvh flex-col items-center justify-center gap-4 text-brand">
+                <p className="text-2xl font-semibold">Loading activity...</p>
+            </div>
+        )
+    }
+
+    if (isEditing && loadError) {
+        return (
+            <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-4 text-center text-brand">
+                <p role="alert" className="text-2xl font-semibold">{loadError}</p>
+                <button
+                    type="button"
+                    className="cursor-pointer rounded-lg bg-brand px-6 py-3 font-semibold text-white hover:bg-brand/90"
+                    onClick={() => navigate("/dashboard/activities")}
+                >
+                    Back to Activities
+                </button>
+            </div>
+        )
+    }
 
     return (
         // On desktop the page is at least the window's height and grows past it when
@@ -181,9 +256,11 @@ export default function CreateActivity(){
                 {/* Header */}
                 <div className="flex items-start justify-between gap-4 border-b border-brand/10 pb-6">
                     <div className="flex flex-col gap-3">
-                        <h1 className="text-5xl font-bold tracking-tight">Create Activity</h1>
+                        <h1 className="text-5xl font-bold tracking-tight">{isEditing ? "Edit Activity" : "Create Activity"}</h1>
                         <p className="text-2xl text-brand/70">
-                            Set up the activity, then add the questions your students will answer.
+                            {isEditing
+                                ? "Update the activity, then save your changes."
+                                : "Set up the activity, then add the questions your students will answer."}
                         </p>
                     </div>
                 </div>
@@ -446,7 +523,7 @@ export default function CreateActivity(){
                             className="cursor-pointer rounded-lg bg-brand px-6 py-3 font-semibold text-white hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
                             disabled={saving}
                         >
-                            {saving ? "Saving..." : "Finish"}
+                            {saving ? "Saving..." : isEditing ? "Save Changes" : "Finish"}
                         </button>
                     </div>
                 </div>

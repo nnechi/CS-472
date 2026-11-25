@@ -42,7 +42,7 @@ export function StopIcon({ className = "" }: { className?: string }) {
 }
 
 // A pencil for editing.
-export function PencilIcon({ className = "" }: { className?: string }) {
+export function EditIcon({ className = "" }: { className?: string }) {
     return (
         <svg viewBox="0 0 24 24" className={`h-5 w-5 shrink-0 ${className}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M16 3l5 5L8 21H3v-5z" />

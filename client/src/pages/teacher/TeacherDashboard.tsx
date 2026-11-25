@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import useAuth from "../../hooks/useAuth"
+import useSessionEnded from "../../hooks/useSessionEnded"
 import ActiveRooms from "../../components/ActiveRooms"
 import { listActivities, listRoomStats } from "../../api"
 import type { ActivitySummary, RoomStatSummary } from "../../types"
@@ -11,6 +12,7 @@ import { AverageSessionTile, RecentRoomsTable, RoomsPerWeekChart, StatCard } fro
 // /dashboard -- the teacher's home page. Activities and notes are in the ☰ menu.
 export default function TeacherDashboard() {
     const { auth } = useAuth()
+    const sessionEnded = useSessionEnded()
     const navigate = useNavigate()
     // The first word of the teacher's name, for the greeting ("Savannah Michalsky" -> "Savannah").
     const firstName = auth?.user.name?.trim().split(/\s+/)[0] ?? ""
@@ -32,7 +34,8 @@ export default function TeacherDashboard() {
                 if (!cancelled) setPastRooms(rooms)
             })
             .catch((err) => {
-                if (!cancelled) setStatsError(err instanceof Error ? err.message : "Could not load your room stats.")
+                if (cancelled || sessionEnded(err)) return
+                setStatsError(err instanceof Error ? err.message : "Could not load your room stats.")
             })
         return () => { cancelled = true }
     }, [auth?.user.id])
@@ -47,7 +50,8 @@ export default function TeacherDashboard() {
                 if (!cancelled) setActivities(newestFirst)
             })
             .catch((err) => {
-                if (!cancelled) setListError(err instanceof Error ? err.message : "Could not load your activities.")
+                if (cancelled || sessionEnded(err)) return
+                setListError(err instanceof Error ? err.message : "Could not load your activities.")
             })
         return () => { cancelled = true }
     }, [auth?.user.id])

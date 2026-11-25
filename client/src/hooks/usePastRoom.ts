@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { getPastRoom, SessionEndedError } from "../api";
-import useAuth from "./useAuth";
+import { getPastRoom } from "../api";
+import useSessionEnded from "./useSessionEnded";
 import { DEFAULT_TIMER_MS } from "../components/Timer";
 import { loadPupId } from "../components/chat/PupAvatar";
 import type { RoomView } from "./roomView";
@@ -37,7 +37,7 @@ export function usePastRoom(roomCode: string): PastRoom {
   const [activeChatId, setActiveChatId] = useState(GROUP_CHAT_ID);
   const [chatOpen, setChatOpen] = useState(false);
   const [pup] = useState(() => loadPupId());
-  const { setAuth } = useAuth();
+  const sessionEnded = useSessionEnded();
 
   useEffect(() => {
     let cancelled = false;
@@ -56,10 +56,7 @@ export function usePastRoom(roomCode: string): PastRoom {
         if (cancelled) return;
         // The server no longer knows this user (e.g. it restarted). Signing out
         // here lets RequireAuth send them to /login, then back to this room.
-        if (error instanceof SessionEndedError) {
-          setAuth(null);
-          return;
-        }
+        if (sessionEnded(error)) return;
         const message = error instanceof Error ? error.message : "Could not load that room.";
         setErrorMessage(message);
         setStatus(message === MISSING_MESSAGE ? "missing" : "error");
@@ -67,7 +64,7 @@ export function usePastRoom(roomCode: string): PastRoom {
     return () => {
       cancelled = true;
     };
-  }, [roomCode, setAuth]);
+  }, [roomCode, sessionEnded]);
 
   // Everything derived from the snapshot, built once per load.
   const view = useMemo(() => {

@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react"
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import { SERVER_URL } from "../../api"
+import { getAccount, updateAccount } from "../../api"
 import useAuth from "../../hooks/useAuth"
+import useSessionEnded from "../../hooks/useSessionEnded"
 
 const inputClass = "w-full rounded-lg border border-brand/25 bg-white px-3 py-2.5 text-base text-brand outline-none placeholder:text-gray-400 focus:border-brand focus:ring-2 focus:ring-brand/15"
 const saveClass = "rounded-lg bg-brand px-4 py-2.5 font-medium text-white cursor-pointer hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
@@ -51,30 +52,21 @@ function PasswordField({ label, name, newPassword = false }: {
 // Account settings use the signed-in session; no user id is sent by the browser.
 export default function Settings() {
     const { auth, setAuth } = useAuth()
+    const sessionEnded = useSessionEnded()
     const navigate = useNavigate()
     const [passwordAccount, setPasswordAccount] = useState<boolean | null>(null)
     const [accountError, setAccountError] = useState("")
     const [busy, setBusy] = useState(false)
     useEffect(() => {
         let cancelled = false
-        fetch(`${SERVER_URL}/api/account`, { credentials: "include" })
-            .then(async response => {
-                if (!response.ok) throw new Error("Could not load account settings. Please refresh or sign in again.")
-                const data = await response.json()
-                if (!cancelled) setPasswordAccount(data.passwordAccount)
-            }).catch(error => { if (!cancelled) setAccountError(error.message) })
+        getAccount()
+            .then(data => { if (!cancelled) setPasswordAccount(data.passwordAccount) })
+            .catch(error => {
+                if (cancelled || sessionEnded(error)) return
+                setAccountError(error instanceof Error ? error.message : "Could not load account settings.")
+            })
         return () => { cancelled = true }
-    }, [])
-
-    async function updateAccount(action: string, body: object) {
-        const response = await fetch(`${SERVER_URL}/api/account/${action}`, {
-            method: "POST", credentials: "include",
-            headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-        })
-        const data = await response.json()
-        if (!response.ok) throw new Error(data.error || "Could not update your account.")
-        return data
-    }
+    }, [sessionEnded])
     const [emailNotice, setEmailNotice] = useState("")
     const [passwordNotice, setPasswordNotice] = useState("")
     const [passwordError, setPasswordError] = useState("")
@@ -97,10 +89,11 @@ export default function Settings() {
         try {
             const password = form.elements.namedItem("emailPassword") as HTMLInputElement
             const data = await updateAccount("email", { email: email.value, currentPassword: password.value })
-            setAuth(previous => previous ? { user: { ...previous.user, email: data.user.email } } : previous)
+            const newEmail = data.user?.email
+            if (newEmail) setAuth(previous => previous ? { user: { ...previous.user, email: newEmail } } : previous)
             form.reset()
             setEmailNotice(data.message)
-        } catch (error) { setEmailNotice(error instanceof Error ? error.message : "Could not update email.") }
+        } catch (error) { if (!sessionEnded(error)) setEmailNotice(error instanceof Error ? error.message : "Could not update email.") }
         finally { setBusy(false) }
     }
 
@@ -126,7 +119,7 @@ export default function Settings() {
             const data = await updateAccount("password", { currentPassword: current.value, newPassword: next.value })
             form.reset()
             setPasswordNotice(data.message)
-        } catch (error) { setPasswordError(error instanceof Error ? error.message : "Could not update password.") }
+        } catch (error) { if (!sessionEnded(error)) setPasswordError(error instanceof Error ? error.message : "Could not update password.") }
         finally { setBusy(false) }
     }
 
@@ -154,8 +147,7 @@ export default function Settings() {
                 <form onSubmit={changeEmail} onChange={() => setEmailNotice("")} onReset={(event) => {
                     setEmailNotice("")
                     const form = event.currentTarget
-        if (busy) return
-        const email = form.elements.namedItem("email") as HTMLInputElement
+                    const email = form.elements.namedItem("email") as HTMLInputElement
                     email.setCustomValidity("")
                 }} className="flex flex-col gap-5">
                     <div className="flex flex-col gap-2">
@@ -233,7 +225,7 @@ export default function Settings() {
                         await updateAccount("delete", { confirm: true, currentPassword: password?.value })
                         setAuth(null)
                         navigate("/", { replace: true })
-                    } catch (error) { setDeleteNotice(error instanceof Error ? error.message : "Could not delete account.") }
+                    } catch (error) { if (!sessionEnded(error)) setDeleteNotice(error instanceof Error ? error.message : "Could not delete account.") }
                     finally { setBusy(false) }
                 }} className="mt-6 flex flex-col gap-4">
                     {passwordAccount && <PasswordField label="Current password" name="deletePassword" />}

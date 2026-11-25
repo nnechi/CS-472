@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import React, { useEffect, useState } from "react";
 import useAuth from "../hooks/useAuth"
-import { SERVER_URL } from "../api"
+import { login } from "../api"
 import LoginForm from "../components/LoginForm"
 import textLogo from "../assets/LittlePointers Logo/Text Logo.png"
 
@@ -38,41 +38,14 @@ export default function SignIn() {
 
         setLoading(true);
         try {
-            let response: Response
             try {
-                response = await fetch(`${SERVER_URL}/api/auth/login`, {
-                    method: 'POST',
-                    credentials: 'include', // lets the browser keep the login cookie the server sends back
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: form.email,
-                        password: form.password
-                    })
-                })
-            } catch {
-                // fetch only throws when the request never got an answer
-                setError('No server response. Please try again.')
+                // The server has logged them in, so tell the rest of the app
+                setAuth(await login(form.email, form.password))
+            } catch (e) {
+                // No answer, a wrong email or password, or a missing field; the message says which
+                setError(e instanceof Error ? e.message : 'Login failed. Please try again.')
                 return
             }
-
-            // The server sends { user } on success or { message } on failure
-            const data = await response.json().catch(() => null)
-
-            if (!response.ok || !data?.user) {
-                // 401 = wrong email or password, 400 = missing field; the server's message says which
-                setError(data?.message || 'Login failed. Please try again.')
-                return
-            }
-
-            // The server has logged them in, so tell the rest of the app
-            setAuth({
-                user: {
-                    id: data.user.id,
-                    email: data.user.email,
-                    name: data.user.name ?? data.user.email,
-                    picture: data.user.picture,
-                },
-            })
             setForm({ email: "", password: "" });
             navigate(from, { replace: true })
         } finally {
