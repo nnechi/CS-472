@@ -47,6 +47,9 @@ export function startBrowserRun(activityLanguage: string | null, code: string,
     if (!selected) throw new Error("This activity's language cannot run in the browser.");
     if (!code.trim()) throw new Error("Write some code before running it.");
     if (code.length > STUDENT_CODE_MAX_LENGTH) throw new Error("Your code is too long to run.");
+    // Browsers only grant cross-origin isolation to secure contexts (https or
+    // localhost), even when the COOP/COEP headers are present.
+    if (!globalThis.isSecureContext) throw new Error("The code runner only works over https or on localhost. Open this page from a secure address or contact your teacher.");
     if (!globalThis.crossOriginIsolated) throw new Error("The code runner needs cross-origin isolation. Reload the page or contact your teacher.");
     timer = setTimeout(() => {
       cancelled = true;
