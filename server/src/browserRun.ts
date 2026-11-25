@@ -19,3 +19,13 @@ export function parseBrowserRun(payload: unknown, codes: readonly string[]): { q
     finishedAt: new Date().toISOString(),
   } };
 }
+
+export const MAX_RUN_REPORTS_PER_MINUTE = 10;
+export const RUN_REPORT_WINDOW_MS = 60_000;
+
+export function allowRunReport(history: number[], now = Date.now()): boolean {
+  while (history.length > 0 && history[0] <= now - RUN_REPORT_WINDOW_MS) history.shift();
+  if (history.length >= MAX_RUN_REPORTS_PER_MINUTE) return false;
+  history.push(now);
+  return true;
+}

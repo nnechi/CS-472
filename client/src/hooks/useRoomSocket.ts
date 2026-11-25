@@ -18,6 +18,7 @@ import {
   RoomClosedReason,
   RoomQuestion,
   RunOutcome,
+  RunResult,
   SavedParsonsWork,
   Session,
   StudentProgress,
@@ -183,6 +184,7 @@ export function useRoomSocket(
   const pendingEdits = useRef(new Map<string, PendingEdit>());
   const runSource = useRef("");
   const browserRun = useRef<BrowserRun | null>(null);
+  const unsentRuns = useRef(new Map<number, { code: string; result: RunResult }>());
   // Students: whether they changed their work since the activity loaded. Until
   // then nothing is sent, so the teacher sees "no work yet".
   const touchedRef = useRef(false);
@@ -410,6 +412,12 @@ export function useRoomSocket(
           resyncCode(progress.codes, localCodes, studentTexts ?? []);
           joinedRef.current = true;
           setJoined(true);
+          for (const [questionIndex, unsent] of unsentRuns.current) {
+            if (visibleCodeRef.current[questionIndex] === unsent.code) {
+              socket.emit("browser run result", { questionIndex, code: unsent.code, result: unsent.result });
+            }
+          }
+          unsentRuns.current.clear();
         } else if (joinedRef.current) {
           // The connection works, so an edit whose answer timed out has reached
           // the server by now (and is in this code) or was refused. Either way
@@ -467,6 +475,7 @@ export function useRoomSocket(
       }
       browserRun.current?.cancel();
       browserRun.current = null;
+      unsentRuns.current.clear();
       setRun(IDLE_RUN);
       lastActivityJsonRef.current = json;
       const questions = next?.questions ?? [];
@@ -525,6 +534,7 @@ export function useRoomSocket(
     const onClosed = (reason?: RoomClosedReason) => {
       browserRun.current?.cancel();
       browserRun.current = null;
+      unsentRuns.current.clear();
       setRun(IDLE_RUN);
       // The seat is gone with the room.
       if (isStudent) forgetStudentKey(session.room, session.username);
@@ -577,6 +587,7 @@ export function useRoomSocket(
       setReconnecting(false);
       browserRun.current?.cancel();
       browserRun.current = null;
+      unsentRuns.current.clear();
       setRun(IDLE_RUN);
       setReplaced(true);
     };
@@ -587,11 +598,7 @@ export function useRoomSocket(
 
     // Sent on every connect. Socket.IO reconnects by itself after a network
     // drop, and the new connection is in no room, so "join" must go again.
-    // End work tied to the previous room connection.
     const onConnect = () => {
-      browserRun.current?.cancel();
-      browserRun.current = null;
-      setRun((prev) => (prev.status === "idle" ? prev : IDLE_RUN));
       joinRoom();
     };
 
@@ -647,6 +654,7 @@ export function useRoomSocket(
     return () => {
       browserRun.current?.cancel();
       browserRun.current = null;
+      unsentRuns.current.clear();
       socket.off("chat history", onHistory);
       socket.off("chat message", onMessage);
       socket.off("private chat opened", onPrivateOpened);
@@ -894,8 +902,13 @@ export function useRoomSocket(
         }
         setRun(prev => prev.jobId === jobId ? { ...prev, status: "idle", outcome, output } : prev);
         // Results are shared as student-reported output, never executed by the server.
-        if (isStudent && joinedRef.current && socket.connected && visibleCodeRef.current[questionIndex] === code) {
-          socket.emit("browser run result", { questionIndex, code, result });
+        if (isStudent && visibleCodeRef.current[questionIndex] === code) {
+          if (joinedRef.current && socket.connected) {
+            unsentRuns.current.delete(questionIndex);
+            socket.emit("browser run result", { questionIndex, code, result });
+          } else {
+            unsentRuns.current.set(questionIndex, { code, result });
+          }
         }
       }, error => {
         if (browserRun.current !== task) return;

@@ -2,6 +2,25 @@ import type { Engine } from "@wasm-oj/browser";
 import type { RunResult } from "../types";
 import { RUN_OUTPUT_MAX_LENGTH, STUDENT_CODE_MAX_LENGTH } from "../types";
 import { browserLanguage } from "./languages";
+import JS_PRELUDE from "./jsPrelude.js?raw";
+
+const PRELUDE_CALL = `globalThis.eval(${JSON.stringify(JS_PRELUDE)});\n`;
+const PRELUDE_ENTRIES = {
+  javascript: { file: "__lp.js", source: `${PRELUDE_CALL}await import("./main.js");\n` },
+  typescript: { file: "__lp.ts", source: `${PRELUDE_CALL}import "./main";\ndeclare global { interface NodeProcess { exit(code?: number): never; exitCode?: number } }\n` },
+} as const;
+
+function cleanScriptErrors(stderr: string, exitCode: number | null) {
+  const exit = stderr.match(/(?:^|\n)[^\n]*__LP_EXIT__:(-?\d+)[^\n]*\n*/);
+  const code = exit ? ((Number(exit[1]) % 256) + 256) % 256 : exitCode;
+  const lines = stderr
+    .replace(/Possibly unhandled promise rejection: /g, "")
+    .split("\n")
+    .filter(line => !/__wasm_oj_|\/project\/bundle\.js|\(native\)|__lp|__LP_EXIT__|at __load\b/.test(line));
+  if (exit) while (lines.length > 0 && /^\s+at |^\s*$/.test(lines[lines.length - 1])) lines.pop();
+  const text = lines.join("\n").replace(/\n{3,}/g, "\n\n");
+  return { stderr: exit && text !== "" ? `${text}\n` : text, exitCode: code };
+}
 
 export interface BrowserRun {
   result: Promise<RunResult>;
@@ -58,7 +77,9 @@ export function startBrowserRun(activityLanguage: string | null, code: string,
     const entry = selected.language === "java"
       ? `${code.match(/\bpublic\s+(?:(?:final|abstract)\s+)*class\s+([A-Za-z_$][\w$]*)/)?.[1] ?? "Main"}.java`
       : selected.entry;
-    const build = await created.compile({ language: selected.language, entry, files: { [entry]: code }, target: "wasip1", optimization: "debug" });
+    const prelude = selected.language === "javascript" || selected.language === "typescript" ? PRELUDE_ENTRIES[selected.language] : null;
+    const files = prelude ? { [entry]: code, [prelude.file]: prelude.source } : { [entry]: code };
+    const build = await created.compile({ language: selected.language, entry: prelude ? prelude.file : entry, files, target: "wasip1", optimization: selected.language === "c" || selected.language === "cpp" ? "release" : "debug" });
     if (!build.success || !build.artifact) {
       const diagnostics = build.diagnostics.map(d => `${d.file}:${d.line}:${d.column}: ${d.message}`).join("\n");
       return { stdout: build.stdout.slice(0, RUN_OUTPUT_MAX_LENGTH), stderr: (build.stderr || diagnostics || "Compilation failed.").slice(0, RUN_OUTPUT_MAX_LENGTH), exitCode: 1, timedOut: false, outputLimitExceeded: false, finishedAt: new Date().toISOString() };
@@ -68,10 +89,12 @@ export function startBrowserRun(activityLanguage: string | null, code: string,
       wallTimeLimitMs: 5_000, outputLimitBytes: RUN_OUTPUT_MAX_LENGTH,
       memoryLimitBytes: 512 * 1024 * 1024,
     } });
+    const rawStderr = run.stderr || run.trapMessage || (run.termination !== "exited" ? `Execution stopped: ${run.termination}` : "");
+    const cleaned = prelude ? cleanScriptErrors(rawStderr, run.code) : { stderr: rawStderr, exitCode: run.code };
     return {
       stdout: run.stdout.slice(0, RUN_OUTPUT_MAX_LENGTH),
-      stderr: (run.stderr || run.trapMessage || (run.termination !== "exited" ? `Execution stopped: ${run.termination}` : "")).slice(0, RUN_OUTPUT_MAX_LENGTH),
-      exitCode: run.code,
+      stderr: cleaned.stderr.slice(0, RUN_OUTPUT_MAX_LENGTH),
+      exitCode: cleaned.exitCode,
       timedOut: ["wall-time-limit", "logical-time-limit", "instruction-limit"].includes(run.termination),
       outputLimitExceeded: run.termination === "output-limit", finishedAt: new Date().toISOString(),
     };

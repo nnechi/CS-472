@@ -38,7 +38,7 @@ import {
   TimerState,
   emptyStudentEnvironment,
 } from "./types";
-import { parseBrowserRun } from "./browserRun";
+import { allowRunReport, parseBrowserRun } from "./browserRun";
 import { mergeCodeEdit } from "./codeEdit";
 
 import { Room } from "./models/Room";
@@ -540,6 +540,7 @@ interface Participant {
   // rest of their typing from there (see the join), even if their teacher
   // changed the code meanwhile.
   studentTexts: (string | null)[];
+  runReports: number[];
 }
 
 // Everything kept in memory about a live room. Not stored in database, like
@@ -1269,6 +1270,7 @@ export function registerSocketHandlers(
       progressSize: 0,
       env: null,
       studentTexts: [],
+      runReports: [],
     };
     live.participants.set(seat.id, seat);
     live.byKey.set(key, seat);
@@ -1924,6 +1926,7 @@ export function registerSocketHandlers(
         const room = socket.data.room;
         const env = seat?.env;
         if (!seat || !room || !env) return;
+        if (!allowRunReport(seat.runReports)) return;
         const parsed = parseBrowserRun(payload, env.questions.map(question => question.code));
         if (!parsed) return;
         const question = env.questions[parsed.questionIndex];
