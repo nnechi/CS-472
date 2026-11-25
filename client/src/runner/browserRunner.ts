@@ -62,7 +62,7 @@ export function startBrowserRun(activityLanguage: string | null, code: string,
     if (cancelled) throw new Error("Stopped.");
     const source = selected.language === "c" || selected.language === "cpp" ? clang
       : selected.language === "python" ? python : selected.language === "java" ? java : javascript;
-    const created = await createBrowserEngine({ toolchains: [source.browserSource(`${import.meta.env.BASE_URL}toolchains/`)], artifactCache: true });
+    const created = await createBrowserEngine({ toolchains: [source.browserSource(`${import.meta.env.BASE_URL}toolchains/${import.meta.env.VITE_WASM_ASSETS_VERSION}/`)], artifactCache: true });
     engine = created;
     if (cancelled) { created.dispose(); throw new Error("Stopped."); }
     let streamed = 0;

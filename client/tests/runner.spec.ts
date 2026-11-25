@@ -32,7 +32,7 @@ for (const [language, code] of Object.entries(samples)) {
     expect(assets.length).toBeGreaterThan(0);
     const expected = language === "c" || language === "c++" ? "clang-"
       : language === "java" ? "java-teavm-" : language === "python" ? "python-" : "(quickjs-|typescript-)";
-    expect(assets.every(req => new RegExp(`/toolchains/${expected}`).test(req))).toBe(true);
+    expect(assets.every(req => new RegExp(`/toolchains/[0-9a-f]+/${expected}`).test(req))).toBe(true);
   });
 }
 
