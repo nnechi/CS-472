@@ -38,10 +38,8 @@ import {
   TimerState,
   emptyStudentEnvironment,
 } from "./types";
+import { allowRunReport, parseBrowserRun } from "./browserRun";
 import { mergeCodeEdit } from "./codeEdit";
-import { CodeRunJob, InvalidRunJobError, JobHooks, executionQueue, runnableLanguage } from "./compile";
-import { InvalidCompileRequestError } from "./compile/plan";
-import { allowCodeRun } from "./compile/submission";
 
 import { Room } from "./models/Room";
 import { PastRoom } from "./models/PastRoom";
@@ -119,13 +117,11 @@ export function closeRoom(io : AppServer, room : string, reason: RoomClosedReaso
   if (live) {
     // Students' runs have nowhere to report once the room is gone, so the
     // runner is freed for other rooms.
-    for (const seat of live.participants.values()) executionQueue.cancelOwner(seat.key);
     liveRooms.delete(room);
     clearLiveTimers(live);
   }
   markClosed(room);
   handQueues.delete(room);
-  roomActivities.delete(room);
   currentQuestions.delete(room);
   clearTimer(room);
 
@@ -539,14 +535,12 @@ interface Participant {
   progressSize: number;
   // Coding: the student's workspace, made once the room's activity is known.
   env: StudentEnvironment | null;
-  // When their recent runs started, for allowCodeRun. On the seat, so
-  // reconnecting doesn't reset the limit.
-  runHistory: number[];
   // Coding: for each question, the latest text of the student's own that the
   // server took in. A student rejoining after a dropped connection sends the
   // rest of their typing from there (see the join), even if their teacher
   // changed the code meanwhile.
   studentTexts: (string | null)[];
+  runReports: number[];
 }
 
 // Everything kept in memory about a live room. Not stored in database, like
@@ -686,10 +680,6 @@ const emptyParsons = (): { type: "parsons" } & AnswerProgress => ({
   marks: [],
 });
 
-// What a run needs to know about the room's activity, saved when someone
-// joins so a run doesn't need a database lookup. Deleted when the room closes.
-const roomActivities = new Map<string, { language: string | null; questionCount: number }>();
-
 // A studentKey or tabId is what a client generated or the server handed out:
 // a UUID-like string. Anything else is ignored.
 function cleanStudentKey(value: unknown): string | null {
@@ -712,14 +702,6 @@ function seatOf(socket: AppSocket): Participant | undefined {
   const { room, participantId } = socket.data;
   const seat = room && participantId ? liveRooms.get(room)?.participants.get(participantId) : undefined;
   return seat && seat.socketId === socket.id ? seat : undefined;
-}
-
-// Whose job a run is in the execution queue: a student's seat key (their
-// environment's, see CodeRunJob.fromEnvironment). Teachers have no
-// environment, so each teacher connection gets its own key.
-function runOwner(socket: AppSocket): string | null {
-  if (socket.data.role === "teacher") return `teacher:${socket.id}`;
-  return seatOf(socket)?.key ?? null;
 }
 
 // Parsons lines are picked per student from a random source seeded by their
@@ -1005,7 +987,7 @@ const PAYLOAD_EVENTS = new Set<string>([
   "activity update",
   "check answer",
   "edit student code",
-  "run code",
+  "browser run result",
 ]);
 
 export function registerSocketHandlers(
@@ -1287,8 +1269,8 @@ export function registerSocketHandlers(
       progress: null,
       progressSize: 0,
       env: null,
-      runHistory: [],
       studentTexts: [],
+      runReports: [],
     };
     live.participants.set(seat.id, seat);
     live.byKey.set(key, seat);
@@ -1314,7 +1296,6 @@ export function registerSocketHandlers(
   // disconnect can't find the room empty.
   const takeSeat = (live: LiveRoom, seat: Participant, socket: AppSocket, seq: number) => {
     const previous = seat.socketId !== null && seat.socketId !== socket.id ? seat.socketId : null;
-    if (previous) executionQueue.cancelOwner(seat.key);
     seat.socketId = socket.id;
     seat.tabId = socket.data.tabId ?? null;
     seat.claimSeq = seq;
@@ -1566,12 +1547,6 @@ export function registerSocketHandlers(
         const loaded = await loadActivity(activityId);
         // The room may have ended while the activity loaded; nothing to set up then.
         const stillLive = liveRooms.get(roomCode) === live;
-        if (stillLive) {
-          roomActivities.set(roomCode, {
-            language: loaded?.language ?? null,
-            questionCount: loaded?.questions.length ?? 0,
-          });
-        }
         if (!stillLive || !socket.connected) return;
         // Another tab took the seat while the activity loaded; it sets itself up.
         if (seat && seat.socketId !== socket.id) return;
@@ -1943,88 +1918,21 @@ export function registerSocketHandlers(
         }
       });
 
-      // Someone runs one question's code; the run waits its turn in the shared
-      // queue. Students run the shared code. The teacher's own playground
-      // has no environment, so its code runs as sent.
-      socket.on("run code", ({ questionIndex, code }) => {
-        if (socket.data.waiting) return;
-        const { role, room } = socket.data;
-        if (!room || !role) return;
-        // A student's seat (with their environment), or undefined for a teacher.
-        const seat = role === "student" ? seatOf(socket) : undefined;
-        const env = seat?.env ?? null;
-        if (role === "student" && !env) return;
-        const owner = runOwner(socket);
-        if (!owner) return;
-
-        const index = Number(questionIndex);
-        const reject = (reason: string) => socket.emit("run rejected", { questionIndex: index, reason });
-        if (typeof code !== "string") return reject("There's no code to run.");
-        if (code.length > STUDENT_CODE_MAX_LENGTH) return reject("Your code is too long to run.");
-
-        const activity = roomActivities.get(room);
-        const language = activity?.language ?? null;
-
-        let started = false;
-        let job: CodeRunJob;
-        const hooks: JobHooks = {
-          onQueued: (position) => socket.emit("run queued", { jobId: job.id, questionIndex: index, position }),
-          onStart: () => {
-            started = true;
-            if (env) env.running = true;
-            socket.emit("run started", { jobId: job.id, questionIndex: index });
-          },
-          onOutput: (stream, chunk) => socket.emit("run output", { jobId: job.id, stream, chunk }),
-          onDone: (outcome) => {
-            if (env && started) env.running = false;
-            const question = env?.questions[index];
-            // Saved only if the seat is still in the live room and the code didn't change since.
-            const stillSeated = !!seat && liveRooms.get(room)?.participants.get(seat.id) === seat;
-            if (seat && env && question && stillSeated && outcome.type === "finished" && question.code === job.request.code) {
-              const previous = question.lastRun;
-              question.lastRun = keptRun(outcome.result);
-              if (!publishCode(room, seat, env)) question.lastRun = previous;
-            }
-            socket.emit("run finished", { jobId: job.id, questionIndex: index, outcome });
-          },
-        };
-
-        try {
-          if (env) {
-            const question = Number.isInteger(index) ? env.questions[index] : undefined;
-            if (!question) return reject("That question doesn't exist.");
-            if (question.code !== code) return reject("The shared code changed. Review it and run again.");
-            job = CodeRunJob.fromEnvironment(env, index, language, hooks);
-          } else {
-            if (!Number.isInteger(index) || index < 0 || index >= (activity?.questionCount ?? 0)) {
-              return reject("That question doesn't exist.");
-            }
-            const compileLanguage = runnableLanguage(language);
-            if (!compileLanguage) return reject("This activity's language can't be run.");
-            if (!code.trim()) return reject("Write some code before running it.");
-            job = new CodeRunJob(owner, index, { language: compileLanguage, code }, hooks);
-          }
-        } catch (error) {
-          if (error instanceof InvalidRunJobError || error instanceof InvalidCompileRequestError) {
-            return reject(error.message);
-          }
-          throw error;
-        }
-
-        // Students' runs are limited per seat, so reconnecting doesn't reset it. Teachers' aren't.
-        if (seat && !allowCodeRun(seat.runHistory)) {
-          return reject("Too many runs. Wait a moment and try again.");
-        }
-        const result = executionQueue.enqueue(job);
-        if (result.status === "queue-full") reject("Lots of people are running code. Try again in a moment.");
-        if (result.status === "already-running") reject("Your code is already running.");
-      });
-
-      // Someone stops their own queued or running code.
-      socket.on("cancel run", () => {
-        if (!socket.data.role) return;
-        const owner = runOwner(socket);
-        if (owner) executionQueue.cancelOwner(owner);
+      // Browser execution is student-reported work, not a trusted grade. Only
+      // retain bounded results for the current seat, question, and exact code.
+      socket.on("browser run result", (payload) => {
+        if (socket.data.waiting || socket.data.role !== "student") return;
+        const seat = seatOf(socket);
+        const room = socket.data.room;
+        const env = seat?.env;
+        if (!seat || !room || !env) return;
+        if (!allowRunReport(seat.runReports)) return;
+        const parsed = parseBrowserRun(payload, env.questions.map(question => question.code));
+        if (!parsed) return;
+        const question = env.questions[parsed.questionIndex];
+        const previous = question.lastRun;
+        question.lastRun = keptRun(parsed.result);
+        if (!publishCode(room, seat, env)) question.lastRun = previous;
       });
 
       // The Leave button. The seat is given up: teachers see the student go,
@@ -2051,11 +1959,6 @@ export function registerSocketHandlers(
         const { room, role } = socket.data;
         const live = room ? liveRooms.get(room) : undefined;
         const seat = role === "student" ? seatOf(socket) : undefined;
-        // Their output has nowhere to go, so free the runner for someone else.
-        if (role) {
-          const owner = runOwner(socket);
-          if (owner) executionQueue.cancelOwner(owner);
-        }
         if (!room) return;
         // This socket has already left its rooms, so the count no longer includes it.
         if (role === "student") void sendStudentCount(room);

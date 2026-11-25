@@ -124,7 +124,7 @@ export function usePastRoom(roomCode: string): PastRoom {
     code: [],
     codeOutputs: [],
     setCode: doNothing,
-    run: { jobId: null, questionIndex: null, status: "idle", position: null, output: "", outcome: null, error: null },
+    run: { jobId: null, questionIndex: null, status: "idle", output: "", outcome: null, error: null },
     runCode: doNothing,
     cancelRun: doNothing,
     studentProgress: (studentId: string) => view.progress[studentId] ?? null,

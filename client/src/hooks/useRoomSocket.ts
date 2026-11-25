@@ -1,3 +1,4 @@
+import { startBrowserRun, type BrowserRun } from "../runner/browserRunner";
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_TIMER_MS } from "../components/Timer";
 import { socket } from "../socket";
@@ -17,6 +18,7 @@ import {
   RoomClosedReason,
   RoomQuestion,
   RunOutcome,
+  RunResult,
   SavedParsonsWork,
   Session,
   StudentProgress,
@@ -46,7 +48,6 @@ const IDLE_RUN: RunState = {
   jobId: null,
   questionIndex: null,
   status: "idle",
-  position: null,
   output: "",
   outcome: null,
   error: null,
@@ -166,7 +167,7 @@ export function useRoomSocket(
   // Teachers only: each student's progress, keyed by that student's id.
   const [studentProgress, setStudentProgress] = useState<Record<string, StudentProgress>>({});
   // This person's code for each coding question, kept when the question
-  // changes, and their latest run from the server's execution queue.
+  // changes, and their latest browser run.
   const [code, setCode] = useState<string[]>([]);
   const [run, setRun] = useState<RunState>(IDLE_RUN);
   // The output of the last finished run of each question.
@@ -182,6 +183,8 @@ export function useRoomSocket(
   const [roomClosesAt, setRoomClosesAt] = useState<string | null>(null);
   const pendingEdits = useRef(new Map<string, PendingEdit>());
   const runSource = useRef("");
+  const browserRun = useRef<BrowserRun | null>(null);
+  const unsentRuns = useRef(new Map<number, { code: string; result: RunResult }>());
   // Students: whether they changed their work since the activity loaded. Until
   // then nothing is sent, so the teacher sees "no work yet".
   const touchedRef = useRef(false);
@@ -409,6 +412,12 @@ export function useRoomSocket(
           resyncCode(progress.codes, localCodes, studentTexts ?? []);
           joinedRef.current = true;
           setJoined(true);
+          for (const [questionIndex, unsent] of unsentRuns.current) {
+            if (visibleCodeRef.current[questionIndex] === unsent.code) {
+              socket.emit("browser run result", { questionIndex, code: unsent.code, result: unsent.result });
+            }
+          }
+          unsentRuns.current.clear();
         } else if (joinedRef.current) {
           // The connection works, so an edit whose answer timed out has reached
           // the server by now (and is in this code) or was refused. Either way
@@ -464,6 +473,10 @@ export function useRoomSocket(
         }
         return;
       }
+      browserRun.current?.cancel();
+      browserRun.current = null;
+      unsentRuns.current.clear();
+      setRun(IDLE_RUN);
       lastActivityJsonRef.current = json;
       const questions = next?.questions ?? [];
       setStudentAnswers(questions.map(startingAnswer));
@@ -519,6 +532,10 @@ export function useRoomSocket(
     const onMessage = (message: ChatMessage) => addMessage(message);
     const onHandQueue = (queue: RaisedHand[]) => setHandQueue(queue);
     const onClosed = (reason?: RoomClosedReason) => {
+      browserRun.current?.cancel();
+      browserRun.current = null;
+      unsentRuns.current.clear();
+      setRun(IDLE_RUN);
       // The seat is gone with the room.
       if (isStudent) forgetStudentKey(session.room, session.username);
       onRoomClosedRef.current?.(reason);
@@ -568,6 +585,10 @@ export function useRoomSocket(
       joinedRef.current = false;
       setJoined(false);
       setReconnecting(false);
+      browserRun.current?.cancel();
+      browserRun.current = null;
+      unsentRuns.current.clear();
+      setRun(IDLE_RUN);
       setReplaced(true);
     };
     const onTeacherAway = (away: boolean, closesAt?: string | null) => {
@@ -577,9 +598,7 @@ export function useRoomSocket(
 
     // Sent on every connect. Socket.IO reconnects by itself after a network
     // drop, and the new connection is in no room, so "join" must go again.
-    // Any run was stopped when the old connection dropped.
     const onConnect = () => {
-      setRun((prev) => (prev.status === "idle" ? prev : IDLE_RUN));
       joinRoom();
     };
 
@@ -600,43 +619,6 @@ export function useRoomSocket(
       if (reason === "io server disconnect" || reason === "io client disconnect") return;
       setReconnecting(true);
     };
-
-    // A run waiting in line. A new jobId means a new run, so start fresh;
-    // the same jobId is just its place in line moving up.
-    const onRunQueued = ({ jobId, questionIndex, position }: { jobId: string; questionIndex: number; position: number }) =>
-      setRun((prev) =>
-        prev.jobId === jobId
-          ? { ...prev, position }
-          : { ...IDLE_RUN, jobId, questionIndex, status: "queued", position }
-      );
-    const onRunStarted = ({ jobId }: { jobId: string }) =>
-      setRun((prev) => (prev.jobId === jobId ? { ...prev, status: "running", position: null } : prev));
-    const onRunOutput = ({ jobId, chunk }: { jobId: string; chunk: string }) =>
-      setRun((prev) => (prev.jobId === jobId ? { ...prev, output: prev.output + chunk } : prev));
-    const onRunFinished = ({
-      jobId,
-      questionIndex,
-      outcome,
-    }: {
-      jobId: string;
-      questionIndex: number;
-      outcome: RunOutcome;
-    }) => {
-      // Only a run that actually finished has output worth keeping for its question.
-      if (session.role === "teacher" && outcome.type === "finished") {
-        setCodeOutputs((prev) =>
-          prev.map((o, i) => (i === questionIndex ? formatRunOutput(outcome, "") : o))
-        );
-      }
-      setRun((prev) => {
-        // A replaced run is already superseded by the newer one being tracked.
-        if (prev.jobId !== jobId || outcome.type === "replaced") return prev;
-        const output = formatRunOutput(outcome, prev.output);
-        return { ...prev, status: "idle", position: null, output, outcome };
-      });
-    };
-    const onRunRejected = ({ questionIndex, reason }: { questionIndex: number; reason: string }) =>
-      setRun((prev) => ({ ...prev, questionIndex, status: "idle", position: null, error: reason }));
 
     socket.on("chat history", onHistory);
     socket.on("chat message", onMessage);
@@ -660,11 +642,6 @@ export function useRoomSocket(
     socket.on("student key", onStudentKey);
     socket.on("session replaced", onSessionReplaced);
     socket.on("teacher away", onTeacherAway);
-    socket.on("run queued", onRunQueued);
-    socket.on("run started", onRunStarted);
-    socket.on("run output", onRunOutput);
-    socket.on("run finished", onRunFinished);
-    socket.on("run rejected", onRunRejected);
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
 
@@ -675,6 +652,9 @@ export function useRoomSocket(
     socket.connect();
 
     return () => {
+      browserRun.current?.cancel();
+      browserRun.current = null;
+      unsentRuns.current.clear();
       socket.off("chat history", onHistory);
       socket.off("chat message", onMessage);
       socket.off("private chat opened", onPrivateOpened);
@@ -697,11 +677,6 @@ export function useRoomSocket(
       socket.off("student key", onStudentKey);
       socket.off("session replaced", onSessionReplaced);
       socket.off("teacher away", onTeacherAway);
-      socket.off("run queued", onRunQueued);
-      socket.off("run started", onRunStarted);
-      socket.off("run output", onRunOutput);
-      socket.off("run finished", onRunFinished);
-      socket.off("run rejected", onRunRejected);
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       lastActivityJsonRef.current = null;
@@ -908,14 +883,43 @@ export function useRoomSocket(
     run: run.status === "idle" && run.questionIndex !== null && visibleCode[run.questionIndex] !== runSource.current
       ? IDLE_RUN : run,
     runCode: (questionIndex: number, code: string) => {
+      if (browserRun.current) return;
+      const selectedActivity = activityRef.current;
+      if (!selectedActivity || selectedActivity.type !== "coding" || !selectedActivity.questions[questionIndex]) return;
       runSource.current = code;
-      if (!joinedRef.current) {
-        setRun({ ...IDLE_RUN, questionIndex, error: "Reconnecting to the room. Run it again once you're back." });
-        return;
-      }
-      socket.emit("run code", { questionIndex, code });
+      const jobId = makeTabId();
+      setRun({ ...IDLE_RUN, jobId, questionIndex, status: "running", phase: "Loading language tools…" });
+      const task = startBrowserRun(selectedActivity.language, code,
+        chunk => setRun(prev => prev.jobId === jobId ? { ...prev, output: prev.output + chunk } : prev),
+        phase => setRun(prev => prev.jobId === jobId ? { ...prev, phase } : prev));
+      browserRun.current = task;
+      void task.result.then(result => {
+        if (browserRun.current !== task) return;
+        const outcome: RunOutcome = { type: "finished", result };
+        const output = formatRunOutput(outcome, "");
+        if (visibleCodeRef.current[questionIndex] === code) {
+          setCodeOutputs(prev => prev.map((value, i) => i === questionIndex ? output : value));
+        }
+        setRun(prev => prev.jobId === jobId ? { ...prev, status: "idle", outcome, output } : prev);
+        // Results are shared as student-reported output, never executed by the server.
+        if (isStudent && visibleCodeRef.current[questionIndex] === code) {
+          if (joinedRef.current && socket.connected) {
+            unsentRuns.current.delete(questionIndex);
+            socket.emit("browser run result", { questionIndex, code, result });
+          } else {
+            unsentRuns.current.set(questionIndex, { code, result });
+          }
+        }
+      }, error => {
+        if (browserRun.current !== task) return;
+        setRun(prev => prev.jobId === jobId ? { ...prev, status: "idle", error: error instanceof Error ? error.message : "The browser runner failed." } : prev);
+      }).finally(() => { if (browserRun.current === task) browserRun.current = null; });
     },
-    cancelRun: () => socket.emit("cancel run"),
+    cancelRun: () => {
+      browserRun.current?.cancel();
+      browserRun.current = null;
+      setRun(prev => ({ ...prev, status: "idle", outcome: { type: "cancelled" }, error: null }));
+    },
     ended: false,
     joined,
     reconnecting,

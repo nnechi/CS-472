@@ -1,3 +1,4 @@
+import { browserLanguage } from "../../runner/languages";
 import Editor, { OnMount } from "@monaco-editor/react";
 import { useLayoutEffect, useRef } from "react";
 import {
@@ -10,8 +11,6 @@ import type { RunState } from "../../hooks/useRoomSocket"
 import { bindCodeCompletions } from "./codeCompletions"
 import { PlayIcon, StopIcon } from "../ActivitySVGs"
 
-// The activity languages that have a runner on the server.
-const RUNNABLE = ["python", "javascript", "typescript", "java", "c", "c++"];
 
 // A circle with a diagonal slash: shown on the Run button while it is disabled.
 function CrossCircleIcon({ className = "" }: { className?: string }) {
@@ -53,8 +52,7 @@ interface CodeEditorProps {
 
 // What to show under the output: where the run is, or how it ended.
 function runStatus(run: RunState): string | null {
-    if (run.status === "queued") return run.position === 1 ? "Up next…" : `Waiting in line (#${run.position})…`;
-    if (run.status === "running") return "Running…";
+    if (run.status === "running") return run.phase ?? "Running…";
     if (run.error) return run.error;
     const outcome = run.outcome;
     if (!outcome) return null;
@@ -92,7 +90,7 @@ export default function CodeEditor({
 }: CodeEditorProps){
     const readOnly = !onCodeChange;
     const language = activity?.language === "c++" || activity?.language === "c" ? "cpp" : activity?.language;
-    const canRun = !!activity?.language && RUNNABLE.includes(activity.language);
+    const canRun = !!browserLanguage(activity?.language);
     const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
     const applyingSharedCode = useRef(false);
     const questionCount = activity?.questions.length ?? 0;
@@ -155,8 +153,8 @@ export default function CodeEditor({
 
     // The run only belongs on screen if it was started from this question.
     const runHere = run && run.questionIndex === index ? run : undefined;
-    // Waiting in line or running: Run is off until it's done, Stop is on.
-    const busy = runHere?.status === "queued" || runHere?.status === "running";
+    // Run is off while its browser workers are busy; Stop is on.
+    const busy = run?.status === "running";
     // Why Run is off, shown as the button's tooltip. Empty when Run can be pressed.
     const runDisabledReason = busy
         ? "Your code is running"
@@ -210,7 +208,7 @@ export default function CodeEditor({
                             title={runDisabledReason || undefined}
                             onClick={() => onRun(index, code)}>
                             {runDisabledReason ? <CrossCircleIcon /> : <PlayIcon />}
-                            {runHere?.status === "running" ? "Running…" : runHere?.status === "queued" ? "Waiting…" : "Run"}
+                            {busy ? "Running…" : "Run"}
                         </button>
                     </div>
                 )}
