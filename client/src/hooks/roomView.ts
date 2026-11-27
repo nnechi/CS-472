@@ -1,4 +1,5 @@
 import type { PupId } from "../components/chat/PupAvatar";
+import type { OutputCheck } from "../utils/outputCheck";
 import type {
   AnswerFeedback,
   ChatMessage,
@@ -67,6 +68,7 @@ export interface RoomView {
   // finished run, and their current run on the server. Students and teachers alike.
   code: string[];
   codeOutputs: (string | null)[];
+  codeChecks: (OutputCheck | null)[];
   setCode: (questionIndex: number, code: string) => void;
   run: RunState;
   runCode: (questionIndex: number, code: string) => void;

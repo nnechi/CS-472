@@ -1,3 +1,5 @@
+import type { OutputCheck } from "./outputCheck";
+
 export type Role = "student" | "teacher";
 
 // The group chat's id. Private chats use the student's id in the room instead.
@@ -233,6 +235,7 @@ export function emptyStudentEnvironment(
 export interface CodingProgress {
   codes: string[];
   outputs: (string | null)[];
+  checks: (OutputCheck | null)[];
 }
 
 // What the teacher sees of one student's work. The type says which kind of activity it is for.

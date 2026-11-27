@@ -1,4 +1,6 @@
 // Keep this in sync with the server's src/types.ts.
+import type { OutputCheck } from "./utils/outputCheck";
+
 export type Role = "student" | "teacher";
 
 // Everything the chat needs to know about the current user. Built from the
@@ -139,6 +141,7 @@ export interface AnswerProgress {
 export interface CodingProgress {
   codes: string[];
   outputs: (string | null)[];
+  checks?: (OutputCheck | null)[];
 }
 
 // What the teacher sees of one student's work. The type says which kind of activity it is for.
