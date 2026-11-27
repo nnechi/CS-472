@@ -164,7 +164,7 @@ export default function Home() {
                         {STEPS.map((step) => (
                             <li key={step.title} className="flex flex-col gap-4 rounded-2xl border-2 border-brand bg-white p-8">
                                 <span className="flex h-13 w-13 items-center justify-center rounded-xl bg-pop/40 text-brand">{step.icon}</span>
-                                <h3 className="text-[1.6rem] font-bold text-[#800020]">{step.title}</h3>
+                                <h3 className="text-[1.6rem] font-bold text-[#D1003F]">{step.title}</h3>
                                 <p className="text-lg text-brand/70">{step.text}</p>
                             </li>
                         ))}
@@ -180,7 +180,7 @@ export default function Home() {
                         {WHY.map((item) => (
                             <article key={item.title} className="flex flex-col gap-4 rounded-2xl border border-brand/20 bg-white p-8">
                                 <span className="flex h-13 w-13 items-center justify-center rounded-xl bg-warn/40 text-brand">{item.icon}</span>
-                                <h3 className="text-[1.6rem] font-bold text-[#800020]">{item.title}</h3>
+                                <h3 className="text-[1.6rem] font-bold text-[#D1003F]">{item.title}</h3>
                                 <p className="text-lg text-brand/70">{item.text}</p>
                             </article>
                         ))}
@@ -196,7 +196,7 @@ export default function Home() {
                         {FEATURES.map((feature) => (
                             <article key={feature.title} className="flex flex-col gap-4 rounded-2xl bg-pop p-8 shadow-[0_4px_12px_rgba(0,0,0,0.12)]">
                                 <span className="flex h-13 w-13 items-center justify-center rounded-xl bg-white text-brand">{feature.icon}</span>
-                                <h3 className="text-[1.6rem] font-bold text-[#800020]">{feature.title}</h3>
+                                <h3 className="text-[1.6rem] font-bold text-[#D1003F]">{feature.title}</h3>
                                 <p className="text-lg text-brand/75">{feature.text}</p>
                             </article>
                         ))}
