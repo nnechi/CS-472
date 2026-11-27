@@ -81,8 +81,8 @@ const WHY = [
     {
         icon: <Hourglass className="h-6 w-6" aria-hidden="true" />,
         title: "Slow feedback loop",
-        problem: "Changing code and showing it to the teacher again is slow and inefficient, so mistakes sit unnoticed.",
-        help: "Teachers see each student's code as it's written and can edit it directly, and the built-in Run button shows results right away.",
+        problem: "Every time a student changes their code, they either have to resend it to the teacher or wait for the teacher to check it again.",
+        help: "The teacher can open any student's code from their own screen and fix it with them. No walking around the room.",
     },
     {
         icon: <MessageSquareOff className="h-6 w-6" aria-hidden="true" />,
