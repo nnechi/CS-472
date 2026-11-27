@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import session from "express-session";
-import { accountRouter } from "./account";
+import { createAccountRouter } from "./account";
 import { User } from "../models/User";
 import { hashPassword, verifyPassword } from "./passwords";
 
@@ -26,7 +26,8 @@ test("account routes check credentials, rotate sessions, and delete the signed-i
         req.session.user = { id: user._id, email: user.email, name: "Test", picture: null, authVersion: user.authVersion };
         res.json({});
     });
-    app.use(accountRouter);
+    const deletedIds: string[] = [];
+    app.use(createAccountRouter(async (id) => { deletedIds.push(id); }));
     const server = app.listen(0, "127.0.0.1");
     await new Promise<void>(resolve => server.once("listening", resolve));
     t.after(() => { server.closeAllConnections(); server.close(); });
@@ -60,5 +61,6 @@ test("account routes check credentials, rotate sessions, and delete the signed-i
     assert.equal((await request("/api/account/delete", { confirm: false, currentPassword: "NewPassword123" })).status, 400);
     assert.equal((await request("/api/account/delete", { confirm: true, currentPassword: "NewPassword123" })).status, 200);
     assert.equal(user, null);
+    assert.deepEqual(deletedIds, ["test-user"]);
     assert.equal((await request("/api/account")).status, 401);
 });

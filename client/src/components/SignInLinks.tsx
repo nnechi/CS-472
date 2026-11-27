@@ -7,14 +7,14 @@ export default function getSignInLinks({ menuItem = false }: { menuItem?: boolea
             <>
                 <Link
                     to="/login"
-                    className={menuItem ? menuClass : "text-brand/70 hover:text-brand transition-colors md:rounded-lg md:border md:border-brand md:bg-white md:px-4 md:py-2 text-base md:text-lg font-normal md:text-brand md:hover:bg-white/70"}
+                    className={menuItem ? menuClass : "text-brand/70 hover:text-brand transition-colors md:rounded-lg md:border md:border-brand md:bg-white md:px-4 md:py-2 text-lg md:text-xl font-normal md:text-brand md:hover:bg-white/70"}
                 >
                     Sign In
                 </Link>
 
                 <Link
                     to="/signup"
-                    className={menuItem ? menuClass : "text-brand/70 hover:text-brand transition-colors md:rounded-lg md:border md:border-brand md:bg-brand md:px-4 md:py-2 text-base md:text-lg font-normal md:text-white md:hover:bg-white/70 md:hover:text-brand"}
+                    className={menuItem ? menuClass : "text-brand/70 hover:text-brand transition-colors md:rounded-lg md:border md:border-brand md:bg-brand md:px-4 md:py-2 text-lg md:text-xl font-normal md:text-white md:hover:bg-white/70 md:hover:text-brand"}
                 >
                     Sign Up
                 </Link>

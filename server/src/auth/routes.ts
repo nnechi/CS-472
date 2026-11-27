@@ -8,8 +8,10 @@ import {
     createPasswordUser,
     findOrCreateUserFromGoogle,
     findUserWithPasswordByEmail,
+    normalizeEmail,
     type AppUser,
 } from "./users";
+import { LOGIN_MAX_FAILURES_PER_ACCOUNT, LOGIN_MAX_FAILURES_PER_IP, createFailureLimiter } from "./loginLimiter";
 import { DUMMY_HASH_PROMISE, hashPassword, verifyPassword } from "./passwords";
 import type { SessionUser } from "./session";
 
@@ -201,6 +203,9 @@ authRouter.post(
     }),
 );
 
+const accountFailures = createFailureLimiter(LOGIN_MAX_FAILURES_PER_ACCOUNT);
+const ipFailures = createFailureLimiter(LOGIN_MAX_FAILURES_PER_IP);
+
 // Body: { email: string, password: string }
 authRouter.post(
     "/api/auth/login",
@@ -214,17 +219,29 @@ authRouter.post(
             return;
         }
 
+        const ipKey = req.ip ?? "unknown";
+        const accountKey = `${ipKey}|${normalizeEmail(email)}`;
+        const waitMs = Math.max(accountFailures.retryAfterMs(accountKey), ipFailures.retryAfterMs(ipKey));
+        if (waitMs > 0) {
+            res.setHeader("Retry-After", String(Math.ceil(waitMs / 1000)));
+            res.status(429).json({ message: "Too many sign-in attempts. Please wait a few minutes and try again." });
+            return;
+        }
+
         const found = await findUserWithPasswordByEmail(email);
         // Always run a hash check, even with no user or a Google-only user,
         // so the response time doesn't reveal which emails have accounts.
         const ok = await verifyPassword(password, found?.passwordHash ?? (await DUMMY_HASH_PROMISE));
 
         if (!found || !found.passwordHash || !ok) {
+            accountFailures.fail(accountKey);
+            ipFailures.fail(ipKey);
             // One message for every failure, so it doesn't reveal which emails exist.
             res.status(401).json({ message: "Invalid email or password." });
             return;
         }
 
+        accountFailures.reset(accountKey);
         res.status(200).json({ user: await startSession(req, found.user) });
     }),
 );

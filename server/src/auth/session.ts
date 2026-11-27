@@ -1,6 +1,8 @@
 // Sessions for remembering whos logged in
 
 import session from "express-session";
+import MongoStore from "connect-mongo";
+import mongoose from "mongoose";
 import { authConfig } from "./config.js";
 
 // What to store about someone logged-in
@@ -25,6 +27,10 @@ export const sessionMiddleware = session({
     secret: authConfig.sessionSecret, // signs cookie so they can't be forged
     resave: false, // don't re-save sessions that don't change
     saveUninitialized: false, // dont create sessions for visitors who don't log in
+    store: MongoStore.create({
+        clientPromise: mongoose.connection.asPromise().then((connection) => connection.getClient()),
+        touchAfter: 24 * 60 * 60,
+    }),
     cookie: {
         httpOnly: true, // JavaScript in browser can't read the cookie
         sameSite: "lax", // still sent when Google redirects back to us

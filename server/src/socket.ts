@@ -84,7 +84,7 @@ function studentChannel(seatId: string): string {
 // Ends a room: forgets everything kept in memory for it, tells everyone it closed
 // (and why), disconnects them, and (if a teacher opened it) saves it for
 // Previous activities. Safe to call more than once; only the first call does anything.
-export function closeRoom(io : AppServer, room : string, reason: RoomClosedReason = "ended"): void {
+export function closeRoom(io : AppServer, room : string, reason: RoomClosedReason = "ended", save = true): void {
   const live = liveRooms.get(room);
 
   // Take what the archive needs before anything is cleared. Only the fields
@@ -133,7 +133,7 @@ export function closeRoom(io : AppServer, room : string, reason: RoomClosedReaso
   // Rooms that were only created and discarded (never opened by a teacher) aren't
   // saved, so their group chat is deleted instead of being kept forever.
   // (snapshot is only set on the first call, so a repeat call deletes nothing.)
-  if (snapshot?.opened) void archiveRoom(snapshot);
+  if (save && snapshot?.opened) void archiveRoom(snapshot);
   else if (snapshot) {
     void deleteRoomMessages(room);
     void deleteRoomNotes(room);
@@ -204,6 +204,10 @@ export function liveRoomInfo(code: string): { hostID: string | null; activityId:
 
 // True if the room is still live in memory and was opened by this host. Used by
 // DELETE /api/rooms/:code for a room whose Room doc already expired.
+export function liveRoomCodesOfHost(hostID: string): string[] {
+  return [...liveRooms].filter(([, live]) => live.hostID === hostID).map(([code]) => code);
+}
+
 export function isLiveRoomHost(code : string, hostID : string): boolean {
   const live = liveRooms.get(code);
   return !!live && live.hostID !== null && live.hostID === hostID;
