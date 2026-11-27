@@ -7,7 +7,7 @@
 // The footer is in components/Footer.tsx.
 import { FormEvent, ReactNode, useEffect, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { CodeXml, Ticket, Users } from "lucide-react"
+import { CodeXml, Hourglass, MessageSquareOff, Ticket, UserX, Users } from "lucide-react"
 import codingRoomPic from "../assets/home/example.png"
 import waitingRoomPic from "../assets/home/waiting-room.png"
 import PupAvatar from "../components/chat/PupAvatar"
@@ -17,9 +17,9 @@ import { ROOM_CODE_MAX_LENGTH, normalizeRoomCode } from "../utils/roomCode"
 // page sits inside the layout's centered column.
 const FULL_WIDTH = "mx-[calc(50%-50vw)]"
 // Keeps the content of every band in the same centered column.
-const COLUMN = "mx-auto w-full max-w-6xl px-6 sm:px-12"
+const COLUMN = "mx-auto w-full max-w-screen-2xl px-6 sm:px-12 lg:px-16"
 
-// One icon style for the Features and About cards (same as the Features page).
+// One icon style for the Features cards (same as the Features page).
 function FeatureIcon({ children }: { children: ReactNode }) {
     return (
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -70,12 +70,10 @@ const FEATURES = [
     },
 ]
 
-const alertIcon = <FeatureIcon><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /><path d="M12 8v4" /><path d="M12 16h.01" /></FeatureIcon>
-
 const WHY = [
-    { title: "Lack of engagement", text: "Programming alone and in silence can make students lose interest." },
-    { title: "Slow feedback loop", text: "Changing code and showing it to the teacher again is slow and inefficient." },
-    { title: "Limited interaction", text: "Real-time coding feedback is hard to give in a large lecture hall." },
+    { icon: <UserX className="h-7 w-7" aria-hidden="true" />, title: "Lack of engagement", text: "Programming alone and in silence can make students lose interest." },
+    { icon: <Hourglass className="h-7 w-7" aria-hidden="true" />, title: "Slow feedback loop", text: "Changing code and showing it to the teacher again is slow and inefficient." },
+    { icon: <MessageSquareOff className="h-7 w-7" aria-hidden="true" />, title: "Limited interaction", text: "Providing real time coding feedback is difficult in large lecture environments." },
 ]
 
 export default function Home() {
@@ -133,7 +131,7 @@ export default function Home() {
                             placeholder="Enter room code"
                             className="h-12 min-w-0 flex-1 bg-transparent px-4 text-lg uppercase tracking-[0.12em] text-brand placeholder:normal-case placeholder:tracking-normal placeholder:text-brand/50 focus:outline-none"
                         />
-                        <button type="submit" className="h-12 cursor-pointer rounded-full bg-[#b45309] px-6 font-bold text-white bg-brand hover:bg-brand/90">
+                        <button type="submit" className="h-12 cursor-pointer rounded-full bg-brand px-6 font-bold text-white hover:bg-brand/90">
                             Join
                         </button>
                     </form>
@@ -162,12 +160,12 @@ export default function Home() {
             <section id="how" className={`${FULL_WIDTH} scroll-mt-6 pb-24 pt-56`}>
                 <div className={COLUMN}>
                     <SectionHead kicker="How it works" title="Ready in three steps" text="Students join with a code. Nothing to install." />
-                    <ol className="m-0 grid list-none gap-5 p-0 md:grid-cols-3">
+                    <ol className="m-0 grid list-none gap-6 p-0 md:grid-cols-3">
                         {STEPS.map((step) => (
-                            <li key={step.title} className="flex flex-col gap-3.5 rounded-2xl border-2 border-brand bg-white p-6">
-                                <span className="flex h-13 w-13 items-center justify-center rounded-xl bg-pop/40 text-[#D1003F]">{step.icon}</span>
-                                <h3 className="text-[1.35rem] font-bold text-[#7A2E0E]">{step.title}</h3>
-                                <p className="text-brand/70">{step.text}</p>
+                            <li key={step.title} className="flex flex-col gap-4 rounded-2xl border-2 border-brand bg-white p-8">
+                                <span className="flex h-13 w-13 items-center justify-center rounded-xl bg-pop/40 text-brand">{step.icon}</span>
+                                <h3 className="text-[1.6rem] font-bold text-[#800020]">{step.title}</h3>
+                                <p className="text-lg text-brand/70">{step.text}</p>
                             </li>
                         ))}
                     </ol>
@@ -178,12 +176,12 @@ export default function Home() {
             <section id="about" className={`${FULL_WIDTH} scroll-mt-6 bg-brand-light/30 py-24`}> 
                 <div className={COLUMN}>
                     <SectionHead kicker="About us" title="Why CS education needs a better tool" text="We are a student team building the tool we wanted in our own intro programming classes." />
-                    <div className="grid gap-5 md:grid-cols-3">
+                    <div className="grid gap-6 md:grid-cols-3">
                         {WHY.map((item) => (
-                            <article key={item.title} className="flex flex-col gap-3 rounded-2xl border border-brand/20 bg-white p-6">
-                                <span className="flex h-13 w-13 items-center justify-center rounded-xl bg-warn/40 text-[#D1003F]">{alertIcon}</span>
-                                <h3 className="text-[1.35rem] font-bold text-[#7A2E0E]">{item.title}</h3>
-                                <p className="text-brand/70">{item.text}</p>
+                            <article key={item.title} className="flex flex-col gap-4 rounded-2xl border border-brand/20 bg-white p-8">
+                                <span className="flex h-13 w-13 items-center justify-center rounded-xl bg-warn/40 text-brand">{item.icon}</span>
+                                <h3 className="text-[1.6rem] font-bold text-[#800020]">{item.title}</h3>
+                                <p className="text-lg text-brand/70">{item.text}</p>
                             </article>
                         ))}
                     </div>
@@ -194,12 +192,12 @@ export default function Home() {
             <section id="features" className={`${FULL_WIDTH} scroll-mt-6 py-24`}> 
                 <div className={COLUMN}>
                     <SectionHead kicker="Features" title="LittlePointers tools for live coding" text="Everything a teacher needs to run a coding lab from one screen." />
-                    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                         {FEATURES.map((feature) => (
-                            <article key={feature.title} className="flex flex-col gap-3 rounded-2xl bg-pop p-6 shadow-[0_4px_12px_rgba(0,0,0,0.12)]">
-                                <span className="flex h-13 w-13 items-center justify-center rounded-xl bg-white text-[#D1003F]">{feature.icon}</span>
-                                <h3 className="text-[1.35rem] font-bold text-[#7A2E0E]">{feature.title}</h3>
-                                <p className="text-brand/75">{feature.text}</p>
+                            <article key={feature.title} className="flex flex-col gap-4 rounded-2xl bg-pop p-8 shadow-[0_4px_12px_rgba(0,0,0,0.12)]">
+                                <span className="flex h-13 w-13 items-center justify-center rounded-xl bg-white text-brand">{feature.icon}</span>
+                                <h3 className="text-[1.6rem] font-bold text-[#800020]">{feature.title}</h3>
+                                <p className="text-lg text-brand/75">{feature.text}</p>
                             </article>
                         ))}
                     </div>
@@ -208,7 +206,7 @@ export default function Home() {
 
             {/* ===== 5. FOR TEACHERS / FOR STUDENTS ===== */}
             <section className={`${FULL_WIDTH} bg-brand-light/30 py-24`}>
-                <div className={`${COLUMN} grid gap-5 md:grid-cols-2`}>
+                <div className={`${COLUMN} grid gap-6 md:grid-cols-2`}>
                     <div className="flex flex-col gap-3.5 rounded-3xl bg-pop p-8">
                         <span className="text-sm font-bold uppercase tracking-widest text-[#800020]">For teachers</span>
                         <h3 className="text-[1.7rem] font-bold">See every student's code at once</h3>

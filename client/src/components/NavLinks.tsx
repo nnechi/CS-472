@@ -13,7 +13,7 @@ const menuItemClass = ({isActive}:{isActive:boolean}) =>
 export default function NavLinks({ onLinkClick, menuItem = false }: NavLinksProp) {
     const getLinkClass = ({isActive}:{isActive:boolean}) => 
         // Same white highlight as the dashboard menu: white when current, light gray on hover.
-        `rounded-lg px-3 py-2 text-base md:text-lg text-brand hover:bg-white/60 ${isActive
+        `rounded-lg px-3 py-2 text-lg md:text-xl text-brand hover:bg-white/60 ${isActive
             ? "bg-white font-semibold"
             : "font-normal"}`;
 
