@@ -12,10 +12,12 @@
     "test:browser-run": "node --import tsx --test src/browserRun.test.ts"
   },
   "dependencies": {
+    "connect-mongo": "^5.1.0",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "express-session": "1.19.0",
     "google-auth-library": "11.1.0",
+    "mongodb": "~6.20.0",
     "mongoose": "^8.5.1",
     "socket.io": "^4.7.5",
     "typescript": "^5.5.3"
