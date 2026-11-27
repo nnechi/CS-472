@@ -57,13 +57,13 @@ const WHY = [
         icon: <Hourglass className="h-6 w-6" aria-hidden="true" />,
         title: "Slow feedback loop",
         problem: "Every time a student changes their code, they either have to resend it to the teacher or wait for the teacher to check it again.",
-        help: "The teacher can open any student's code from their own screen and fix it with them. No walking around the room.",
+        help: "The teacher can open any student's code from their own screen and fix it with them in real time without file-sharing or having to walk around the room.",
     },
     {
         icon: <MessageSquareOff className="h-6 w-6" aria-hidden="true" />,
         title: "Limited interaction",
-        problem: "Providing real time coding feedback is difficult in large lecture environments.",
-        help: "Raised hands line up in order and private chats let every student get help, even the ones who would never speak up in a lecture hall.",
+        problem: "Giving real-time coding feedback is hard when one teacher has a full class to help.",
+        help: "Students can raise their hand and privately message their teacher for help. This lets every student get help, even the ones who would never ask questions in class.",
     },
 ]
 
