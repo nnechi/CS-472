@@ -1,5 +1,5 @@
 # Start from an official Node.js image. "alpine" is a small Linux base.
-FROM node:20-alpine
+FROM node:24-alpine
 
 # All following commands run inside /app in the container.
 WORKDIR /app

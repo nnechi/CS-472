@@ -67,6 +67,6 @@ npm run test:runner
 
 Browser tests cover all six languages, compiler diagnostics, timeout, cancellation,
 output limits, and recovery. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can select an
-installed Chrome executable. Run `npm run typecheck` and `npm run test:parsons`
-and `npm run test:browser-run` in `server/` to verify the API, reported output
-validation, and existing Parsons grader.
+installed Chrome executable. Run `npm run typecheck` and `npm test` in `server/`
+to verify the API, reported output validation, account routes, sign-in limits,
+and the Parsons grader.

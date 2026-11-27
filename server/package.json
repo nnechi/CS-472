@@ -9,7 +9,9 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test:parsons": "node --import tsx --test src/parsons/parse.test.ts",
-    "test:browser-run": "node --import tsx --test src/browserRun.test.ts"
+    "test:browser-run": "node --import tsx --test src/browserRun.test.ts",
+    "test:account": "node --import tsx --test src/auth/account.test.ts src/auth/loginLimiter.test.ts",
+    "test": "node --import tsx --test src/parsons/parse.test.ts src/browserRun.test.ts src/auth/account.test.ts src/auth/loginLimiter.test.ts"
   },
   "dependencies": {
     "connect-mongo": "^5.1.0",
