@@ -1,16 +1,15 @@
 // Sections, top to bottom:
-//   1. HERO          title, a room code box for students, a sign-up link for teachers, the coding room picture
+//   1. HERO          title, a Join a room button for students, a sign-up link for teachers, the coding room picture
 //   2. HOW IT WORKS  id="how"       three numbered steps
 //   3. ABOUT US      id="about"     the three problems we solve
 //   4. FEATURES      id="features"  what teachers get and what students get, side by side
 //   5. GET STARTED   navy band: the same two ways in as the hero
 // The footer is in components/Footer.tsx.
-import { FormEvent, ReactNode, useEffect, useState } from "react"
-import { Link, useLocation, useNavigate } from "react-router-dom"
-import { Hand, Hourglass, MessageSquareOff, PawPrint, Play, Ticket, UserX } from "lucide-react"
+import { ReactNode, useEffect } from "react"
+import { Link, useLocation } from "react-router-dom"
+import { Eye, Hand, Hourglass, MessageSquareOff, NotebookPen, PawPrint, Play, Ticket, UserX } from "lucide-react"
 import codingRoomPic from "../assets/home/example.png"
 import PupAvatar from "../components/chat/PupAvatar"
-import { ROOM_CODE_MAX_LENGTH, normalizeRoomCode } from "../utils/roomCode"
 
 // Makes a colored band stretch the full width of the screen, even though the
 // page sits inside the layout's centered column.
@@ -39,30 +38,6 @@ function SectionHead({ kicker, title, text }: { kicker: string; title?: string; 
     )
 }
 
-function RoomCodeForm({ code, onChange, onSubmit, id }: { code: string; onChange: (value: string) => void; onSubmit: (e: FormEvent) => void; id: string }) {
-    return (
-        <form
-            onSubmit={onSubmit}
-            noValidate
-            className="flex w-full max-w-md items-center gap-1.5 rounded-full border-2 border-brand bg-white p-1.5 focus-within:outline-3 focus-within:outline-offset-3 focus-within:outline-brand/40"
-        >
-            <label htmlFor={id} className="sr-only">Room code</label>
-            <input
-                id={id}
-                value={code}
-                onChange={(e) => onChange(e.target.value)}
-                maxLength={ROOM_CODE_MAX_LENGTH}
-                autoComplete="off"
-                placeholder="Enter room code"
-                className="h-12 min-w-0 flex-1 bg-transparent px-4 text-lg uppercase tracking-[0.12em] text-brand placeholder:normal-case placeholder:tracking-normal placeholder:text-brand/50 focus:outline-none"
-            />
-            <button type="submit" className="h-12 cursor-pointer rounded-full bg-green-700 px-7 font-bold text-white shadow-sm transition-colors hover:bg-green-800 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-green-700">
-                Join
-            </button>
-        </form>
-    )
-}
-
 // ---- Content. Edit the words here. ----
 
 const STEPS = [
@@ -76,7 +51,7 @@ const WHY = [
         icon: <UserX className="h-6 w-6" aria-hidden="true" />,
         title: "Lack of engagement",
         problem: "Programming alone and in silence makes it easy for students to tune out and lose interest.",
-        help: "Students code together in a live room with their class, chat as they work, and race the same timer, so practice feels like a shared activity.",
+        help: "Students code together in a live room with teacher support, chat when they need help, and work through each activity as a live session with their class.",
     },
     {
         icon: <Hourglass className="h-6 w-6" aria-hidden="true" />,
@@ -94,9 +69,9 @@ const WHY = [
 
 const FEATURES = [
     {
-        title: "Live screen sharing room",
-        text: "Students work on programming questions and share their screens with the teacher.",
-        icon: <FeatureIcon><rect x="3" y="4" width="18" height="12" rx="1.5" /><path d="M8 20h8M12 16v4" /><path d="M12 13V8m0 0-2.5 2.5M12 8l2.5 2.5" /></FeatureIcon>,
+        title: "Live coding room",
+        text: "Students work on programming questions while the teacher sees their code as they write it.",
+        icon: <Eye className="h-6 w-6" aria-hidden="true" />,
     },
     {
         title: "Teacher editing mode",
@@ -109,9 +84,9 @@ const FEATURES = [
         icon: <FeatureIcon><rect x="2.5" y="4" width="19" height="16" rx="2" /><path d="M7 10l3 2.5L7 15M12.5 15H17" /></FeatureIcon>,
     },
     {
-        title: "Built-in timer",
-        text: "Set a timer for each question so the class keeps moving.",
-        icon: <FeatureIcon><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2M9.5 2.5h5" /></FeatureIcon>,
+        title: "Teacher notes",
+        text: "Keep tabs on students to identify where they struggle, and use your notes on each activity and room to plan what to review next class.",
+        icon: <NotebookPen className="h-6 w-6" aria-hidden="true" />,
     },
 ]
 
@@ -128,9 +103,6 @@ const AUDIENCES = [
 ]
 
 export default function Home() {
-    const navigate = useNavigate()
-    const [code, setCode] = useState("")
-
     // When the address is /#features, /#about or /#how, scroll smoothly to that
     // section. "key" makes a second click on the same menu link scroll again.
     const { hash, key } = useLocation()
@@ -138,12 +110,6 @@ export default function Home() {
         if (!hash) return
         document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: "smooth" })
     }, [hash, key])
-
-    const handleJoin = (e: FormEvent) => {
-        e.preventDefault()
-        const roomCode = normalizeRoomCode(code)
-        navigate(roomCode ? `/joinroom?code=${roomCode}` : "/joinroom")
-    }
 
     return (
         // -my-12 cancels the layout's top and bottom padding, so the first band
@@ -164,7 +130,9 @@ export default function Home() {
                         <div className="flex flex-col gap-6 lg:pb-1">
                             <div className="flex flex-col gap-2.5">
                                 <p className="font-semibold">Students: join your class</p>
-                                <RoomCodeForm id="homeRoomCode" code={code} onChange={setCode} onSubmit={handleJoin} />
+                                <Link to="/joinroom" className="w-fit rounded-full bg-green-700 px-7 py-3.5 text-lg font-bold text-white shadow-sm transition-colors hover:bg-green-800 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-green-700">
+                                    Join a room here
+                                </Link>
                             </div>
                             <p className="text-brand/80">
                                 Teaching a class?{" "}
