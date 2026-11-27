@@ -10,18 +10,12 @@ export async function deleteTeacherData(io: AppServer, teacherId: string): Promi
   const openCodes = new Set([...liveRoomCodesOfHost(teacherId), ...(await Room.distinct("code", { hostID: teacherId }))]);
   for (const code of openCodes) closeRoom(io, code, "ended", false);
 
-  const [pastCodes, logCodes] = await Promise.all([
-    PastRoom.distinct("code", { hostID: teacherId }),
-    RoomLog.distinct("code", { hostID: teacherId }),
-  ]);
-  const codes = [...new Set([...openCodes, ...pastCodes, ...logCodes])];
-
   await Promise.all([
     Activity.deleteMany({ teacherId }),
     Note.deleteMany({ teacherId }),
     Room.deleteMany({ hostID: teacherId }),
     PastRoom.deleteMany({ hostID: teacherId }),
     RoomLog.deleteMany({ hostID: teacherId }),
-    Message.deleteMany({ room: { $in: codes } }),
+    Message.deleteMany({ room: { $in: [...openCodes] } }),
   ]);
 }
