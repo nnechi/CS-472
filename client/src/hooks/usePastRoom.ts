@@ -123,6 +123,7 @@ export function usePastRoom(roomCode: string): PastRoom {
     resetProblem: doNothing,
     code: [],
     codeOutputs: [],
+    codeChecks: [],
     setCode: doNothing,
     run: { jobId: null, questionIndex: null, status: "idle", output: "", outcome: null, error: null },
     runCode: doNothing,

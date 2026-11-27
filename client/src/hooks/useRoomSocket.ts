@@ -5,6 +5,7 @@ import { socket } from "../socket";
 import { PupId, loadPupId, savePupId } from "../components/chat/PupAvatar";
 import { forgetStudentKey, loadStudentKey, saveStudentKey } from "../utils/studentKey";
 import { replayFrom } from "../utils/codeResync";
+import { checkOutput, type OutputCheck } from "../utils/outputCheck";
 import type { RoomView, RunState } from "./roomView";
 import {
   AnswerFeedback,
@@ -172,6 +173,7 @@ export function useRoomSocket(
   const [run, setRun] = useState<RunState>(IDLE_RUN);
   // The output of the last finished run of each question.
   const [codeOutputs, setCodeOutputs] = useState<(string | null)[]>([]);
+  const [codeChecks, setCodeChecks] = useState<(OutputCheck | null)[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [editErrors, setEditErrors] = useState<Record<string, string | undefined>>({});
   // In the room (true once the server has let this connection in), offline
@@ -407,6 +409,7 @@ export function useRoomSocket(
         serverCodeRef.current = progress.codes;
         setCode(progress.codes);
         setCodeOutputs(progress.outputs);
+        setCodeChecks(progress.checks ?? []);
         if (resyncCodeRef.current) {
           resyncCodeRef.current = false;
           resyncCode(progress.codes, localCodes, studentTexts ?? []);
@@ -484,6 +487,7 @@ export function useRoomSocket(
       setStudentFeedback(questions.map(() => null));
       setCode(questions.map(() => ""));
       setCodeOutputs(questions.map(() => null));
+      setCodeChecks(questions.map(() => null));
       touchedRef.current = false;
       restoredRef.current = false;
       // Unsent work belonged to the previous activity, or lost to the server's copy.
@@ -708,6 +712,7 @@ export function useRoomSocket(
       setRun(IDLE_RUN);
       setCode([]);
       setCodeOutputs([]);
+      setCodeChecks([]);
       setJoined(false);
       setReconnecting(false);
       setReplaced(false);
@@ -779,6 +784,7 @@ export function useRoomSocket(
     if (isStudent) return shareCode(null, questionIndex, next, code[questionIndex] ?? "");
     setCode((prev) => prev.map((c, i) => (i === questionIndex ? next : c)));
     setCodeOutputs((prev) => prev.map((o, i) => (i === questionIndex ? null : o)));
+    setCodeChecks((prev) => prev.map((c, i) => (i === questionIndex ? null : c)));
   };
 
   const visibleCode = code.map((value, i) => drafts[editKey(null, i)] ?? value);
@@ -863,6 +869,7 @@ export function useRoomSocket(
         type: "coding",
         codes,
         outputs: codes.map((value, i) => value === shared?.codes[i] ? shared.outputs[i] ?? null : null),
+        checks: codes.map((value, i) => value === shared?.codes[i] ? shared.checks?.[i] ?? null : null),
       } : null;
     },
     editStudentCode: (studentId, index, next) =>
@@ -879,6 +886,7 @@ export function useRoomSocket(
     // actions to edit, start, or stop it. Students and teachers alike.
     code: visibleCode,
     codeOutputs: codeOutputs.map((value, i) => visibleCode[i] === code[i] ? value : null),
+    codeChecks: code.map((value, i) => visibleCode[i] === value ? codeChecks[i] ?? null : null),
     setCode: setCodeAt,
     run: run.status === "idle" && run.questionIndex !== null && visibleCode[run.questionIndex] !== runSource.current
       ? IDLE_RUN : run,
@@ -898,7 +906,14 @@ export function useRoomSocket(
         const outcome: RunOutcome = { type: "finished", result };
         const output = formatRunOutput(outcome, "");
         if (visibleCodeRef.current[questionIndex] === code) {
+          const expected = selectedActivity.questions[questionIndex].output;
+          const check = typeof expected === "string" ? checkOutput(result, expected) : null;
           setCodeOutputs(prev => prev.map((value, i) => i === questionIndex ? output : value));
+          setCodeChecks(prev => {
+            const next = [...prev];
+            next[questionIndex] = check;
+            return next;
+          });
         }
         setRun(prev => prev.jobId === jobId ? { ...prev, status: "idle", outcome, output } : prev);
         // Results are shared as student-reported output, never executed by the server.

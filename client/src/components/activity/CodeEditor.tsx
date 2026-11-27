@@ -10,6 +10,7 @@ import type { RoomActivity } from "../../types"
 import type { RunState } from "../../hooks/useRoomSocket"
 import { bindCodeCompletions } from "./codeCompletions"
 import { PlayIcon, StopIcon } from "../ActivitySVGs"
+import { checkOutput, type OutputCheck } from "../../utils/outputCheck"
 
 
 // A circle with a diagonal slash: shown on the Run button while it is disabled.
@@ -38,6 +39,7 @@ interface CodeEditorProps {
     // The output of each question's last finished run. Shown when the run on
     // screen isn't from this question, e.g. when showing a student's saved work.
     outputs?: (string | null)[];
+    checks?: (OutputCheck | null)[];
     // Shown instead of the output placeholder when read-only, e.g. a student
     // who hasn't started yet.
     emptyMessage?: string;
@@ -82,6 +84,7 @@ export default function CodeEditor({
     codes = [],
     run,
     outputs = [],
+    checks = [],
     emptyMessage,
     editError,
     onCodeChange,
@@ -165,6 +168,13 @@ export default function CodeEditor({
                 : "";
     const status = runHere ? runStatus(runHere) : null;
     const output = runHere ? runHere.output : outputs[index] ?? "";
+    const finished = runHere?.status === "idle" && runHere.outcome?.type === "finished" ? runHere.outcome.result : null;
+    const check = runHere
+        ? finished && typeof question.output === "string" ? checkOutput(finished, question.output) : null
+        : checks[index] ?? null;
+    const outputBox = !check ? "" : check.correct
+        ? "bg-green-50 ring-2 ring-inset ring-green-600"
+        : "bg-red-50 ring-2 ring-inset ring-red-600";
 
     // Function for Monaco editor to set editor options on mount
     const handleMount: OnMount = (editor, monaco) => {
@@ -279,8 +289,22 @@ export default function CodeEditor({
 
                 {/* Quadrant 4 - Output: your own runs, or the student's when showing their work */}
                 <ResizablePanel defaultSize="25%">
-                    <div className="flex h-full flex-col gap-2 overflow-auto p-6">
-                        <p className="font-semibold text-2xl">{onRun ? "Your" : "Student"} Output</p>
+                    <div className={`flex h-full flex-col gap-2 overflow-auto p-6 ${outputBox}`}>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <p className="font-semibold text-2xl">{onRun ? "Your" : "Student"} Output</p>
+                            {check && (
+                                <span role="status" className={`rounded-full px-3 py-0.5 text-sm font-semibold text-white ${check.correct ? "bg-green-700" : "bg-red-700"}`}>
+                                    {check.correct ? "✓ Correct" : "✗ Doesn't match"}
+                                </span>
+                            )}
+                        </div>
+                        {check && !check.correct && (
+                            <p className="text-sm text-red-800">
+                                {check.line === null
+                                    ? "The output matches, but the program didn't finish successfully."
+                                    : `Line ${check.line}: expected ${check.expected === null ? "nothing" : `"${check.expected}"`}, got ${check.actual === null ? "nothing" : `"${check.actual}"`}.`}
+                            </p>
+                        )}
                         <pre aria-live="polite" aria-label="Execution output" className="whitespace-pre-wrap font-mono text-sm">
                             {/* Output, then the status under it. The placeholder only shows when there's neither. */}
                             {output}

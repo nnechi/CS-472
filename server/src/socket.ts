@@ -40,6 +40,7 @@ import {
 } from "./types";
 import { allowRunReport, parseBrowserRun } from "./browserRun";
 import { mergeCodeEdit } from "./codeEdit";
+import { checkOutput } from "./outputCheck";
 
 import { Room } from "./models/Room";
 import { PastRoom } from "./models/PastRoom";
@@ -578,6 +579,7 @@ interface LiveRoom {
   // Closes the room if the teacher stays away (see TEACHER_GONE_CLOSE_MS), and when.
   teacherGoneTimer?: ReturnType<typeof setTimeout>;
   teacherGoneAt: number | null;
+  expectedOutputs: (string | null)[];
 }
 
 // What a saved room keeps of one student.
@@ -666,6 +668,7 @@ function ensureLiveRoom(io : AppServer, room : string, expiresAt : Date, hostID 
       studentLimitWarned: false,
       teacherAwaySent: false,
       teacherGoneAt: null,
+      expectedOutputs: [],
     };
     created.expiryTimer = setTimeout(() => {
       void onRoomExpired(io, room);
@@ -891,13 +894,17 @@ function withValue<T>(list: T[], index: number, value: T, fill: T): T[] {
 
 // A coding student's work as teachers (and the student) see it: their code, and
 // each question's last output, stdout then stderr under a label.
-function codingProgressOf(env: StudentEnvironment): StudentProgress {
+function codingProgressOf(env: StudentEnvironment, expectedOutputs: (string | null)[]): StudentProgress {
   return {
     type: "coding",
     codes: env.questions.map((question) => question.code),
     outputs: env.questions.map(({ lastRun }) => lastRun
       ? `${lastRun.stdout}${lastRun.stderr ? "\n[stderr]\n" + lastRun.stderr : ""}`.slice(0, ACTIVITY_MAX_LENGTH)
       : null),
+    checks: env.questions.map(({ lastRun }, i) => {
+      const expected = expectedOutputs[i];
+      return lastRun && typeof expected === "string" ? checkOutput(lastRun, expected) : null;
+    }),
   };
 }
 
@@ -1098,7 +1105,7 @@ export function registerSocketHandlers(
   };
 
   const publishCode = (room: string, student: Participant, env: StudentEnvironment) =>
-    setProgress(room, student, codingProgressOf(env));
+    setProgress(room, student, codingProgressOf(env, liveRooms.get(room)?.expectedOutputs ?? []));
 
   // Start counting down. When time runs out, the timer stops at zero.
   const playTimer = (room: string) => {
@@ -1554,6 +1561,7 @@ export function registerSocketHandlers(
         if (!stillLive || !socket.connected) return;
         // Another tab took the seat while the activity loaded; it sets itself up.
         if (seat && seat.socketId !== socket.id) return;
+        live.expectedOutputs = loaded?.questions.map((q) => (q.parsons ? null : q.output ?? null)) ?? [];
 
         const roomActivity = seat ? studentView(loaded, seat.key) : teacherView(loaded);
         socket.emit("room activity", roomActivity);
@@ -1572,7 +1580,7 @@ export function registerSocketHandlers(
             const env = mySeat.env;
             socket.emit(
               "student activity",
-              { studentId: mySeat.id, progress: codingProgressOf(env) },
+              { studentId: mySeat.id, progress: codingProgressOf(env, live.expectedOutputs) },
               env.questions.map((_, i) => mySeat.studentTexts[i] ?? null)
             );
           }

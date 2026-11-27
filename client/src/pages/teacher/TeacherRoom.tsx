@@ -226,6 +226,7 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                                 ? {
                                       codes: codingProgress?.codes ?? [],
                                       outputs: codingProgress?.outputs ?? [],
+                                      checks: codingProgress?.checks ?? [],
                                       onCodeChange: canEditStudent
                                           ? (index, code) => room.editStudentCode?.(selectedStudent.id, index, code)
                                           : undefined,
@@ -241,6 +242,7 @@ export function TeacherRoomView({ room, session, onLeave, statusLabel }: Teacher
                                 : {
                                       codes: room.code,
                                       outputs: room.codeOutputs,
+                                      checks: room.codeChecks,
                                       run: room.run,
                                       onCodeChange: room.setCode,
                                       onRun: room.runCode,
